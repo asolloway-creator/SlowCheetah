@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IOI — MVP
 
-## Getting Started
+Private commission and quota tracker for a single individual. Built to
+`claude-code-handoff/ioi-mvp-spec.md`; the calculation engine is ported from
+`claude-code-handoff/ioi-reference-prototype.html`.
 
-First, run the development server:
+Next.js (App Router) · Supabase (magic-link auth + Postgres) · Vercel.
+
+---
+
+## Getting it running
+
+**1. Create a Supabase project** at [supabase.com](https://supabase.com) (free tier
+is enough). You need to do this part yourself — it involves creating an account.
+
+**2. Run the schema.** In the Supabase dashboard, open **SQL Editor**, paste the
+contents of [`supabase/schema.sql`](supabase/schema.sql), and run it. It creates
+the three tables, the `auth.users` → `public.users` sync trigger, and row-level
+security policies that make every row readable only by its owner.
+
+**3. Point the app at the project.** Copy `.env.local.example` to `.env.local` and
+fill in the two values from **Project Settings → API**:
+
+```bash
+cp .env.local.example .env.local
+```
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+**4. Allow the redirect.** In **Authentication → URL Configuration**, add
+`http://localhost:3000/auth/confirm` to *Redirect URLs* (and the Vercel URL once
+deployed).
+
+**5. Run it.**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sign-in emails go out through Supabase's built-in SMTP, which is rate-limited to a
+few messages an hour — fine for one user, worth swapping for a real SMTP provider
+if that ever changes.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Deploying
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Push to a Git remote, import the repo in Vercel, set the same two environment
+variables in the Vercel project, and add `https://<your-app>.vercel.app/auth/confirm`
+to the Supabase redirect list.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## What's here, against the spec's milestones
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| # | Milestone | Where |
+|---|---|---|
+| 1 | Login works end to end | [`src/app/login`](src/app/login), [`src/app/auth`](src/app/auth), [`src/proxy.ts`](src/proxy.ts) |
+| 2 | A deal persists across sessions | [`src/app/deal/actions.ts`](src/app/deal/actions.ts), [`supabase/schema.sql`](supabase/schema.sql) |
+| 3 | Comp plan setup feeds the calculation | [`src/app/setup`](src/app/setup) |
+| 4 | Calculation engine + UI ported, reading the saved plan | [`src/lib/calc.ts`](src/lib/calc.ts), [`src/app/deal/DealBuilder.tsx`](src/app/deal/DealBuilder.tsx) |
+| 5 | Deal history list | [`src/app/history`](src/app/history) |
+| 6 | Quota dashboard from deal history, not manual entry | [`src/app/dashboard`](src/app/dashboard) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Every route except `/login` and `/auth/*` is gated by [`src/proxy.ts`](src/proxy.ts),
+which also refreshes the Supabase session on each request.
 
-## Deploy on Vercel
+## Notes on the port
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**The arithmetic is unchanged.** `src/lib/calc.ts` is a line-for-line port of the
+prototype's `calc()`. It was checked against the original across 20,000 randomised
+deals (280,000 field comparisons) with zero divergence.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**What the engine reads instead of demo data.** The hardcoded `COMP_PLANS` object
+is gone; the plan comes from the user's `comp_plans` row. The manually typed
+"deals booked this month" field is gone; month-to-date units and ARR are summed
+from saved deals (`getMonthToDate` in [`src/lib/queries.ts`](src/lib/queries.ts)).
+The prototype's `avgSubDeal` estimate disappears with it — real deal history gives
+the actual figure.
+
+**Dropped, per "explicitly not built for this pilot":** the displacement SPIF card
+and its tiers, the past-quarter retrospective, the demo role switcher, and CSV
+export. The multi-unit toggle collapsed into the plain `units` field it was sugar
+over.
+
+**Commission is stored as a snapshot.** `commission_earned` and
+`money_left_on_table` are computed server-side at save time against the live
+month-to-date position, so a deal booked at the base rate keeps showing the base
+rate after the accelerator later kicks in. The client's numbers are recomputed
+rather than trusted.
+
+## Two decisions worth knowing about
+
+**`monthly_arr_quota` was added to `comp_plans`.** The spec's field list doesn't
+include it, but milestone 6 asks for an ARR *pace*, and pace needs a target. It is
+nullable: leave it blank and the dashboard shows ARR booked with no goal line.
+
+**The commissionable-value weights are still constants.** One-time and
+implementation revenue count at 50% each, subscription MRR annualizes at 12×
+(`COMMISSIONABLE` in [`src/lib/calc.ts`](src/lib/calc.ts)). These were org-level
+constants in the prototype and the spec's `comp_plans` table doesn't add them, so
+they stayed constants. If a real plan weights line items differently, this is the
+first thing that has to move into the database.
+
+## The known limitation, still standing
+
+The engine supports one plan shape: a flat `base_rate` on every deal until
+`accelerator_threshold` units land in the month, then `accelerator_rate` on the
+whole deal. Tiered brackets, flat-rate-no-accelerator, and per-product rates are
+not supported, by decision rather than oversight — see "Known Limitation" in the
+spec. The comp plan screen says as much to the user.
