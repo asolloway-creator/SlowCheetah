@@ -1,168 +1,271 @@
 /**
- * Commission engine, ported as-is from ioi-reference-prototype.html.
+ * MarginEdge commission engine.
  *
- * Two changes from the prototype, both required by the MVP spec:
- *  1. The comp plan is read from the user's saved comp_plans row instead of the
- *     hardcoded COMP_PLANS demo object.
- *  2. `unitsBookedThisMonth` and `arrBookedThisMonth` come from saved deal
- *     history rather than a manually typed "deals booked this month" field.
+ * Built from Bob's spec (2026-08-21) plus the published onboarding menus:
+ *  - Reps earn 2 months of SaaS per deal ($350/mo software per location,
+ *    +$150/mo Freepour Smart Scale — Freepour attaches to EVERY location on a
+ *    deal or none of them, so an attached deal is $500/mo per location).
+ *  - Quarterly quota: $107,000 in new ARR.
+ *  - Accelerator: once quota is met, a 25% bump applies to every deal closed
+ *    after AND retroactively to pre-quota deal attainment.
+ *  - Onboarding packages pay the rep a flat bonus ($250/$500/$750 by package).
+ *  - Payouts are quarterly (shifting to monthly eventually — display only).
  *
- * Dropped from the prototype, per "explicitly not built for this pilot":
- * the displacement SPIF, the past-quarter retrospective, and the demo role
- * switcher. The arithmetic that survives is byte-for-byte the same.
+ * Open questions for Bob (defaults chosen, all editable in plan config):
+ *  1. Package→bonus mapping assumed by price order: Launch $250, Boost $500,
+ *     Accelerate $750.
+ *  2. Does the 25% bump hit package bonuses too? Assumed NO (commission only);
+ *     `accelerator_on_bonuses` flips it.
+ *  3. Side dishes assumed to pay the rep nothing (deal value only).
  */
 
-/**
- * Commissionable value model. In the prototype these were org-level constants
- * (`CS`) rather than plan fields, and the spec's comp_plans table does not add
- * them, so they stay constants here. One-time and implementation revenue each
- * count at half weight; subscription MRR annualizes at 12x.
- */
-export const COMMISSIONABLE = {
-  oneTimeWeight: 50,
-  implWeight: 50,
-  subMult: 12,
-} as const;
+export type OnboardingPackage = 'launch' | 'boost' | 'accelerate';
 
 export type CompPlan = {
   role_name: string;
-  monthly_unit_quota: number;
-  base_rate: number;
-  accelerator_threshold: number;
-  accelerator_rate: number;
-  monthly_arr_quota: number | null;
+  quarterly_arr_quota: number;
+  /** Months of SaaS earned per deal (Bob: 2). */
+  commission_months: number;
+  /** Accelerator bump percent once quota is met (Bob: 25). */
+  accelerator_pct: number;
+  /** Whether the bump also applies to package bonuses. Ask Bob; default false. */
+  accelerator_on_bonuses: boolean;
+  /** Monthly SaaS per location (Bob: 350). */
+  software_mrr: number;
+  /** Freepour Smart Scale monthly per location (Bob: 150). */
+  freepour_mrr: number;
+  bonus_launch: number;
+  bonus_boost: number;
+  bonus_accelerate: number;
 };
 
-export type SubscriptionMode = 'mrr' | 'acv';
+/** Bob's numbers, preloaded so setup is one click. */
+export const MARGINEDGE_DEFAULTS: CompPlan = {
+  role_name: 'Account Executive',
+  quarterly_arr_quota: 107000,
+  commission_months: 2,
+  accelerator_pct: 25,
+  accelerator_on_bonuses: false,
+  software_mrr: 350,
+  freepour_mrr: 150,
+  bonus_launch: 250,
+  bonus_boost: 500,
+  bonus_accelerate: 750,
+};
+
+/** Onboarding menu list prices (company revenue, not rep comp). */
+export const ONBOARDING_PRICES: Record<OnboardingPackage, { first: number; additional: number }> = {
+  launch: { first: 500, additional: 250 },
+  boost: { first: 750, additional: 250 },
+  accelerate: { first: 2000, additional: 250 },
+};
+
+export const PACKAGE_LABELS: Record<OnboardingPackage, string> = {
+  launch: 'Launch',
+  boost: 'Boost',
+  accelerate: 'Accelerate',
+};
+
+/** Side-dish list prices from the onboarding menu. */
+export const SIDE_DISH_PRICES = {
+  recipe: 5, // per recipe
+  qbo: 500,
+  commissary: 750,
+  invoiceBackMonth: 150, // per additional month
+} as const;
+
+export type SideDishes = {
+  recipes: number;
+  qbo: boolean;
+  commissary: boolean;
+  invoiceBackMonths: number;
+};
 
 export type DealInput = {
-  oneTime: number;
-  implementation: number;
-  subscription: number;
-  subMode: SubscriptionMode;
-  units: number;
-  oneTimeDiscountPct: number;
-  implementationDiscountPct: number;
-  subscriptionDiscountPct: number;
+  locations: number;
+  /** Freepour attaches to every location on the deal, or none. */
+  freepour: boolean;
+  pkg: OnboardingPackage;
+  saasDiscountPct: number;
+  sideDishes: SideDishes;
 };
 
-/** Quota position going into this deal, derived from saved deal history. */
-export type MonthToDate = {
-  unitsBooked: number;
+/** Quarter-to-date position, rebuilt from saved deals. */
+export type QuarterToDate = {
   arrBooked: number;
+  /** Sum of base (pre-accelerator) commissions this quarter. */
+  commissionBooked: number;
+  bonusesBooked: number;
 };
 
 export type CalcResult = {
-  unitsThis: number;
-  /** Commissionable deal value at list price. */
-  full: number;
-  /** Commissionable deal value after discounts. */
-  disc: number;
-  /** Annualized subscription value after discount, for ARR pacing. */
-  subAnnualDisc: number;
-  /** Units booked this month after this deal lands. */
-  unitsAfter: number;
-  /** Accelerator active on this deal. */
-  isAccelerated: boolean;
-  /** This deal is the one that crosses the accelerator threshold. */
-  triggersAccelerator: boolean;
-  rate: number;
+  /** Monthly SaaS per location after Freepour attach decision. */
+  mrrPerLocation: number;
+  /** Deal MRR at list price. */
+  mrrList: number;
+  /** Deal MRR after discount. */
+  mrr: number;
+  arrList: number;
+  arr: number;
+  /** Base commission (commission_months x discounted MRR), pre-accelerator. */
+  commissionBase: number;
+  /** Base commission at list price, pre-accelerator. */
+  commissionFullBase: number;
+  bonus: number;
+  onboardingRevenue: number;
+  sideDishRevenue: number;
+  oneTimeRevenue: number;
   hasDiscount: boolean;
-  /** Commission actually earned. */
-  commission: number;
-  /** Commission at full list price. */
-  fullCommission: number;
-  /** fullCommission - commission. */
-  lost: number;
-  /** What the discount is worth to the customer. */
-  customerSaves: number;
-  unitsToAccelerator: number;
-  unitPct: number;
+
+  // Quarter position
   arrAfter: number;
-  arrPct: number | null;
+  wasAccelerated: boolean;
+  isAccelerated: boolean;
+  /** This deal is the one that crosses the quarterly quota. */
+  crossesQuota: boolean;
+  /** Extra unlocked on this quarter's PRIOR deals if this deal crosses. */
+  retroBump: number;
+  /** Commission on this deal after the accelerator multiplier, if active. */
+  commissionEffective: number;
+  /** commissionEffective + bonus (+ bonus bump if configured) + retroBump. */
+  totalPayoutImpact: number;
+  /** Money left on table at the effective (accelerated) rate. */
+  lost: number;
+  customerSavesMonthly: number;
+  /** Full-price ARR would have crossed quota but the discounted ARR does not. */
+  discountBlocksAccelerator: boolean;
+  arrToQuota: number;
+  quotaPct: number;
+  /** What crossing quota is worth on the quarter's prior deals right now. */
+  crossingWorth: number;
 };
 
-export function calc(plan: CompPlan, deal: DealInput, mtd: MonthToDate): CalcResult {
-  const C = COMMISSIONABLE;
-  const unitsThis = Math.max(1, deal.units);
+const bonusFor = (plan: CompPlan, pkg: OnboardingPackage) =>
+  pkg === 'launch' ? plan.bonus_launch : pkg === 'boost' ? plan.bonus_boost : plan.bonus_accelerate;
 
-  const dOt = deal.oneTime * (1 - deal.oneTimeDiscountPct / 100);
-  const dImpl = deal.implementation * (1 - deal.implementationDiscountPct / 100);
+export function onboardingRevenueFor(pkg: OnboardingPackage, locations: number): number {
+  const p = ONBOARDING_PRICES[pkg];
+  return p.first + Math.max(0, locations - 1) * p.additional;
+}
 
-  // Billing mode: 'mrr' annualizes a monthly figure, 'acv' treats the entry as
-  // the annual contract value.
-  const subAnnualFull =
-    deal.subMode === 'acv' ? deal.subscription : deal.subscription * C.subMult;
-  const subAnnualDisc = subAnnualFull * (1 - deal.subscriptionDiscountPct / 100);
+export function sideDishRevenueFor(s: SideDishes): number {
+  return (
+    s.recipes * SIDE_DISH_PRICES.recipe +
+    (s.qbo ? SIDE_DISH_PRICES.qbo : 0) +
+    (s.commissary ? SIDE_DISH_PRICES.commissary : 0) +
+    s.invoiceBackMonths * SIDE_DISH_PRICES.invoiceBackMonth
+  );
+}
 
-  const full =
-    (deal.oneTime * C.oneTimeWeight) / 100 +
-    (deal.implementation * C.implWeight) / 100 +
-    subAnnualFull;
-  const disc =
-    (dOt * C.oneTimeWeight) / 100 + (dImpl * C.implWeight) / 100 + subAnnualDisc;
+export function calc(plan: CompPlan, deal: DealInput, qtd: QuarterToDate): CalcResult {
+  const locations = Math.max(1, deal.locations);
+  const accel = 1 + plan.accelerator_pct / 100;
 
-  const unitsAfter = mtd.unitsBooked + unitsThis;
-  const isAccelerated = unitsAfter >= plan.accelerator_threshold;
-  const wasAccelerated = mtd.unitsBooked >= plan.accelerator_threshold;
-  const triggersAccelerator = !wasAccelerated && isAccelerated;
-  const rate = isAccelerated ? plan.accelerator_rate : plan.base_rate;
+  const mrrPerLocation = plan.software_mrr + (deal.freepour ? plan.freepour_mrr : 0);
+  const mrrList = locations * mrrPerLocation;
+  const d = Math.min(100, Math.max(0, deal.saasDiscountPct));
+  const mrr = mrrList * (1 - d / 100);
+  const arrList = mrrList * 12;
+  const arr = mrr * 12;
 
-  const hasDiscount =
-    deal.oneTimeDiscountPct > 0 ||
-    deal.implementationDiscountPct > 0 ||
-    deal.subscriptionDiscountPct > 0;
+  const commissionBase = plan.commission_months * mrr;
+  const commissionFullBase = plan.commission_months * mrrList;
+  const bonus = bonusFor(plan, deal.pkg);
 
-  const commission = (hasDiscount ? disc : full) * (rate / 100);
-  const fullCommission = full * (rate / 100);
-  const lost = fullCommission - commission;
-  const customerSaves =
-    (deal.oneTime * deal.oneTimeDiscountPct) / 100 +
-    (deal.implementation * deal.implementationDiscountPct) / 100 +
-    (subAnnualFull * deal.subscriptionDiscountPct) / 100;
+  const onboardingRevenue = onboardingRevenueFor(deal.pkg, locations);
+  const sideDishRevenue = sideDishRevenueFor(deal.sideDishes);
 
-  // Quota pace.
-  const unitsToAccelerator = Math.max(0, plan.accelerator_threshold - unitsAfter);
-  const unitPct = Math.min(100, Math.round((unitsAfter / plan.monthly_unit_quota) * 100));
-  const arrAfter = mtd.arrBooked + subAnnualDisc;
-  const arrPct =
-    plan.monthly_arr_quota && plan.monthly_arr_quota > 0
-      ? Math.min(100, Math.round((arrAfter / plan.monthly_arr_quota) * 100))
-      : null;
+  // Quarter position. Discounted (actual) ARR counts toward quota.
+  const arrAfter = qtd.arrBooked + arr;
+  const wasAccelerated = qtd.arrBooked >= plan.quarterly_arr_quota;
+  const isAccelerated = arrAfter >= plan.quarterly_arr_quota;
+  const crossesQuota = !wasAccelerated && isAccelerated;
+
+  const mult = isAccelerated ? accel : 1;
+  const commissionEffective = commissionBase * mult;
+  const commissionFullEffective = commissionFullBase * mult;
+
+  // Crossing quota retroactively bumps everything already closed this quarter.
+  const priorBump =
+    plan.accelerator_pct / 100 *
+    (qtd.commissionBooked + (plan.accelerator_on_bonuses ? qtd.bonusesBooked : 0));
+  const retroBump = crossesQuota ? priorBump : 0;
+
+  const bonusEffective = plan.accelerator_on_bonuses && isAccelerated ? bonus * accel : bonus;
+  const totalPayoutImpact = commissionEffective + bonusEffective + retroBump;
+
+  const lost = commissionFullEffective - commissionEffective;
+  const customerSavesMonthly = mrrList - mrr;
+
+  // Would the full-price deal have crossed quota while the discounted one doesn't?
+  const fullPriceCrosses = qtd.arrBooked + arrList >= plan.quarterly_arr_quota;
+  const discountBlocksAccelerator = !isAccelerated && fullPriceCrosses;
+
+  const arrToQuota = Math.max(0, plan.quarterly_arr_quota - arrAfter);
+  const quotaPct = Math.min(100, Math.round((arrAfter / plan.quarterly_arr_quota) * 100));
+  const crossingWorth = priorBump;
 
   return {
-    unitsThis,
-    full,
-    disc,
-    subAnnualDisc,
-    unitsAfter,
-    isAccelerated,
-    triggersAccelerator,
-    rate,
-    hasDiscount,
-    commission,
-    fullCommission,
-    lost,
-    customerSaves,
-    unitsToAccelerator,
-    unitPct,
+    mrrPerLocation,
+    mrrList,
+    mrr,
+    arrList,
+    arr,
+    commissionBase,
+    commissionFullBase,
+    bonus,
+    onboardingRevenue,
+    sideDishRevenue,
+    oneTimeRevenue: onboardingRevenue + sideDishRevenue,
+    hasDiscount: d > 0,
     arrAfter,
-    arrPct,
+    wasAccelerated,
+    isAccelerated,
+    crossesQuota,
+    retroBump,
+    commissionEffective,
+    totalPayoutImpact,
+    lost,
+    customerSavesMonthly,
+    discountBlocksAccelerator,
+    arrToQuota,
+    quotaPct,
+    crossingWorth,
   };
 }
 
 /**
- * Annualized subscription revenue booked on a single saved deal, after
- * discount. Used to rebuild month-to-date ARR from deal history.
+ * Quarter-level payout summary from saved deals.
+ * Commissions are stored pre-accelerator; the 25% is applied here at the
+ * aggregate level because it is retroactive by nature.
  */
-export function dealAnnualizedArr(deal: {
-  subscription_amount: number;
-  subscription_mode: SubscriptionMode;
-  subscription_discount_pct: number;
-}): number {
-  const full =
-    deal.subscription_mode === 'acv'
-      ? deal.subscription_amount
-      : deal.subscription_amount * COMMISSIONABLE.subMult;
-  return full * (1 - deal.subscription_discount_pct / 100);
+export function quarterSummary(plan: CompPlan, qtd: QuarterToDate) {
+  const attained = qtd.arrBooked >= plan.quarterly_arr_quota;
+  const accel = 1 + plan.accelerator_pct / 100;
+  const commissionPayout = qtd.commissionBooked * (attained ? accel : 1);
+  const bonusPayout = qtd.bonusesBooked * (attained && plan.accelerator_on_bonuses ? accel : 1);
+  return {
+    attained,
+    arrToQuota: Math.max(0, plan.quarterly_arr_quota - qtd.arrBooked),
+    quotaPct:
+      plan.quarterly_arr_quota > 0
+        ? Math.min(100, Math.round((qtd.arrBooked / plan.quarterly_arr_quota) * 100))
+        : 0,
+    basePayout: qtd.commissionBooked + qtd.bonusesBooked,
+    payout: commissionPayout + bonusPayout,
+    /** Extra the accelerator is already worth (if attained) or would unlock. */
+    acceleratorValue:
+      (plan.accelerator_pct / 100) *
+      (qtd.commissionBooked + (plan.accelerator_on_bonuses ? qtd.bonusesBooked : 0)),
+  };
+}
+
+// ── Quarter helpers ──────────────────────────────────────────────────────────
+
+export function startOfQuarter(now = new Date()): Date {
+  return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+}
+
+export function quarterLabel(d = new Date()): string {
+  return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
 }

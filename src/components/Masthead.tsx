@@ -11,10 +11,10 @@ export default function Masthead({ email, current }: { email: string; current: s
   return (
     <div className="masthead">
       <div className="brand">
-        <div className="monogram">IOI</div>
+        <div className="monogram">[me]</div>
         <div className="brand-text">
           <div className="brand-name">IOI</div>
-          <div className="brand-tag">Information over incentive</div>
+          <div className="brand-tag">Information over incentive · built for MarginEdge</div>
         </div>
       </div>
       <div className="masthead-right">

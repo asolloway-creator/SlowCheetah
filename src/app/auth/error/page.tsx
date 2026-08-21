@@ -13,7 +13,7 @@ export default async function AuthErrorPage({
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="monogram">IOI</div>
+          <div className="monogram">[me]</div>
         </div>
         <div className="card">
           <div className="auth-title">That link didn&rsquo;t work</div>

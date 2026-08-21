@@ -12,11 +12,12 @@ export default async function SetupPage() {
   return (
     <div className="app">
       <Masthead email={user.email ?? ''} current="/setup" />
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
         {!plan && (
           <div className="notice info">
-            Set up your comp plan once and every deal you enter is measured against
-            it. You can change it later.
+            We&rsquo;ve pre-filled the MarginEdge plan — $107K quarterly ARR quota, 2 months of
+            SaaS per deal, 25% accelerator. Check the numbers and save. Everything stays
+            editable.
           </div>
         )}
         <CompPlanForm plan={plan} />

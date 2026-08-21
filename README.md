@@ -1,8 +1,35 @@
-# IOI — MVP
+# IOI — built for MarginEdge
 
-Private commission and quota tracker for a single individual. Built to
-`claude-code-handoff/ioi-mvp-spec.md`; the calculation engine is ported from
-`claude-code-handoff/ioi-reference-prototype.html`.
+Private commission and quota tracker, now shaped around MarginEdge's real comp
+plan (specs from Bob, 2026-08-21) and styled to their brand. The original
+generic build (see git history) followed `claude-code-handoff/ioi-mvp-spec.md`.
+
+## The MarginEdge plan, as built
+
+- **Commission**: 2 months of SaaS per deal. Software $350/mo/location;
+  Freepour Smart Scale +$150/mo/location — attaches to every location on a
+  deal or none, so an attached deal is $500/mo per location.
+- **Quota**: $107,000 new ARR per quarter. Discounted (actual) ARR counts.
+- **Accelerator**: crossing quota applies +25% to every deal closed after AND
+  retroactively to the quarter's earlier deals. Deals store commission
+  pre-accelerator; the bump is applied at the quarter-aggregate level.
+- **Onboarding bonuses**: flat per package — Launch $250, Boost $500,
+  Accelerate $750 (mapping assumed by price order). Package list prices from
+  the published onboarding menus: Launch $500 / Boost $750 / Accelerate $2,000
+  first location, +$250 per additional.
+- **Side dishes** (recipes $5, QBO $500, commissary $750, invoice
+  back-processing $150/mo) count as deal value only.
+- Payouts are quarterly today; MarginEdge is shifting to monthly eventually.
+
+### Open questions for Bob
+
+1. Which bonus goes with which package? ($250/$500/$750 assumed by price order.)
+2. Does the 25% bump apply to package bonuses, or SaaS commission only?
+   (Assumed commission only; `accelerator_on_bonuses` toggle exists in setup.)
+3. Do side dishes pay the rep anything? (Assumed no.)
+
+Every number above is editable per-user on the Comp plan screen — corrections
+from Bob are a settings change, not a code change.
 
 Next.js (App Router) · Supabase (magic-link auth + Postgres) · Vercel.
 

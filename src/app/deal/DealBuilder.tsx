@@ -1,45 +1,47 @@
 'use client';
 
 import { useActionState, useMemo, useState } from 'react';
-import { calc, type CompPlan, type DealInput, type MonthToDate } from '@/lib/calc';
-import { fmt, fmtD, fmtP } from '@/lib/format';
+import {
+  calc,
+  quarterLabel,
+  ONBOARDING_PRICES,
+  PACKAGE_LABELS,
+  SIDE_DISH_PRICES,
+  type CompPlan,
+  type DealInput,
+  type OnboardingPackage,
+  type QuarterToDate,
+} from '@/lib/calc';
+import { fmt, fmtD } from '@/lib/format';
 import TweenedMoney from '@/components/TweenedMoney';
 import DiscountSlider from '@/components/DiscountSlider';
 import ProgressBar from '@/components/ProgressBar';
 import { saveDeal, type SaveState } from './actions';
 
 const EMPTY: DealInput = {
-  oneTime: 0,
-  implementation: 0,
-  subscription: 0,
-  subMode: 'mrr',
-  units: 1,
-  oneTimeDiscountPct: 0,
-  implementationDiscountPct: 0,
-  subscriptionDiscountPct: 0,
+  locations: 1,
+  freepour: false,
+  pkg: 'boost',
+  saasDiscountPct: 0,
+  sideDishes: { recipes: 0, qbo: false, commissary: false, invoiceBackMonths: 0 },
 };
 
 const initialSave: SaveState = { error: null, savedId: null };
+const PACKAGES: OnboardingPackage[] = ['launch', 'boost', 'accelerate'];
 
 function NumField({
   label,
   value,
   onChange,
-  prefix,
-  step = 1,
   min = 0,
+  suffix,
 }: {
   label: string;
   value: number;
   onChange: (n: number) => void;
-  prefix?: string;
-  step?: number;
   min?: number;
+  suffix?: string;
 }) {
-  // `draft` holds exactly what is typed, so intermediate strings like "" or
-  // "12." survive. `emitted` is the last number this field pushed upward; when
-  // the parent's value diverges from it the parent reset the form and the draft
-  // resyncs. No effect needed for either.
   const [draft, setDraft] = useState(String(value));
   const [emitted, setEmitted] = useState(value);
 
@@ -50,7 +52,7 @@ function NumField({
 
   function handle(raw: string) {
     setDraft(raw);
-    const n = parseFloat(raw);
+    const n = parseInt(raw, 10);
     const next = isNaN(n) ? min : Math.max(min, n);
     setEmitted(next);
     onChange(next);
@@ -58,12 +60,11 @@ function NumField({
 
   return (
     <div className="input-row">
-      {prefix && <span className="prefix">{prefix}</span>}
       <input
         type="number"
         className="num"
         value={draft}
-        step={step}
+        step={1}
         min={min}
         onChange={(e) => handle(e.target.value)}
         onKeyDown={(e) => {
@@ -71,23 +72,55 @@ function NumField({
         }}
         aria-label={label}
       />
+      {suffix && <span className="suffix">{suffix}</span>}
+    </div>
+  );
+}
+
+function Toggle({
+  on,
+  label,
+  desc,
+  onChange,
+}: {
+  on: boolean;
+  label: string;
+  desc: React.ReactNode;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="toggle-row">
+      <div style={{ flex: 1 }}>
+        <span className="toggle-name">{label}</span>
+        <span className={`toggle-desc${on ? ' active' : ''}`}>{desc}</span>
+      </div>
+      <button
+        type="button"
+        className={`toggle${on ? ' on' : ''}`}
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={() => onChange(!on)}
+      >
+        <span className="toggle-knob" />
+      </button>
     </div>
   );
 }
 
 export default function DealBuilder({
   plan,
-  mtd,
+  qtd,
 }: {
   plan: CompPlan;
-  mtd: MonthToDate;
+  qtd: QuarterToDate;
 }) {
   const [deal, setDeal] = useState<DealInput>(EMPTY);
+  const [sidesOpen, setSidesOpen] = useState(false);
   const [state, action, pending] = useActionState(saveDeal, initialSave);
   const [lastSavedId, setLastSavedId] = useState<string | null>(null);
 
-  // Clear the form once per successful save. The server action revalidates, so
-  // the fresh month-to-date position arrives as new props on its own.
+  // Clear the form once per successful save; fresh quarter data arrives as props.
   if (state.savedId && state.savedId !== lastSavedId) {
     setLastSavedId(state.savedId);
     setDeal(EMPTY);
@@ -95,24 +128,22 @@ export default function DealBuilder({
 
   const set = <K extends keyof DealInput>(k: K, v: DealInput[K]) =>
     setDeal((d) => ({ ...d, [k]: v }));
+  const setSide = <K extends keyof DealInput['sideDishes']>(k: K, v: DealInput['sideDishes'][K]) =>
+    setDeal((d) => ({ ...d, sideDishes: { ...d.sideDishes, [k]: v } }));
 
-  const dc = useMemo(() => calc(plan, deal, mtd), [plan, deal, mtd]);
+  const r = useMemo(() => calc(plan, deal, qtd), [plan, deal, qtd]);
+  const q = quarterLabel();
 
-  const rateColor = dc.isAccelerated ? 'var(--green)' : 'var(--gold)';
-  const fillPct = dc.fullCommission > 0 ? Math.max(0, Math.min(100, (dc.commission / dc.fullCommission) * 100)) : 100;
+  const fillPct =
+    r.commissionFullBase > 0
+      ? Math.max(0, Math.min(100, (r.commissionBase / r.commissionFullBase) * 100))
+      : 100;
   const lossPct = 100 - fillPct;
-  const unitBarColor = dc.isAccelerated
+  const quotaBarColor = r.isAccelerated
     ? 'var(--green)'
-    : dc.unitPct >= 70
-      ? 'var(--gold)'
-      : 'var(--border-strong)';
-  const arrBarColor =
-    dc.arrPct !== null && dc.arrPct >= 100
-      ? 'var(--green)'
-      : dc.arrPct !== null && dc.arrPct >= 70
-        ? 'var(--gold)'
-        : 'var(--border-strong)';
-  const empty = deal.oneTime === 0 && deal.implementation === 0 && deal.subscription === 0;
+    : r.quotaPct >= 70
+      ? 'var(--accent)'
+      : 'var(--steel)';
 
   return (
     <>
@@ -123,25 +154,35 @@ export default function DealBuilder({
           <span className="ctx-value">{plan.role_name}</span>
         </div>
         <div className="ctx-field">
-          <span className="label">Booked this month</span>
+          <span className="label">{q} ARR booked</span>
           <span className="ctx-value">
-            {mtd.unitsBooked} / {plan.monthly_unit_quota} units
+            {fmt(qtd.arrBooked)} / {fmt(plan.quarterly_arr_quota)}
           </span>
         </div>
         <div className="rate-block">
-          <span className="rate-num" style={{ color: rateColor }}>
-            {fmtP(dc.rate)}
-          </span>
-          <div className="rate-side">
-            <span className="rate-state" style={{ color: rateColor }}>
-              {dc.isAccelerated ? 'ACCELERATED' : 'BASE RATE'}
-            </span>
-            <span className="rate-note">
-              {dc.isAccelerated
-                ? `base was ${fmtP(plan.base_rate)}`
-                : `accelerates at ${plan.accelerator_threshold} units (${fmtP(plan.accelerator_rate)})`}
-            </span>
-          </div>
+          {r.wasAccelerated ? (
+            <>
+              <span className="rate-num" style={{ color: 'var(--green)' }}>
+                +{plan.accelerator_pct}%
+              </span>
+              <div className="rate-side">
+                <span className="rate-state" style={{ color: 'var(--green)' }}>ACCELERATED</span>
+                <span className="rate-note">every deal this quarter earns the bump</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="rate-num" style={{ color: 'var(--accent)' }}>
+                {fmt(Math.max(0, plan.quarterly_arr_quota - qtd.arrBooked))}
+              </span>
+              <div className="rate-side">
+                <span className="rate-state" style={{ color: 'var(--accent)' }}>ARR TO QUOTA</span>
+                <span className="rate-note">
+                  crossing unlocks +{plan.accelerator_pct}% on the whole quarter
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -150,127 +191,142 @@ export default function DealBuilder({
         <div>
           <div className="card">
             <div className="card-title">Deal builder</div>
+
             <div className="grid-in">
               <div className="field">
-                <span className="label">One-time products</span>
+                <span className="label">Locations</span>
                 <NumField
-                  label="One-time products"
-                  value={deal.oneTime}
-                  onChange={(n) => set('oneTime', n)}
-                  prefix="$"
-                  step={500}
-                />
-              </div>
-              <div className="field">
-                <span className="label">Implementation</span>
-                <NumField
-                  label="Implementation"
-                  value={deal.implementation}
-                  onChange={(n) => set('implementation', n)}
-                  prefix="$"
-                  step={100}
-                />
-              </div>
-              <div className="field">
-                <div className="field-head">
-                  <span className="label">
-                    {deal.subMode === 'acv' ? 'Subscription ACV / yr' : 'Subscription / mo'}
-                  </span>
-                  <div className="seg">
-                    <button
-                      type="button"
-                      className={deal.subMode === 'mrr' ? 'on' : ''}
-                      onClick={() => set('subMode', 'mrr')}
-                    >
-                      MRR
-                    </button>
-                    <button
-                      type="button"
-                      className={deal.subMode === 'acv' ? 'on' : ''}
-                      onClick={() => set('subMode', 'acv')}
-                    >
-                      ACV
-                    </button>
-                  </div>
-                </div>
-                <NumField
-                  label="Subscription"
-                  value={deal.subscription}
-                  onChange={(n) => set('subscription', n)}
-                  prefix="$"
-                  step={50}
-                />
-              </div>
-              <div className="field">
-                <span className="label">Units</span>
-                <NumField
-                  label="Units"
-                  value={deal.units}
-                  onChange={(n) => set('units', Math.max(1, Math.round(n)))}
+                  label="Locations"
+                  value={deal.locations}
+                  onChange={(n) => set('locations', n)}
                   min={1}
                 />
               </div>
+              <div className="field">
+                <span className="label">Monthly SaaS per location</span>
+                <div className="ctx-value" style={{ paddingTop: 8 }}>
+                  {fmt(r.mrrPerLocation)}
+                  <span className="muted"> /mo</span>
+                </div>
+              </div>
             </div>
 
-            <div className="card-title" style={{ margin: '18px 0 12px' }}>
-              Discounts
+            <Toggle
+              on={deal.freepour}
+              label="Freepour Smart Scale"
+              desc={
+                deal.freepour
+                  ? `Attached to all ${deal.locations} location${deal.locations !== 1 ? 's' : ''} — +${fmt(plan.freepour_mrr)}/mo each`
+                  : `+${fmt(plan.freepour_mrr)}/mo per location. Attaches to every location on the deal, or none.`
+              }
+              onChange={(v) => set('freepour', v)}
+            />
+
+            <div className="card-title" style={{ margin: '18px 0 12px' }}>Onboarding package</div>
+            <div className="pkg-grid">
+              {PACKAGES.map((p) => {
+                const price = ONBOARDING_PRICES[p];
+                const on = deal.pkg === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`pkg${on ? ' on' : ''}`}
+                    onClick={() => set('pkg', p)}
+                  >
+                    <span className="pkg-name">{PACKAGE_LABELS[p]}</span>
+                    <span className="pkg-price">
+                      {fmt(price.first)}
+                      <span className="muted"> first loc</span>
+                    </span>
+                    <span className="pkg-sub">+{fmt(price.additional)} per add&rsquo;l</span>
+                  </button>
+                );
+              })}
             </div>
+
+            <div className="card-title" style={{ margin: '18px 0 12px' }}>Discount</div>
             <DiscountSlider
-              id="otD"
-              label="One-time products"
-              value={deal.oneTimeDiscountPct}
-              baseAmount={deal.oneTime}
-              onChange={(v) => set('oneTimeDiscountPct', v)}
-            />
-            <DiscountSlider
-              id="implD"
-              label="Implementation"
-              value={deal.implementationDiscountPct}
-              baseAmount={deal.implementation}
-              onChange={(v) => set('implementationDiscountPct', v)}
-            />
-            <DiscountSlider
-              id="subD"
-              label="Subscription"
-              value={deal.subscriptionDiscountPct}
-              baseAmount={deal.subscription}
-              onChange={(v) => set('subscriptionDiscountPct', v)}
+              id="saasD"
+              label="SaaS discount"
+              value={deal.saasDiscountPct}
+              baseAmount={r.mrrList}
+              onChange={(v) => set('saasDiscountPct', v)}
             />
           </div>
 
-          {/* ── Save ─────────────────────────────────────────────── */}
+          {/* ── Side dishes ─────────────────────────────────────── */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="card-title" style={{ marginBottom: 0 }}>Side dishes</div>
+              <button className="pq-toggle" type="button" onClick={() => setSidesOpen(!sidesOpen)}>
+                <span className={`pq-arrow${sidesOpen ? ' open' : ''}`}>&#9654;</span>
+                {sidesOpen ? 'Hide' : 'Add-ons'}
+              </button>
+            </div>
+            {sidesOpen && (
+              <div style={{ marginTop: 14 }}>
+                <div className="grid-in">
+                  <div className="field">
+                    <span className="label">Recipes built (${SIDE_DISH_PRICES.recipe} each)</span>
+                    <NumField
+                      label="Recipe setup count"
+                      value={deal.sideDishes.recipes}
+                      onChange={(n) => setSide('recipes', n)}
+                    />
+                  </div>
+                  <div className="field">
+                    <span className="label">Invoice back-processing, extra months (${SIDE_DISH_PRICES.invoiceBackMonth}/mo)</span>
+                    <NumField
+                      label="Invoice back-processing months"
+                      value={deal.sideDishes.invoiceBackMonths}
+                      onChange={(n) => setSide('invoiceBackMonths', n)}
+                    />
+                  </div>
+                </div>
+                <Toggle
+                  on={deal.sideDishes.qbo}
+                  label="QuickBooks Online setup"
+                  desc={`${fmt(SIDE_DISH_PRICES.qbo)} one-time`}
+                  onChange={(v) => setSide('qbo', v)}
+                />
+                <Toggle
+                  on={deal.sideDishes.commissary}
+                  label="Commissary setup"
+                  desc={`${fmt(SIDE_DISH_PRICES.commissary)} one-time`}
+                  onChange={(v) => setSide('commissary', v)}
+                />
+                <div className="card-note" style={{ marginTop: 10 }}>
+                  Counted in deal value only — whether side dishes pay the rep anything is an
+                  open question for Bob.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Save ────────────────────────────────────────────── */}
           <div className="card">
             <div className="card-title">Book it</div>
             {state.error && <div className="notice err">{state.error}</div>}
             {state.savedId && (
               <div className="notice ok">
-                Deal saved. It&rsquo;s in your history and your quota position above has
-                moved.
+                Deal saved to {q}. Your quota position above has moved.
               </div>
             )}
             <div className="card-note" style={{ marginBottom: 14 }}>
-              Saving records this deal against the current month. Commission is stored
-              as earned at today&rsquo;s rate, so history stays accurate even after the
-              accelerator kicks in.
+              Commission is stored pre-accelerator; the {plan.accelerator_pct}% bump is applied
+              across the whole quarter the moment you cross quota, past deals included.
             </div>
             <form action={action}>
-              <input type="hidden" name="oneTime" value={deal.oneTime} />
-              <input type="hidden" name="implementation" value={deal.implementation} />
-              <input type="hidden" name="subscription" value={deal.subscription} />
-              <input type="hidden" name="subMode" value={deal.subMode} />
-              <input type="hidden" name="units" value={deal.units} />
-              <input type="hidden" name="oneTimeDiscountPct" value={deal.oneTimeDiscountPct} />
-              <input
-                type="hidden"
-                name="implementationDiscountPct"
-                value={deal.implementationDiscountPct}
-              />
-              <input
-                type="hidden"
-                name="subscriptionDiscountPct"
-                value={deal.subscriptionDiscountPct}
-              />
-              <button className="btn btn-primary btn-lg" type="submit" disabled={pending || empty}>
+              <input type="hidden" name="locations" value={deal.locations} />
+              <input type="hidden" name="freepour" value={String(deal.freepour)} />
+              <input type="hidden" name="pkg" value={deal.pkg} />
+              <input type="hidden" name="saasDiscountPct" value={deal.saasDiscountPct} />
+              <input type="hidden" name="recipes" value={deal.sideDishes.recipes} />
+              <input type="hidden" name="qbo" value={String(deal.sideDishes.qbo)} />
+              <input type="hidden" name="commissary" value={String(deal.sideDishes.commissary)} />
+              <input type="hidden" name="invoiceBackMonths" value={deal.sideDishes.invoiceBackMonths} />
+              <button className="btn btn-primary btn-lg" type="submit" disabled={pending}>
                 {pending ? 'Saving…' : 'Save this deal'}
               </button>
             </form>
@@ -280,47 +336,50 @@ export default function DealBuilder({
         {/* ── Right: results ──────────────────────────────────────── */}
         <div>
           <div className="card">
-            <div className="card-title">Commission on this deal</div>
-            <TweenedMoney value={dc.commission} className="result-hero" />
+            <div className="card-title">Payout on this deal</div>
+            <TweenedMoney value={r.commissionEffective + r.bonus} className="result-hero" />
             <div className="result-hero-label">
-              mapped to your plan, rate, and quota position
+              {plan.commission_months} months of SaaS
+              {r.isAccelerated ? ` ×1.${plan.accelerator_pct} accelerated` : ''} + package bonus
             </div>
             <div className="row">
-              <span className="row-label">Full-price deal value</span>
-              <span className="row-value">{fmt(dc.full)}</span>
+              <span className="row-label">Deal MRR ({deal.locations} × {fmt(r.mrrPerLocation)})</span>
+              <span className="row-value">{fmt(r.mrr)}<span className="muted">/mo</span></span>
             </div>
-            {dc.hasDiscount && (
-              <div className="row">
-                <span className="row-label">Discounted deal value</span>
-                <span className="row-value red">{fmt(dc.disc)}</span>
-              </div>
-            )}
             <div className="row">
-              <span className="row-label">Commission rate</span>
-              <span className={`row-value${dc.isAccelerated ? ' green' : ''}`}>
-                {fmtP(dc.rate)}
+              <span className="row-label">New ARR</span>
+              <span className="row-value">{fmt(r.arr)}</span>
+            </div>
+            <div className="row">
+              <span className="row-label">SaaS commission ({plan.commission_months} months)</span>
+              <span className={`row-value${r.isAccelerated ? ' green' : ''}`}>
+                {fmtD(r.commissionEffective)}
               </span>
             </div>
-            {dc.hasDiscount && (
+            <div className="row">
+              <span className="row-label">{PACKAGE_LABELS[deal.pkg]} package bonus</span>
+              <span className="row-value gold">+{fmt(r.bonus)}</span>
+            </div>
+            <div className="row">
+              <span className="row-label">Onboarding revenue (company)</span>
+              <span className="row-value dim">{fmt(r.onboardingRevenue)}</span>
+            </div>
+            {r.sideDishRevenue > 0 && (
               <div className="row">
-                <span className="row-label">Customer saves</span>
-                <span className="row-value">{fmt(dc.customerSaves)}</span>
+                <span className="row-label">Side dishes (company)</span>
+                <span className="row-value dim">{fmt(r.sideDishRevenue)}</span>
               </div>
             )}
-            <div className="row">
-              <span className="row-label">Units after this deal</span>
-              <span className="row-value">
-                {dc.unitsAfter} / {plan.monthly_unit_quota}
-              </span>
-            </div>
-            {dc.triggersAccelerator && (
+            {r.crossesQuota && (
               <div className="accel-note">
-                This deal triggers your accelerator. Every deal after this one earns at{' '}
-                {fmtP(plan.accelerator_rate)}.
+                <strong>This deal crosses your {q} quota.</strong> It retroactively unlocks{' '}
+                {fmtD(r.retroBump)} on deals you&rsquo;ve already closed — total payout impact{' '}
+                {fmtD(r.totalPayoutImpact)}.
               </div>
             )}
           </div>
 
+          {/* ── Hold the line ─────────────────────────────────────── */}
           <div className="card">
             <div className="card-title">Hold the line</div>
             <div className="line-visual">
@@ -330,78 +389,67 @@ export default function DealBuilder({
                 <div className="line-tick" />
               </div>
               <div className="line-caption">
-                <span className="line-cap-item" style={{ color: 'var(--gold)' }}>
-                  Yours
-                </span>
+                <span className="line-cap-item" style={{ color: 'var(--accent)' }}>Yours</span>
                 {lossPct > 0.2 && (
-                  <span className="line-cap-item" style={{ color: 'var(--red)' }}>
-                    Left on table
-                  </span>
+                  <span className="line-cap-item" style={{ color: 'var(--red)' }}>Left on table</span>
                 )}
-                <span className="line-cap-item" style={{ color: 'var(--text-3)' }}>
-                  Your line
-                </span>
+                <span className="line-cap-item muted">Your line</span>
               </div>
             </div>
             <div className="row">
               <span className="row-label">Full-price commission</span>
-              <span className="row-value green">{fmtD(dc.fullCommission)}</span>
+              <span className="row-value green">{fmtD(r.commissionFullBase * (r.isAccelerated ? 1 + plan.accelerator_pct / 100 : 1))}</span>
             </div>
             <div className="row">
               <span className="row-label">Discounted commission</span>
-              <span className={`row-value${dc.hasDiscount ? ' red' : ''}`}>
-                {fmtD(dc.commission)}
-              </span>
+              <span className={`row-value${r.hasDiscount ? ' red' : ''}`}>{fmtD(r.commissionEffective)}</span>
             </div>
             <div className="row">
               <span className="row-label strong">Money left on table</span>
-              <TweenedMoney value={dc.lost} className="row-value red big" />
+              <TweenedMoney value={r.lost} className="row-value red big" />
             </div>
-            {dc.hasDiscount ? (
+            {r.discountBlocksAccelerator ? (
               <div className="leaking">
-                {fmtD(dc.lost)} comes out of your paycheck on this deal. The customer
-                saves {fmt(dc.customerSaves)}, but you&rsquo;re the one paying for part
-                of it.
+                <strong>This discount keeps you under quota.</strong> At full price this deal
+                crosses {fmt(plan.quarterly_arr_quota)} and unlocks +{plan.accelerator_pct}% on
+                your whole quarter — worth {fmtD(r.crossingWorth)} on top of the{' '}
+                {fmtD(r.lost)} it already costs you.
+              </div>
+            ) : r.hasDiscount ? (
+              <div className="leaking">
+                {fmtD(r.lost)} comes out of your paycheck, and the discounted ARR slows your
+                march to the +{plan.accelerator_pct}% accelerator. The customer saves{' '}
+                {fmt(r.customerSavesMonthly)}/mo.
               </div>
             ) : (
               <div className="holding">
-                You&rsquo;re holding the line. Full commission, nothing left on the
-                table.
+                You&rsquo;re holding the line. Full commission, full quota credit.
               </div>
             )}
           </div>
 
+          {/* ── Quota position ────────────────────────────────────── */}
           <div className="card">
-            <div className="card-title">Quota position</div>
+            <div className="card-title">{q} quota position</div>
             <div className="tracker-row">
-              <span className="label">Monthly unit quota</span>
+              <span className="label">Quarterly ARR quota</span>
               <div className="tracker-main">
-                {dc.unitsAfter} / {plan.monthly_unit_quota} units
+                {fmt(r.arrAfter)} / {fmt(plan.quarterly_arr_quota)}
               </div>
-              <ProgressBar pct={dc.unitPct} color={unitBarColor} />
+              <ProgressBar pct={r.quotaPct} color={quotaBarColor} />
               <div className="tracker-sub">
-                {dc.isAccelerated ? (
+                {r.isAccelerated ? (
                   <span style={{ color: 'var(--green)', fontWeight: 600 }}>
-                    Accelerator active at {fmtP(plan.accelerator_rate)}
+                    Accelerator active — +{plan.accelerator_pct}% on the whole quarter.
                   </span>
                 ) : (
-                  <span style={{ color: 'var(--gold)' }}>
-                    {dc.unitsToAccelerator} deal{dc.unitsToAccelerator !== 1 ? 's' : ''} to
-                    unlock {fmtP(plan.accelerator_rate)}
-                  </span>
+                  <>
+                    {fmt(r.arrToQuota)} to go after this deal.{' '}
+                    <span style={{ color: 'var(--accent)' }}>
+                      Crossing is worth +{fmtD(r.crossingWorth)} on deals already closed.
+                    </span>
+                  </>
                 )}
-              </div>
-            </div>
-            <div className="tracker-row">
-              <span className="label">New ARR pace</span>
-              <div className="tracker-main">
-                {fmt(dc.arrAfter)}
-                {plan.monthly_arr_quota ? ` / ${fmt(plan.monthly_arr_quota)}` : ''}
-              </div>
-              {dc.arrPct !== null && <ProgressBar pct={dc.arrPct} color={arrBarColor} />}
-              <div className="tracker-sub">
-                Annualized new subscription revenue this month, after this deal.
-                {dc.arrPct === null && ' Add an ARR quota on your comp plan to pace against a target.'}
               </div>
             </div>
           </div>

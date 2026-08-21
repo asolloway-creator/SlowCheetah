@@ -3,8 +3,9 @@ import { redirect } from 'next/navigation';
 import Masthead from '@/components/Masthead';
 import Footnote from '@/components/Footnote';
 import ProgressBar from '@/components/ProgressBar';
-import { getCompPlan, getMonthToDate, requireUser, startOfThisMonth } from '@/lib/queries';
-import { fmt, fmtD, fmtP } from '@/lib/format';
+import { getCompPlan, getQuarterToDate, requireUser } from '@/lib/queries';
+import { quarterLabel, quarterSummary } from '@/lib/calc';
+import { fmt, fmtD } from '@/lib/format';
 
 export const metadata = { title: 'Quota — IOI' };
 
@@ -13,37 +14,13 @@ export default async function DashboardPage() {
   const plan = await getCompPlan();
   if (!plan) redirect('/setup');
 
-  const { unitsBooked, arrBooked, deals } = await getMonthToDate();
+  const { arrBooked, commissionBooked, bonusesBooked, deals } = await getQuarterToDate();
+  const s = quarterSummary(plan, { arrBooked, commissionBooked, bonusesBooked });
+  const q = quarterLabel();
 
-  const monthLabel = startOfThisMonth().toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const isAccelerated = unitsBooked >= plan.accelerator_threshold;
-  const rate = isAccelerated ? plan.accelerator_rate : plan.base_rate;
-  const unitsToAccelerator = Math.max(0, plan.accelerator_threshold - unitsBooked);
-  const unitsToQuota = Math.max(0, plan.monthly_unit_quota - unitsBooked);
-  const unitPct = Math.min(100, Math.round((unitsBooked / plan.monthly_unit_quota) * 100));
-  const arrPct =
-    plan.monthly_arr_quota && plan.monthly_arr_quota > 0
-      ? Math.min(100, Math.round((arrBooked / plan.monthly_arr_quota) * 100))
-      : null;
-
-  const commissionMtd = deals.reduce((s, d) => s + d.commission_earned, 0);
-  const lostMtd = deals.reduce((s, d) => s + d.money_left_on_table, 0);
-
-  const unitBarColor = isAccelerated
-    ? 'var(--green)'
-    : unitPct >= 70
-      ? 'var(--gold)'
-      : 'var(--border-strong)';
-  const arrBarColor =
-    arrPct !== null && arrPct >= 100
-      ? 'var(--green)'
-      : arrPct !== null && arrPct >= 70
-        ? 'var(--gold)'
-        : 'var(--border-strong)';
+  const locations = deals.reduce((n, d) => n + d.locations, 0);
+  const oneTime = deals.reduce((n, d) => n + d.one_time_revenue, 0);
+  const barColor = s.attained ? 'var(--green)' : s.quotaPct >= 70 ? 'var(--accent)' : 'var(--steel)';
 
   return (
     <div className="app">
@@ -51,61 +28,65 @@ export default async function DashboardPage() {
 
       <div className="context">
         <div className="ctx-field">
-          <span className="label">Month</span>
-          <span className="ctx-value">{monthLabel}</span>
+          <span className="label">Quarter</span>
+          <span className="ctx-value">{q}</span>
         </div>
         <div className="ctx-field">
           <span className="label">Plan</span>
           <span className="ctx-value">{plan.role_name}</span>
         </div>
         <div className="rate-block">
-          <span
-            className="rate-num"
-            style={{ color: isAccelerated ? 'var(--green)' : 'var(--gold)' }}
-          >
-            {fmtP(rate)}
-          </span>
-          <div className="rate-side">
-            <span
-              className="rate-state"
-              style={{ color: isAccelerated ? 'var(--green)' : 'var(--gold)' }}
-            >
-              {isAccelerated ? 'ACCELERATED' : 'BASE RATE'}
-            </span>
-            <span className="rate-note">
-              {isAccelerated
-                ? `base was ${fmtP(plan.base_rate)}`
-                : `accelerates at ${plan.accelerator_threshold} units (${fmtP(plan.accelerator_rate)})`}
-            </span>
-          </div>
+          {s.attained ? (
+            <>
+              <span className="rate-num" style={{ color: 'var(--green)' }}>+{plan.accelerator_pct}%</span>
+              <div className="rate-side">
+                <span className="rate-state" style={{ color: 'var(--green)' }}>ACCELERATED</span>
+                <span className="rate-note">retroactive on the whole quarter</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="rate-num" style={{ color: 'var(--accent)' }}>{fmt(s.arrToQuota)}</span>
+              <div className="rate-side">
+                <span className="rate-state" style={{ color: 'var(--accent)' }}>ARR TO QUOTA</span>
+                <span className="rate-note">then +{plan.accelerator_pct}% on everything closed</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">This month, from your saved deals</div>
+        <div className="card-title">{q}, from your saved deals</div>
         <div className="stat-grid">
           <div className="stat">
-            <span className="label">Deals booked</span>
+            <span className="label">Deals closed</span>
             <div className="stat-value">{deals.length}</div>
-            <div className="stat-sub">{unitsBooked} units</div>
-          </div>
-          <div className="stat">
-            <span className="label">Commission earned</span>
-            <div className="stat-value gold">{fmtD(commissionMtd)}</div>
-            <div className="stat-sub">month to date</div>
+            <div className="stat-sub">{locations} location{locations !== 1 ? 's' : ''}</div>
           </div>
           <div className="stat">
             <span className="label">New ARR booked</span>
             <div className="stat-value">{fmt(arrBooked)}</div>
-            <div className="stat-sub">annualized, after discount</div>
+            <div className="stat-sub">of {fmt(plan.quarterly_arr_quota)} quota</div>
           </div>
           <div className="stat">
-            <span className="label">Left on the table</span>
-            <div className={`stat-value${lostMtd > 0 ? ' red' : ' green'}`}>
-              {fmtD(lostMtd)}
+            <span className="label">{s.attained ? 'Quarter payout' : 'Payout at current pace'}</span>
+            <div className={`stat-value${s.attained ? ' green' : ''}`}>{fmtD(s.payout)}</div>
+            <div className="stat-sub">
+              {s.attained
+                ? `includes the +${plan.accelerator_pct}% retroactive bump`
+                : 'commission + bonuses, before accelerator'}
+            </div>
+          </div>
+          <div className="stat">
+            <span className="label">{s.attained ? 'Accelerator earned' : 'Crossing quota is worth'}</span>
+            <div className={`stat-value ${s.attained ? 'green' : 'accent'}`}>
+              +{fmtD(s.acceleratorValue)}
             </div>
             <div className="stat-sub">
-              {lostMtd > 0 ? 'given away in discounts' : 'holding the line'}
+              {s.attained
+                ? 'already added to your payout'
+                : 'instantly, on deals you have already closed'}
             </div>
           </div>
         </div>
@@ -114,43 +95,33 @@ export default async function DashboardPage() {
       <div className="card">
         <div className="card-title">Quota position</div>
         <div className="tracker-row">
-          <span className="label">Monthly unit quota</span>
+          <span className="label">Quarterly ARR quota</span>
           <div className="tracker-main">
-            {unitsBooked} / {plan.monthly_unit_quota} units
+            {fmt(arrBooked)} / {fmt(plan.quarterly_arr_quota)}
           </div>
-          <ProgressBar pct={unitPct} color={unitBarColor} />
+          <ProgressBar pct={s.quotaPct} color={barColor} />
           <div className="tracker-sub">
-            {unitsToQuota === 0 ? (
-              <span style={{ color: 'var(--green)', fontWeight: 600 }}>Quota made.</span>
+            {s.attained ? (
+              <span style={{ color: 'var(--green)', fontWeight: 600 }}>
+                Quota made — every deal for the rest of {q} earns +{plan.accelerator_pct}%.
+              </span>
             ) : (
               <>
-                {unitsToQuota} unit{unitsToQuota !== 1 ? 's' : ''} to quota.
+                {s.quotaPct}% there. {fmt(s.arrToQuota)} in new ARR unlocks +
+                {fmtD(s.acceleratorValue)} retroactively.
               </>
-            )}{' '}
-            {isAccelerated ? (
-              <span style={{ color: 'var(--green)', fontWeight: 600 }}>
-                Accelerator active at {fmtP(plan.accelerator_rate)}.
-              </span>
-            ) : (
-              <span style={{ color: 'var(--gold)' }}>
-                {unitsToAccelerator} unit{unitsToAccelerator !== 1 ? 's' : ''} to unlock{' '}
-                {fmtP(plan.accelerator_rate)}.
-              </span>
             )}
           </div>
         </div>
-
         <div className="tracker-row">
-          <span className="label">New ARR pace</span>
+          <span className="label">Earned this quarter</span>
           <div className="tracker-main">
-            {fmt(arrBooked)}
-            {plan.monthly_arr_quota ? ` / ${fmt(plan.monthly_arr_quota)}` : ''}
+            {fmtD(s.payout)}
+            <span className="muted"> · commission {fmtD(commissionBooked * (s.attained ? 1 + plan.accelerator_pct / 100 : 1))} · bonuses {fmtD(bonusesBooked)}</span>
           </div>
-          {arrPct !== null && <ProgressBar pct={arrPct} color={arrBarColor} />}
           <div className="tracker-sub">
-            {arrPct !== null
-              ? `${arrPct}% of this month's ARR target.`
-              : 'Add a monthly ARR quota on your comp plan to pace against a target.'}
+            One-time onboarding revenue sold: {fmt(oneTime)}. Payouts are quarterly today —
+            MarginEdge is shifting to monthly at some point.
           </div>
         </div>
       </div>
@@ -158,12 +129,10 @@ export default async function DashboardPage() {
       {deals.length === 0 && (
         <div className="card">
           <div className="empty">
-            Nothing booked this month yet.
+            Nothing booked in {q} yet.
             <br />
-            <Link href="/deal" style={{ color: 'var(--gold)' }}>
-              Enter a deal
-            </Link>{' '}
-            and this dashboard fills itself in.
+            <Link href="/deal" style={{ color: 'var(--accent)' }}>Enter a deal</Link> and this
+            dashboard fills itself in.
           </div>
         </div>
       )}

@@ -1,19 +1,27 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { dealAnnualizedArr, type CompPlan, type MonthToDate, type SubscriptionMode } from '@/lib/calc';
+import {
+  startOfQuarter,
+  type CompPlan,
+  type OnboardingPackage,
+  type QuarterToDate,
+} from '@/lib/calc';
 
 export type DealRow = {
   id: string;
-  one_time_amount: number;
-  implementation_amount: number;
-  subscription_amount: number;
-  subscription_mode: SubscriptionMode;
-  units: number;
-  one_time_discount_pct: number;
-  implementation_discount_pct: number;
-  subscription_discount_pct: number;
-  commission_earned: number;
-  money_left_on_table: number;
+  locations: number;
+  freepour: boolean;
+  onboarding_package: OnboardingPackage;
+  saas_discount_pct: number;
+  recipes: number;
+  qbo: boolean;
+  commissary: boolean;
+  invoice_back_months: number;
+  mrr: number;
+  arr: number;
+  commission_base: number;
+  bonus_amount: number;
+  one_time_revenue: number;
   created_at: string;
 };
 
@@ -32,7 +40,7 @@ export async function getCompPlan(): Promise<CompPlan | null> {
   const { data } = await supabase
     .from('comp_plans')
     .select(
-      'role_name, monthly_unit_quota, base_rate, accelerator_threshold, accelerator_rate, monthly_arr_quota',
+      'role_name, quarterly_arr_quota, commission_months, accelerator_pct, accelerator_on_bonuses, software_mrr, freepour_mrr, bonus_launch, bonus_boost, bonus_accelerate',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -40,35 +48,36 @@ export async function getCompPlan(): Promise<CompPlan | null> {
   if (!data) return null;
   return {
     role_name: data.role_name,
-    monthly_unit_quota: Number(data.monthly_unit_quota),
-    base_rate: Number(data.base_rate),
-    accelerator_threshold: Number(data.accelerator_threshold),
-    accelerator_rate: Number(data.accelerator_rate),
-    monthly_arr_quota:
-      data.monthly_arr_quota === null ? null : Number(data.monthly_arr_quota),
+    quarterly_arr_quota: Number(data.quarterly_arr_quota),
+    commission_months: Number(data.commission_months),
+    accelerator_pct: Number(data.accelerator_pct),
+    accelerator_on_bonuses: Boolean(data.accelerator_on_bonuses),
+    software_mrr: Number(data.software_mrr),
+    freepour_mrr: Number(data.freepour_mrr),
+    bonus_launch: Number(data.bonus_launch),
+    bonus_boost: Number(data.bonus_boost),
+    bonus_accelerate: Number(data.bonus_accelerate),
   };
 }
 
 function toDealRow(d: Record<string, unknown>): DealRow {
   return {
     id: String(d.id),
-    one_time_amount: Number(d.one_time_amount),
-    implementation_amount: Number(d.implementation_amount),
-    subscription_amount: Number(d.subscription_amount),
-    subscription_mode: d.subscription_mode as SubscriptionMode,
-    units: Number(d.units),
-    one_time_discount_pct: Number(d.one_time_discount_pct),
-    implementation_discount_pct: Number(d.implementation_discount_pct),
-    subscription_discount_pct: Number(d.subscription_discount_pct),
-    commission_earned: Number(d.commission_earned),
-    money_left_on_table: Number(d.money_left_on_table),
+    locations: Number(d.locations),
+    freepour: Boolean(d.freepour),
+    onboarding_package: d.onboarding_package as OnboardingPackage,
+    saas_discount_pct: Number(d.saas_discount_pct),
+    recipes: Number(d.recipes),
+    qbo: Boolean(d.qbo),
+    commissary: Boolean(d.commissary),
+    invoice_back_months: Number(d.invoice_back_months),
+    mrr: Number(d.mrr),
+    arr: Number(d.arr),
+    commission_base: Number(d.commission_base),
+    bonus_amount: Number(d.bonus_amount),
+    one_time_revenue: Number(d.one_time_revenue),
     created_at: String(d.created_at),
   };
-}
-
-/** First instant of the current calendar month, in the server's timezone. */
-export function startOfThisMonth(now = new Date()) {
-  return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
 export async function listDeals(opts?: { since?: Date }): Promise<DealRow[]> {
@@ -86,15 +95,13 @@ export async function listDeals(opts?: { since?: Date }): Promise<DealRow[]> {
   return (data ?? []).map(toDealRow);
 }
 
-/**
- * Quota position for the current month, rebuilt from saved deals. This is what
- * replaces the prototype's manually typed "deals booked this month" field.
- */
-export async function getMonthToDate(): Promise<MonthToDate & { deals: DealRow[] }> {
-  const deals = await listDeals({ since: startOfThisMonth() });
+/** Quarter-to-date position, rebuilt from saved deals. */
+export async function getQuarterToDate(): Promise<QuarterToDate & { deals: DealRow[] }> {
+  const deals = await listDeals({ since: startOfQuarter() });
   return {
-    unitsBooked: deals.reduce((s, d) => s + d.units, 0),
-    arrBooked: deals.reduce((s, d) => s + dealAnnualizedArr(d), 0),
+    arrBooked: deals.reduce((s, d) => s + d.arr, 0),
+    commissionBooked: deals.reduce((s, d) => s + d.commission_base, 0),
+    bonusesBooked: deals.reduce((s, d) => s + d.bonus_amount, 0),
     deals,
   };
 }
