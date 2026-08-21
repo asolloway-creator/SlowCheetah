@@ -133,6 +133,14 @@ export default function DealBuilder({
     setDeal((d) => ({ ...d, sideDishes: { ...d.sideDishes, [k]: v } }));
 
   const r = useMemo(() => calc(plan, deal, qtd), [plan, deal, qtd]);
+  // What this same deal looks like WITH Freepour — powers the attach nudge.
+  const rOn = useMemo(
+    () => calc(plan, { ...deal, freepour: true }, qtd),
+    [plan, deal, qtd],
+  );
+  const fpPayoutDelta = rOn.totalPayoutImpact - r.totalPayoutImpact;
+  const fpArrDelta = rOn.arr - r.arr;
+  const fpWouldCross = !deal.freepour && rOn.crossesQuota && !r.crossesQuota;
   const q = quarterLabel();
 
   const fillPct =
@@ -216,9 +224,16 @@ export default function DealBuilder({
               on={deal.freepour}
               label="Freepour Smart Scale"
               desc={
-                deal.freepour
-                  ? `Attached to all ${deal.locations} location${deal.locations !== 1 ? 's' : ''} — +${fmt(plan.freepour_mrr)}/mo each`
-                  : `+${fmt(plan.freepour_mrr)}/mo per location`
+                deal.freepour ? (
+                  `Attached to all ${deal.locations} location${deal.locations !== 1 ? 's' : ''} — +${fmt(plan.freepour_mrr)}/mo each`
+                ) : (
+                  <span className="fp-nudge">
+                    Attach for <strong>+{fmtD(fpPayoutDelta)}</strong> on this deal and{' '}
+                    <strong>+{fmt(fpArrDelta)}</strong> toward quota
+                    {fpWouldCross &&
+                      ` — it crosses your ${q} quota and unlocks +${fmtD(rOn.retroBump)} retroactively`}
+                  </span>
+                )
               }
               onChange={(v) => set('freepour', v)}
             />

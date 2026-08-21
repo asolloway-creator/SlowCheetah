@@ -20,6 +20,15 @@ export default async function DashboardPage() {
 
   const locations = deals.reduce((n, d) => n + d.locations, 0);
   const oneTime = deals.reduce((n, d) => n + d.one_time_revenue, 0);
+
+  // Freepour attach: what the unattached locations are leaving behind.
+  const fpLocations = deals.filter((d) => d.freepour).reduce((n, d) => n + d.locations, 0);
+  const nonFpLocations = locations - fpLocations;
+  const attachPct = locations > 0 ? Math.round((fpLocations / locations) * 100) : 0;
+  const missedArr = nonFpLocations * plan.freepour_mrr * 12;
+  const missedCommission = nonFpLocations * plan.freepour_mrr * plan.commission_months;
+  const wouldBeArr = arrBooked + missedArr;
+  const wouldCross = !s.attained && wouldBeArr >= plan.quarterly_arr_quota;
   const barColor = s.attained ? 'var(--green)' : s.quotaPct >= 70 ? 'var(--accent)' : 'var(--steel)';
 
   return (
@@ -125,6 +134,53 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {deals.length > 0 && (
+        <div className="card">
+          <div className="card-title">Freepour attach</div>
+          <div className="stat-grid">
+            <div className="stat">
+              <span className="label">Attach rate</span>
+              <div className={`stat-value${attachPct >= 50 ? ' green' : ''}`}>{attachPct}%</div>
+              <div className="stat-sub">
+                {fpLocations} of {locations} locations this quarter
+              </div>
+            </div>
+            <div className="stat">
+              <span className="label">Locations without Freepour</span>
+              <div className="stat-value">{nonFpLocations}</div>
+              <div className="stat-sub">each one is {fmt(plan.freepour_mrr * 12)} ARR not taken</div>
+            </div>
+            <div className="stat">
+              <span className="label">Left unattached</span>
+              <div className={`stat-value${nonFpLocations > 0 ? ' red' : ' green'}`}>
+                {fmt(missedArr)}
+              </div>
+              <div className="stat-sub">
+                ARR, plus {fmt(missedCommission)} commission not earned
+              </div>
+            </div>
+          </div>
+          {nonFpLocations > 0 && (
+            <div className="tracker-sub" style={{ marginTop: 12 }}>
+              {wouldCross ? (
+                <span style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>
+                  With Freepour on every location you&rsquo;ve sold, this quarter would sit at{' '}
+                  {fmt(wouldBeArr)} — past quota, accelerated, with +
+                  {fmtD((plan.accelerator_pct / 100) * (commissionBooked + missedCommission))}{' '}
+                  unlocked retroactively.
+                </span>
+              ) : (
+                <>
+                  With Freepour on every location you&rsquo;ve sold, this quarter would sit at{' '}
+                  {fmt(wouldBeArr)} of {fmt(plan.quarterly_arr_quota)} (
+                  {Math.min(100, Math.round((wouldBeArr / plan.quarterly_arr_quota) * 100))}%).
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {deals.length === 0 && (
         <div className="card">
