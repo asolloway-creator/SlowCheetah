@@ -23,6 +23,7 @@ const EMPTY: DealInput = {
   freepour: false,
   pkg: 'boost',
   saasDiscountPct: 0,
+  oneTimeDiscountPct: 0,
   sideDishes: { recipes: 0, qbo: false, commissary: false, invoiceBackMonths: 0 },
 };
 
@@ -217,7 +218,7 @@ export default function DealBuilder({
               desc={
                 deal.freepour
                   ? `Attached to all ${deal.locations} location${deal.locations !== 1 ? 's' : ''} — +${fmt(plan.freepour_mrr)}/mo each`
-                  : `+${fmt(plan.freepour_mrr)}/mo per location. Attaches to every location on the deal, or none.`
+                  : `+${fmt(plan.freepour_mrr)}/mo per location`
               }
               onChange={(v) => set('freepour', v)}
             />
@@ -245,13 +246,20 @@ export default function DealBuilder({
               })}
             </div>
 
-            <div className="card-title" style={{ margin: '18px 0 12px' }}>Discount</div>
+            <div className="card-title" style={{ margin: '18px 0 12px' }}>Discounts</div>
             <DiscountSlider
               id="saasD"
-              label="SaaS discount"
+              label="Monthly SaaS"
               value={deal.saasDiscountPct}
               baseAmount={r.mrrList}
               onChange={(v) => set('saasDiscountPct', v)}
+            />
+            <DiscountSlider
+              id="oneTimeD"
+              label="One-time costs"
+              value={deal.oneTimeDiscountPct}
+              baseAmount={r.oneTimeRevenueList}
+              onChange={(v) => set('oneTimeDiscountPct', v)}
             />
           </div>
 
@@ -297,8 +305,8 @@ export default function DealBuilder({
                   onChange={(v) => setSide('commissary', v)}
                 />
                 <div className="card-note" style={{ marginTop: 10 }}>
-                  Counted in deal value only — whether side dishes pay the rep anything is an
-                  open question for Bob.
+                  Counted in deal value, not in your payout. Bob says some side dishes pay
+                  out and some don&rsquo;t — which ones is TBD, so none are counted yet.
                 </div>
               </div>
             )}
@@ -322,6 +330,7 @@ export default function DealBuilder({
               <input type="hidden" name="freepour" value={String(deal.freepour)} />
               <input type="hidden" name="pkg" value={deal.pkg} />
               <input type="hidden" name="saasDiscountPct" value={deal.saasDiscountPct} />
+              <input type="hidden" name="oneTimeDiscountPct" value={deal.oneTimeDiscountPct} />
               <input type="hidden" name="recipes" value={deal.sideDishes.recipes} />
               <input type="hidden" name="qbo" value={String(deal.sideDishes.qbo)} />
               <input type="hidden" name="commissary" value={String(deal.sideDishes.commissary)} />
@@ -361,15 +370,13 @@ export default function DealBuilder({
               <span className="row-value gold">+{fmt(r.bonus)}</span>
             </div>
             <div className="row">
-              <span className="row-label">Onboarding revenue (company)</span>
-              <span className="row-value dim">{fmt(r.onboardingRevenue)}</span>
+              <span className="row-label">
+                One-time costs (company{r.hasOneTimeDiscount ? `, ${deal.oneTimeDiscountPct}% off` : ''})
+              </span>
+              <span className={`row-value ${r.hasOneTimeDiscount ? 'red' : 'dim'}`}>
+                {fmt(r.oneTimeRevenue)}
+              </span>
             </div>
-            {r.sideDishRevenue > 0 && (
-              <div className="row">
-                <span className="row-label">Side dishes (company)</span>
-                <span className="row-value dim">{fmt(r.sideDishRevenue)}</span>
-              </div>
-            )}
             {r.crossesQuota && (
               <div className="accel-note">
                 <strong>This deal crosses your {q} quota.</strong> It retroactively unlocks{' '}
@@ -419,7 +426,8 @@ export default function DealBuilder({
               <div className="leaking">
                 {fmtD(r.lost)} comes out of your paycheck, and the discounted ARR slows your
                 march to the +{plan.accelerator_pct}% accelerator. The customer saves{' '}
-                {fmt(r.customerSavesMonthly)}/mo.
+                {fmt(r.customerSavesMonthly)}/mo
+                {r.customerSavesOneTime > 0 ? ` plus ${fmt(r.customerSavesOneTime)} one-time` : ''}.
               </div>
             ) : (
               <div className="holding">

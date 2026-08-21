@@ -65,6 +65,7 @@ create table public.deals (
   freepour            boolean not null default false,
   onboarding_package  text not null check (onboarding_package in ('launch','boost','accelerate')),
   saas_discount_pct   numeric(5,2) not null default 0 check (saas_discount_pct between 0 and 100),
+  one_time_discount_pct numeric(5,2) not null default 0 check (one_time_discount_pct between 0 and 100),
   recipes             integer not null default 0 check (recipes >= 0),
   qbo                 boolean not null default false,
   commissary          boolean not null default false,
@@ -92,3 +93,7 @@ create policy "users read own"   on public.users      for select using (auth.uid
 create policy "users update own" on public.users      for update using (auth.uid() = id) with check (auth.uid() = id);
 create policy "comp_plans own"   on public.comp_plans for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "deals own"        on public.deals      for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- v2.1 migration for databases already on v2 (fresh installs get the column above):
+-- alter table public.deals add column one_time_discount_pct numeric(5,2) not null default 0
+--   check (one_time_discount_pct between 0 and 100);

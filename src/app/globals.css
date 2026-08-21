@@ -84,7 +84,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Inputs ─────────────────────────────────────── */
 .field { margin-bottom: 12px; }
-.field .label { margin-bottom: 5px; }
+.field .label { margin-bottom: 5px; line-height: 1.5; }
 .input-row { display: flex; align-items: center; }
 .prefix { font-family: var(--mono); font-size: 13px; color: var(--text-3); margin-right: 7px; }
 .suffix { font-family: var(--mono); font-size: 12px; color: var(--text-3); margin-left: 7px; white-space: nowrap; }
@@ -93,7 +93,7 @@ input.txt { font-family: var(--sans); }
 input.num::-webkit-inner-spin-button, input.num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input.num:focus-visible, input.txt:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
 input.num:disabled, input.txt:disabled { opacity: 0.5; }
-.grid-in { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.grid-in { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; align-items: end; }
 .grid-in.three { grid-template-columns: 1fr 1fr 1fr; }
 .field-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 

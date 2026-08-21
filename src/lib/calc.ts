@@ -16,7 +16,8 @@
  *     Accelerate $750.
  *  2. Does the 25% bump hit package bonuses too? Assumed NO (commission only);
  *     `accelerator_on_bonuses` flips it.
- *  3. Side dishes assumed to pay the rep nothing (deal value only).
+ *  3. Side dishes: Bob says some pay out and some don't. Which ones is TBD,
+ *     so they stay out of the commission payout and count as deal value only.
  */
 
 export type OnboardingPackage = 'launch' | 'boost' | 'accelerate';
@@ -87,6 +88,9 @@ export type DealInput = {
   freepour: boolean;
   pkg: OnboardingPackage;
   saasDiscountPct: number;
+  /** Discount on one-time costs (onboarding + side dishes). Does not touch
+   *  the rep's flat package bonus, only company revenue and customer savings. */
+  oneTimeDiscountPct: number;
   sideDishes: SideDishes;
 };
 
@@ -112,10 +116,15 @@ export type CalcResult = {
   /** Base commission at list price, pre-accelerator. */
   commissionFullBase: number;
   bonus: number;
-  onboardingRevenue: number;
-  sideDishRevenue: number;
+  /** Onboarding package revenue at list price (company). */
+  onboardingRevenueList: number;
+  sideDishRevenueList: number;
+  /** One-time revenue (onboarding + side dishes) at list price. */
+  oneTimeRevenueList: number;
+  /** One-time revenue after the one-time discount. */
   oneTimeRevenue: number;
   hasDiscount: boolean;
+  hasOneTimeDiscount: boolean;
 
   // Quarter position
   arrAfter: number;
@@ -132,6 +141,7 @@ export type CalcResult = {
   /** Money left on table at the effective (accelerated) rate. */
   lost: number;
   customerSavesMonthly: number;
+  customerSavesOneTime: number;
   /** Full-price ARR would have crossed quota but the discounted ARR does not. */
   discountBlocksAccelerator: boolean;
   arrToQuota: number;
@@ -172,8 +182,11 @@ export function calc(plan: CompPlan, deal: DealInput, qtd: QuarterToDate): CalcR
   const commissionFullBase = plan.commission_months * mrrList;
   const bonus = bonusFor(plan, deal.pkg);
 
-  const onboardingRevenue = onboardingRevenueFor(deal.pkg, locations);
-  const sideDishRevenue = sideDishRevenueFor(deal.sideDishes);
+  const onboardingRevenueList = onboardingRevenueFor(deal.pkg, locations);
+  const sideDishRevenueList = sideDishRevenueFor(deal.sideDishes);
+  const oneTimeRevenueList = onboardingRevenueList + sideDishRevenueList;
+  const otD = Math.min(100, Math.max(0, deal.oneTimeDiscountPct));
+  const oneTimeRevenue = oneTimeRevenueList * (1 - otD / 100);
 
   // Quarter position. Discounted (actual) ARR counts toward quota.
   const arrAfter = qtd.arrBooked + arr;
@@ -196,6 +209,7 @@ export function calc(plan: CompPlan, deal: DealInput, qtd: QuarterToDate): CalcR
 
   const lost = commissionFullEffective - commissionEffective;
   const customerSavesMonthly = mrrList - mrr;
+  const customerSavesOneTime = oneTimeRevenueList - oneTimeRevenue;
 
   // Would the full-price deal have crossed quota while the discounted one doesn't?
   const fullPriceCrosses = qtd.arrBooked + arrList >= plan.quarterly_arr_quota;
@@ -214,10 +228,12 @@ export function calc(plan: CompPlan, deal: DealInput, qtd: QuarterToDate): CalcR
     commissionBase,
     commissionFullBase,
     bonus,
-    onboardingRevenue,
-    sideDishRevenue,
-    oneTimeRevenue: onboardingRevenue + sideDishRevenue,
+    onboardingRevenueList,
+    sideDishRevenueList,
+    oneTimeRevenueList,
+    oneTimeRevenue,
     hasDiscount: d > 0,
+    hasOneTimeDiscount: otD > 0,
     arrAfter,
     wasAccelerated,
     isAccelerated,
@@ -227,6 +243,7 @@ export function calc(plan: CompPlan, deal: DealInput, qtd: QuarterToDate): CalcR
     totalPayoutImpact,
     lost,
     customerSavesMonthly,
+    customerSavesOneTime,
     discountBlocksAccelerator,
     arrToQuota,
     quotaPct,

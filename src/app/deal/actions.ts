@@ -18,6 +18,7 @@ function readDeal(fd: FormData): DealInput {
     freepour: fd.get('freepour') === 'true',
     pkg,
     saasDiscountPct: clampPct(Number(fd.get('saasDiscountPct'))),
+    oneTimeDiscountPct: clampPct(Number(fd.get('oneTimeDiscountPct'))),
     sideDishes: {
       recipes: count(Number(fd.get('recipes'))),
       qbo: fd.get('qbo') === 'true',
@@ -49,6 +50,7 @@ export async function saveDeal(_prev: SaveState, formData: FormData): Promise<Sa
       freepour: deal.freepour,
       onboarding_package: deal.pkg,
       saas_discount_pct: deal.saasDiscountPct,
+      one_time_discount_pct: deal.oneTimeDiscountPct,
       recipes: deal.sideDishes.recipes,
       qbo: deal.sideDishes.qbo,
       commissary: deal.sideDishes.commissary,

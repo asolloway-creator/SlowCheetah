@@ -13,6 +13,7 @@ export type DealRow = {
   freepour: boolean;
   onboarding_package: OnboardingPackage;
   saas_discount_pct: number;
+  one_time_discount_pct: number;
   recipes: number;
   qbo: boolean;
   commissary: boolean;
@@ -67,6 +68,7 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     freepour: Boolean(d.freepour),
     onboarding_package: d.onboarding_package as OnboardingPackage,
     saas_discount_pct: Number(d.saas_discount_pct),
+    one_time_discount_pct: Number(d.one_time_discount_pct),
     recipes: Number(d.recipes),
     qbo: Boolean(d.qbo),
     commissary: Boolean(d.commissary),
