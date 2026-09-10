@@ -58,4 +58,9 @@ Deploys: push to `main` → Vercel builds → live. OG image is generated at
 - v2: reshaped around MarginEdge's real plan (see git history) — where the
   retroactive accelerator, attach nudge, and "crossing is worth $X" framing
   came from.
-- v3 (this): public, demo-first, both shapes unified, terminal brand.
+- v3: public, demo-first, both shapes unified. The first two visual passes
+  (a dark terminal look, then a font swap on the same layout) were rejected as
+  amateur; the shipped design came from a critique → brief → four directions →
+  judged process. Warm paper, Inter with tabular figures, one hue reserved for
+  money leaving, the quarter drawn as a line, and an opening state engineered
+  so a 5% discount is what holds the rep under their accelerator.
