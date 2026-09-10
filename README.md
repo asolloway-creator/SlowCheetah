@@ -51,6 +51,31 @@ for every origin you serve from.
 Deploys: push to `main` → Vercel builds → live. OG image is generated at
 [src/app/opengraph-image.tsx](src/app/opengraph-image.tsx).
 
+## Not every plan fits yet
+
+The three preset shapes cover a real, mainstream slice of quota-carrying roles,
+but a rigorous pass (2026-09-10) found several common comp plan shapes the
+engine can't represent: tiered/graduated commission (marginal-rate brackets,
+not a cliff), multiple accelerator tiers, per-SKU rates, renewals/expansion
+comp, stacked SPIFs, multiple simultaneous quotas, ramp schedules, non-USD,
+and periods other than month/quarter. Tiered commission is the most common
+gap and the next one worth closing if a real plan needs it.
+
+**Next feature, scoped but not built:** let a rep describe their plan in free
+text and have an LLM map it onto the *existing* `CompPlan` fields — a better
+front door to the same three shapes, not a new calculation engine. The
+plain-English readout at the top of `/plan` is the natural confirmation
+surface: show what was understood before anything is saved, same as a human
+would double-check it. When the description doesn't fit any current shape,
+say so rather than force-fitting it — that's the same "tell me where this
+broke" signal as the footer hook, now structured. Explicitly out of scope:
+having an LLM generate calculation logic per user for unsupported shapes —
+too risky for a tool whose whole premise is a number you can trust; a
+subtly-wrong AI-generated formula computed silently against someone's real
+paycheck is close to the worst failure mode available here. Building this
+also means updating the "nothing you enter is shared" footer copy, since the
+free-text description would go to a third-party API (Anthropic) to parse.
+
 ## History
 
 - v1: generic build to `claude-code-handoff/ioi-mvp-spec.md` for a single
