@@ -155,18 +155,21 @@ strong { font-weight: 500; }
 .field-note { margin-top: var(--s-2); color: var(--grey-1); }
 
 /* segmented */
-/* The track carries its own surface (--stage) so the selected pill (--paper)
-   always contrasts, regardless of what colour page section it sits on — it
-   was previously relying on always being inside a --stage card, which broke
-   the moment it appeared directly on the page (the plan form). */
-.seg { display: inline-flex; flex: none; height: var(--h-seg); background: var(--stage); border: var(--hair); border-radius: var(--r-ctl); }
+/* Track and selected pill follow the same elevation language as the rest of
+   the app: --stage is the "raised" surface everywhere else (.stage card, the
+   slider thumb, .plan-readout) and --paper is the base/receded one (page
+   background, hover states). The track carries its own explicit --paper so
+   it always contrasts against whatever it sits on, and the selected pill
+   uses --stage plus a small shadow so it reads as lifted, not just
+   recolored. */
+.seg { display: inline-flex; flex: none; height: var(--h-seg); background: var(--paper); border: var(--hair); border-radius: var(--r-ctl); }
 .seg > button {
   display: inline-flex; align-items: center; padding: 0 var(--s-3); color: var(--grey-1); font-weight: 500;
   border-radius: calc(var(--r-ctl) - 1px);
-  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out);
+  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 .seg > button:hover { color: var(--ink); }
-.seg > button[aria-pressed="true"] { color: var(--ink); background: var(--paper); }
+.seg > button[aria-pressed="true"] { color: var(--ink); background: var(--stage); box-shadow: 0 1px 2px rgba(23, 21, 15, 0.12); }
 .seg > button:focus-visible { position: relative; z-index: 1; }
 
 /* toggle */
@@ -323,6 +326,14 @@ table.deals { width: 100%; border-collapse: collapse; }
    grouped into sections — replaces an earlier mad-libs sentence that read as
    noise once every blank was a different width. */
 .plan-readout { margin-top: var(--s-6); padding: var(--s-5); background: var(--stage); border-radius: var(--r-ctl); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* Carries a customized demo plan into a real account — an actual decision,
+   not a passive readout, so it gets an ink border instead of .plan-readout's
+   plain --stage fill. */
+.import-banner { margin-top: var(--s-6); padding: var(--s-5); background: var(--stage); border: 1px solid var(--ink); border-radius: var(--r-ctl); }
+.import-banner-title { font-weight: 500; }
+.import-banner-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
+.import-banner-actions { display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-4); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--s-4); }
 .field-grid > .field { margin-bottom: var(--s-4); }
 /* distinct from .attach-row (the deal page's, which carries grid `order` rules) */

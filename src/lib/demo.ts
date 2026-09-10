@@ -102,6 +102,31 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
+/**
+ * Read-only look at demo state for a signed-in session — unlike `read()`,
+ * never seeds a fresh demo (that would spin up fake sample data inside a
+ * real account). Returns null if there's nothing stored, or it can't be
+ * parsed.
+ */
+export function peekDemoState(): DemoState | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as DemoState) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Drops the demo entirely — used once its plan has been imported into a
+ * real account, or the visitor declines, so a later sign-out starts clean
+ * instead of resurrecting an orphaned customized demo. */
+export function clearDemoState() {
+  cache = null;
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+}
+
 export function useDemoStore() {
   const state = useSyncExternalStore(subscribe, read, () => null);
 

@@ -11,6 +11,28 @@ import Toggle from '@/components/Toggle';
 const matchPreset = (plan: CompPlan) =>
   PRESETS.find((p) => JSON.stringify(p.plan) === JSON.stringify(plan))?.id ?? null;
 
+// A real first-time user with no saved plan gets an honestly blank form, not
+// PRESETS[0]'s numbers quietly standing in as if they were already chosen —
+// $100,000 sitting in the quota field looks like a real, prescriptive
+// default instead of an example. The demo path never reaches this: it
+// always passes an actual (seeded) plan, never null.
+const BLANK_PLAN: CompPlan = {
+  role_name: '',
+  period: 'month',
+  quota_basis: 'arr',
+  quota: 0,
+  commission_style: 'percent',
+  base_rate: 0,
+  accelerator_style: 'none',
+  accelerator_threshold: 0,
+  accelerator_rate: 0,
+  one_time_weight: 0,
+  implementation_weight: 0,
+  attach_enabled: false,
+  attach_name: '',
+  attach_mrr: 0,
+};
+
 /** A plain text field, same visual language as NumField. */
 function TextField({
   id,
@@ -64,8 +86,8 @@ export default function PlanSentence({
   demo: boolean;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
 }) {
-  const [p, setP] = useState<CompPlan>(plan ?? PRESETS[0].plan);
-  const [preset, setPreset] = useState<string | null>(plan ? matchPreset(plan) : PRESETS[0].id);
+  const [p, setP] = useState<CompPlan>(plan ?? (demo ? PRESETS[0].plan : BLANK_PLAN));
+  const [preset, setPreset] = useState<string | null>(plan ? matchPreset(plan) : demo ? PRESETS[0].id : null);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ ok?: boolean; error?: string }>({});
 
@@ -125,7 +147,10 @@ export default function PlanSentence({
   const article = /^[aeiou]/i.test(p.role_name.trim()) ? 'an' : 'a';
 
   const target = arr ? fmt(p.quota) : `${p.quota.toLocaleString('en-US')} unit${p.quota === 1 ? '' : 's'}`;
-  const readout = `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
+  const isBlank = !demo && !plan && JSON.stringify(p) === JSON.stringify(BLANK_PLAN);
+  const readout = isBlank
+    ? 'Pick a shape below, or start filling in the fields — this line fills in as you go.'
+    : `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
 
   return (
     <div className="plan">

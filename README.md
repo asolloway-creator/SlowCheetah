@@ -95,6 +95,81 @@ paycheck is close to the worst failure mode available here. Building this
 also means updating the "nothing you enter is shared" footer copy, since the
 free-text description would go to a third-party API (Anthropic) to parse.
 
+## Scope for demo → signup migration
+
+Found during a launch-readiness audit (2026-09-10): signing in currently
+throws away whatever the visitor built in the demo. `LoginForm` only calls
+`supabase.auth.signInWithOtp` — nothing captures the browser's demo state
+first — and `/auth/confirm` is a server route that exchanges the magic-link
+code for a session and redirects; it never touches `localStorage`, which is
+browser-only and wouldn't be reachable there regardless. A visitor who
+spends two minutes shaping their plan on the demo, likes it, and signs up to
+save it lands on a blank `/plan` and has to redo it from nothing. For a
+cold LinkedIn audience this is the exact moment that loses people — it's the
+strongest concrete lead on why the tool still feels like "too much
+complexity," more than any single form field.
+
+**Where it hooks in.** Every signed-in user with no saved plan already
+funnels through one place: `/` redirects to `/plan` when `getCompPlan`
+returns null ([page.tsx:14](src/app/page.tsx)), and `/plan` now renders a
+genuinely blank `PlanSentence` in that case (this session's $100k-default
+fix). That blank-state render is the one spot that needs to check for
+leftover demo work and offer it back — no changes needed to the login form,
+the magic-link route, or the auth flow itself.
+
+**Detecting "worth importing."** `useDemoStore`'s `fresh()` always writes
+`{ plan: DEMO_PLAN, deals: seedDeals(DEMO_PLAN), seeded: true }` — the
+`seeded` field was clearly meant to distinguish "still the untouched sample"
+from "visitor changed something," but nothing ever flips it to `false` on
+`saveDeal`/`savePlan`, so it's dead weight today. Detection needs to compare
+the stored state against that pristine baseline instead — the same check
+`DemoDeal`'s dev-only sanity effect already does
+([DemoViews.tsx:24](src/app/demo/DemoViews.tsx)): plan unchanged from
+`DEMO_PLAN` and deals still exactly the 6 seeded ones means "never touched,"
+skip the prompt entirely and land on the ordinary blank form. Reading it
+also can't go through `useDemoStore()` itself — that hook seeds a fresh demo
+state as a side effect if none exists, which would incorrectly spin up demo
+data inside a real signed-in session. Needs a small read-only peek
+(`localStorage.getItem('ioi-demo-v3')`, parsed, no fallback to `fresh()`)
+instead.
+
+**What gets imported, v1: plan only.** The customized plan is the thing
+worth two minutes of setup — that's the actual loss. Deals are a separate,
+harder call: the 6 seeded rows are scripted narrative for the Hold-the-Line
+demo (a fabricated "87% to quota, mid-quarter" rep), not anything resembling
+the visitor's real commission history, and importing them as if they were
+real deals would put fake numbers in someone's real account. A visitor who
+added their *own* deals on top of the seed is a real but probably rare case
+this session didn't dig into — leave deal import out of v1 and revisit only
+if it turns out people actually do this before signing up.
+
+**Confirm, don't auto-import.** Consistent with how the rest of the app
+treats a plan as something to double-check before it's saved (the
+plain-English readout exists for exactly this reason) — this should be a
+banner above the blank form, "We found the plan you set up before signing
+in — import it?" with Import / Start fresh, not a silent write. It's someone
+else's comp numbers going into their real account; showing what would be
+imported before it happens matches the app's own standard elsewhere.
+
+**Server side.** A new `importDemoPlanAction(plan: CompPlan)` next to
+`savePlanAction` in [actions.ts](src/app/actions.ts) — same validation
+(`role_name` required, `quota > 0`, numeric finiteness), same
+`comp_plans` upsert. Reusing `savePlanAction` directly would work too; a
+separate action only earns its keep if the confirm step needs to say
+anything about the import specifically (e.g. distinct success copy).
+
+**Cleanup.** After Import or Start fresh, clear the `ioi-demo-v3`
+`localStorage` key (or reset it via the store's existing `reset()`) and set
+a one-time dismissed flag so the banner never reappears — otherwise a
+sign-out on the same browser resurrects a now-orphaned customized demo
+instead of a clean anonymous one.
+
+Roughly an hour: the detection/peek helper and the banner component are the
+new surface area; the server action is a near-copy of `savePlanAction`.
+Worth doing before a real LinkedIn push — it's the one gap that directly
+undermines the demo-first pitch (try it free, keep it forever) rather than
+just being an uncovered edge case.
+
 ## History
 
 - v1: generic build to `claude-code-handoff/ioi-mvp-spec.md` for a single

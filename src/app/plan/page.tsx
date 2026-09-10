@@ -3,6 +3,7 @@ import { savePlanAction } from '../actions';
 import { Shell } from '../AccountViews';
 import { DemoPlan } from '../demo/DemoViews';
 import PlanSentence from '@/components/PlanSentence';
+import ImportDemoPlan from '@/components/ImportDemoPlan';
 
 export const metadata = { title: 'Your plan — IOI' };
 
@@ -12,6 +13,7 @@ export default async function PlanPage() {
   const plan = await getCompPlan(user.id);
   return (
     <Shell current="/plan" email={user.email ?? ''} width="plan">
+      {!plan && <ImportDemoPlan />}
       <PlanSentence plan={plan} demo={false} onSave={savePlanAction} />
     </Shell>
   );

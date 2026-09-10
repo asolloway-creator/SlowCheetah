@@ -99,3 +99,13 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   revalidatePath('/', 'layout');
   return {};
 }
+
+/**
+ * Carries a plan the visitor shaped in the demo (browser localStorage) over
+ * into their real account on first sign-in. Same validation and upsert as
+ * `savePlanAction` — this only exists separately so the demo-import banner
+ * can call something purpose-named rather than reusing a form-submit action.
+ */
+export async function importDemoPlanAction(input: CompPlan): Promise<Result> {
+  return savePlanAction(input);
+}
