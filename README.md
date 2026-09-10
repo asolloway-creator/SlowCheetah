@@ -1,139 +1,61 @@
-# IOI — built for MarginEdge
+# IOI — Information over incentive
 
-Private commission and quota tracker, now shaped around MarginEdge's real comp
-plan (specs from Bob, 2026-08-21) and styled to their brand. The original
-generic build (see git history) followed `claude-code-handoff/ioi-mvp-spec.md`.
-
-## The MarginEdge plan, as built
-
-- **Commission**: 2 months of SaaS per deal. Software $350/mo/location;
-  Freepour Smart Scale +$150/mo/location — attaches to every location on a
-  deal or none, so an attached deal is $500/mo per location.
-- **Quota**: $107,000 new ARR per quarter. Discounted (actual) ARR counts.
-- **Accelerator**: crossing quota applies +25% to every deal closed after AND
-  retroactively to the quarter's earlier deals. Deals store commission
-  pre-accelerator; the bump is applied at the quarter-aggregate level.
-- **Onboarding bonuses**: flat per package — Launch $250, Boost $500,
-  Accelerate $750 (mapping assumed by price order). Package list prices from
-  the published onboarding menus: Launch $500 / Boost $750 / Accelerate $2,000
-  first location, +$250 per additional.
-- **Side dishes** (recipes $5, QBO $500, commissary $750, invoice
-  back-processing $150/mo) count as deal value only.
-- Payouts are quarterly today; MarginEdge is shifting to monthly eventually.
-
-### Open questions for Bob
-
-1. Which bonus goes with which package? ($250/$500/$750 assumed by price order.)
-2. Does the 25% bump apply to package bonuses, or SaaS commission only?
-   (Assumed commission only; `accelerator_on_bonuses` toggle exists in setup.)
-3. Do side dishes pay the rep anything? (Assumed no.)
-
-Every number above is editable per-user on the Comp plan screen — corrections
-from Bob are a settings change, not a code change.
+**tryioi.com.** See the whole deal before the offer is made: your comp plan,
+quota and accelerator live on every deal. Drag a discount and watch exactly
+what it costs you.
 
 Next.js (App Router) · Supabase (magic-link auth + Postgres) · Vercel.
 
----
+## How it's shaped
 
-## Getting it running
+**Demo-first.** The landing page *is* the deal builder, running against a
+sample plan and a seeded mid-quarter position in the visitor's browser
+(`localStorage`, nothing leaves the machine). Every screen works without an
+account. Signing in is the "keep this across devices" upsell; signed-in users
+get the same UI against their own private rows (RLS-scoped).
 
-**1. Create a Supabase project** at [supabase.com](https://supabase.com) (free tier
-is enough). You need to do this part yourself — it involves creating an account.
+**One engine, two proven plan shapes** ([src/lib/calc.ts](src/lib/calc.ts)).
+Generalized only as far as the real plans we've seen:
+- *Units + rate switch*: monthly unit quota, commission as a % of
+  commissionable value (one-time and implementation at a configurable weight),
+  rate switches to an accelerated % once a unit threshold lands.
+- *ARR + retroactive bump*: quarterly new-ARR quota, commission as N months of
+  MRR, a % bump applied to the whole period — earlier deals included — once
+  quota is crossed. Optional per-unit attach product that feeds MRR and quota.
+- *Flat*: one rate, quota tracked, no accelerator.
 
-**2. Run the schema.** In the Supabase dashboard, open **SQL Editor**, paste the
-contents of [`supabase/schema.sql`](supabase/schema.sql), and run it. It creates
-the three tables, the `auth.users` → `public.users` sync trigger, and row-level
-security policies that make every row readable only by its owner.
+Presets for each ship on the Comp plan screen; every number stays editable.
+The engine is parity-tested against both original implementations
+(45,000 field checks for the v1 shape, the full MarginEdge case set for v2).
 
-**3. Point the app at the project.** Copy `.env.local.example` to `.env.local` and
-fill in the two values from **Project Settings → API**:
+**The signature moments.** Hold the Line shows money left on the table per
+deal, and calls it out when a discount is the thing keeping a rep under their
+accelerator. The attach toggle shows exactly what attaching is worth on this
+deal — including when it's the difference between crossing quota and not.
+
+**Storage.** Deals store `commission_base` (base rate) and `commission_earned`
+(as paid at booking). Retroactive bumps are applied at the period level, never
+written back into rows.
+
+## Running it
 
 ```bash
-cp .env.local.example .env.local
+cp .env.local.example .env.local   # Supabase URL + publishable key
+npm install && npm run dev
 ```
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
-```
+Schema: run [supabase/schema.sql](supabase/schema.sql) once in the Supabase
+SQL editor. Add `<origin>/auth/confirm` to Supabase's redirect URL allowlist
+for every origin you serve from.
 
-**4. Allow the redirect.** In **Authentication → URL Configuration**, add
-`http://localhost:3000/auth/confirm` to *Redirect URLs* (and the Vercel URL once
-deployed).
+Deploys: push to `main` → Vercel builds → live. OG image is generated at
+[src/app/opengraph-image.tsx](src/app/opengraph-image.tsx).
 
-**5. Run it.**
+## History
 
-```bash
-npm run dev
-```
-
-Sign-in emails go out through Supabase's built-in SMTP, which is rate-limited to a
-few messages an hour — fine for one user, worth swapping for a real SMTP provider
-if that ever changes.
-
-### Deploying
-
-Push to a Git remote, import the repo in Vercel, set the same two environment
-variables in the Vercel project, and add `https://<your-app>.vercel.app/auth/confirm`
-to the Supabase redirect list.
-
----
-
-## What's here, against the spec's milestones
-
-| # | Milestone | Where |
-|---|---|---|
-| 1 | Login works end to end | [`src/app/login`](src/app/login), [`src/app/auth`](src/app/auth), [`src/proxy.ts`](src/proxy.ts) |
-| 2 | A deal persists across sessions | [`src/app/deal/actions.ts`](src/app/deal/actions.ts), [`supabase/schema.sql`](supabase/schema.sql) |
-| 3 | Comp plan setup feeds the calculation | [`src/app/setup`](src/app/setup) |
-| 4 | Calculation engine + UI ported, reading the saved plan | [`src/lib/calc.ts`](src/lib/calc.ts), [`src/app/deal/DealBuilder.tsx`](src/app/deal/DealBuilder.tsx) |
-| 5 | Deal history list | [`src/app/history`](src/app/history) |
-| 6 | Quota dashboard from deal history, not manual entry | [`src/app/dashboard`](src/app/dashboard) |
-
-Every route except `/login` and `/auth/*` is gated by [`src/proxy.ts`](src/proxy.ts),
-which also refreshes the Supabase session on each request.
-
-## Notes on the port
-
-**The arithmetic is unchanged.** `src/lib/calc.ts` is a line-for-line port of the
-prototype's `calc()`. It was checked against the original across 20,000 randomised
-deals (280,000 field comparisons) with zero divergence.
-
-**What the engine reads instead of demo data.** The hardcoded `COMP_PLANS` object
-is gone; the plan comes from the user's `comp_plans` row. The manually typed
-"deals booked this month" field is gone; month-to-date units and ARR are summed
-from saved deals (`getMonthToDate` in [`src/lib/queries.ts`](src/lib/queries.ts)).
-The prototype's `avgSubDeal` estimate disappears with it — real deal history gives
-the actual figure.
-
-**Dropped, per "explicitly not built for this pilot":** the displacement SPIF card
-and its tiers, the past-quarter retrospective, the demo role switcher, and CSV
-export. The multi-unit toggle collapsed into the plain `units` field it was sugar
-over.
-
-**Commission is stored as a snapshot.** `commission_earned` and
-`money_left_on_table` are computed server-side at save time against the live
-month-to-date position, so a deal booked at the base rate keeps showing the base
-rate after the accelerator later kicks in. The client's numbers are recomputed
-rather than trusted.
-
-## Two decisions worth knowing about
-
-**`monthly_arr_quota` was added to `comp_plans`.** The spec's field list doesn't
-include it, but milestone 6 asks for an ARR *pace*, and pace needs a target. It is
-nullable: leave it blank and the dashboard shows ARR booked with no goal line.
-
-**The commissionable-value weights are still constants.** One-time and
-implementation revenue count at 50% each, subscription MRR annualizes at 12×
-(`COMMISSIONABLE` in [`src/lib/calc.ts`](src/lib/calc.ts)). These were org-level
-constants in the prototype and the spec's `comp_plans` table doesn't add them, so
-they stayed constants. If a real plan weights line items differently, this is the
-first thing that has to move into the database.
-
-## The known limitation, still standing
-
-The engine supports one plan shape: a flat `base_rate` on every deal until
-`accelerator_threshold` units land in the month, then `accelerator_rate` on the
-whole deal. Tiered brackets, flat-rate-no-accelerator, and per-product rates are
-not supported, by decision rather than oversight — see "Known Limitation" in the
-spec. The comp plan screen says as much to the user.
+- v1: generic build to `claude-code-handoff/ioi-mvp-spec.md` for a single
+  private user; engine ported from the reference prototype.
+- v2: reshaped around MarginEdge's real plan (see git history) — where the
+  retroactive accelerator, attach nudge, and "crossing is worth $X" framing
+  came from.
+- v3 (this): public, demo-first, both shapes unified, terminal brand.

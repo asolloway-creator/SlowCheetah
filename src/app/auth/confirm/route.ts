@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
-  const next = searchParams.get('next') ?? '/deal';
+  const next = searchParams.get('next') ?? '/';
 
   const supabase = await createClient();
 

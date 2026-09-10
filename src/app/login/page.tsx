@@ -7,7 +7,7 @@ export default function LoginPage() {
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="monogram">[me]</div>
+          <div className="monogram">IOI</div>
           <div>
             <div className="brand-name" style={{ fontSize: 19, fontWeight: 700 }}>
               IOI
@@ -21,8 +21,8 @@ export default function LoginPage() {
         <div className="card">
           <div className="auth-title">Sign in</div>
           <div className="auth-sub">
-            Enter your email and we&rsquo;ll send you a sign-in link. No password to
-            manage.
+            Keep your plan and your deals across devices. Enter your email and we&rsquo;ll
+            send a sign-in link — no password to manage.
           </div>
           <LoginForm />
         </div>
