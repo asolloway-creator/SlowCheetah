@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { PRESETS, type CompPlan, type Preset } from '@/lib/calc';
+import { PRESETS, type AcceleratorStyle, type CommissionStyle, type CompPlan, type Preset, type QuotaBasis } from '@/lib/calc';
 import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
 import NumField from '@/components/NumField';
@@ -74,6 +74,37 @@ export default function PlanSentence({
     setMsg({});
     setP((x) => ({ ...x, [k]: v }));
   };
+
+  // A handful of numeric fields only mean something in light of a sibling
+  // selector — quota/threshold are denominated in whatever quota_basis is;
+  // base_rate/accelerator_rate are denominated in whatever commission_style
+  // is (accelerator_rate under 'retro_bump' is the one exception: it's
+  // always a flat % bump, independent of commission_style). Carrying the
+  // raw number across a switch silently reinterprets it in a new unit — a
+  // "$100,000 quota" becomes "100,000 units", a "25% bump" becomes "25
+  // months of MRR". Zero it instead of leaving a number that looks valid
+  // but no longer means what it says.
+  const setQuotaBasis = (v: QuotaBasis) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => ({ ...x, quota_basis: v, quota: 0, accelerator_threshold: 0 }));
+  };
+  const setCommissionStyle = (v: CommissionStyle) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => ({
+      ...x,
+      commission_style: v,
+      base_rate: 0,
+      accelerator_rate: x.accelerator_style === 'rate_switch' ? 0 : x.accelerator_rate,
+    }));
+  };
+  const setAcceleratorStyle = (v: AcceleratorStyle) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => ({ ...x, accelerator_style: v, accelerator_rate: 0 }));
+  };
+
   const choose = (x: Preset) => {
     setP(x.plan);
     setPreset(x.id);
@@ -133,7 +164,7 @@ export default function PlanSentence({
               ['arr', 'New ARR'],
               ['units', 'Units'],
             ]}
-            onChange={(v) => set('quota_basis', v)}
+            onChange={setQuotaBasis}
           />
         </div>
       </div>
@@ -150,7 +181,7 @@ export default function PlanSentence({
               ['months_of_mrr', 'Months of MRR'],
               ['percent', '% of deal value'],
             ]}
-            onChange={(v) => set('commission_style', v)}
+            onChange={setCommissionStyle}
           />
         </div>
         <NumField
@@ -178,7 +209,7 @@ export default function PlanSentence({
             ['rate_switch', 'Rate switch'],
             ['retro_bump', 'Retroactive bump'],
           ]}
-          onChange={(v) => set('accelerator_style', v)}
+          onChange={setAcceleratorStyle}
         />
       </div>
       <p className="field-note">
