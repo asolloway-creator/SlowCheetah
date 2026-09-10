@@ -6,7 +6,6 @@ import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
 import NumField from '@/components/NumField';
 import Segmented from '@/components/Segmented';
-import Toggle from '@/components/Toggle';
 
 const matchPreset = (plan: CompPlan) =>
   PRESETS.find((p) => JSON.stringify(p.plan) === JSON.stringify(plan))?.id ?? null;
@@ -28,9 +27,6 @@ const BLANK_PLAN: CompPlan = {
   accelerator_rate: 0,
   one_time_weight: 0,
   implementation_weight: 0,
-  attach_enabled: false,
-  attach_name: '',
-  attach_mrr: 0,
 };
 
 /** A plain text field, same visual language as NumField. */
@@ -72,10 +68,10 @@ function TextField({
 
 /**
  * Your plan: three preset tiles to start from, then the numbers as a
- * conventional labelled form — grouped into what you're paid on, how the
- * accelerator works, and the optional per-unit add-on. A one-line readout
- * up top says the plan back in plain English so you can check it at a
- * glance; the form below it is what you actually edit.
+ * conventional labelled form — grouped into what you're paid on and how the
+ * accelerator works. A one-line readout up top says the plan back in plain
+ * English so you can check it at a glance; the form below it is what you
+ * actually edit.
  */
 export default function PlanSentence({
   plan,
@@ -269,26 +265,6 @@ export default function PlanSentence({
             suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
             onChange={(n) => set('accelerator_rate', n)}
           />
-        </div>
-      )}
-
-      <h2 className="section-h">Add-on product</h2>
-      <p className="field-note">
-        Optional. Some plans pay extra for a per-unit add-on — hardware, an upsell module, extra seats — priced monthly and counted
-        toward both commission and quota. Most plans don&rsquo;t have one; leave this off unless yours does.
-      </p>
-      <div className="plan-attach-row">
-        <span id="attach-label" className="field-label">
-          Per-unit add-on on deals
-        </span>
-        <div className="attach-ctl">
-          <Toggle on={p.attach_enabled} labelledBy="attach-label" onChange={(v) => set('attach_enabled', v)} />
-        </div>
-      </div>
-      {p.attach_enabled && (
-        <div className="field-grid">
-          <TextField id="aname" label="Add-on name" value={p.attach_name} onChange={(v) => set('attach_name', v)} placeholder="Hardware add-on" />
-          <NumField id="amrr" label="Price per unit" value={p.attach_mrr} prefix="$" suffix="/mo" onChange={(n) => set('attach_mrr', n)} />
         </div>
       )}
 

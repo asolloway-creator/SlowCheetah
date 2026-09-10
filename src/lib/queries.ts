@@ -14,7 +14,6 @@ export type DealRow = {
   subscription_amount: number;
   subscription_mode: SubscriptionMode;
   units: number;
-  attach: boolean;
   one_time_discount_pct: number;
   implementation_discount_pct: number;
   subscription_discount_pct: number;
@@ -53,9 +52,6 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
     accelerator_rate: num(data.accelerator_rate),
     one_time_weight: num(data.one_time_weight),
     implementation_weight: num(data.implementation_weight),
-    attach_enabled: Boolean(data.attach_enabled),
-    attach_name: String(data.attach_name ?? ''),
-    attach_mrr: num(data.attach_mrr),
   };
 }
 
@@ -67,7 +63,6 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     subscription_amount: num(d.subscription_amount),
     subscription_mode: d.subscription_mode as SubscriptionMode,
     units: num(d.units),
-    attach: Boolean(d.attach),
     one_time_discount_pct: num(d.one_time_discount_pct),
     implementation_discount_pct: num(d.implementation_discount_pct),
     subscription_discount_pct: num(d.subscription_discount_pct),

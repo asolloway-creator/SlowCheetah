@@ -21,13 +21,13 @@ import {
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 
 export const EMPTY: DealInput = {
-  oneTime: 0, implementation: 0, subscription: 0, subMode: 'mrr', units: 1, attach: false,
+  oneTime: 0, implementation: 0, subscription: 0, subMode: 'mrr', units: 1,
   oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 0,
 };
 
 /** The seeded deal: $3,000 one-time, $1,100 MRR × 3 units, 5% off the subscription. */
 export const SAMPLE: DealInput = {
-  oneTime: 3000, implementation: 0, subscription: 1100, subMode: 'mrr', units: 3, attach: false,
+  oneTime: 3000, implementation: 0, subscription: 1100, subMode: 'mrr', units: 3,
   oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 5,
 };
 
@@ -53,7 +53,6 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 export function outcome(plan: CompPlan, deal: DealInput, ptd: PeriodToDate) {
   const r = calc(plan, deal, ptd);
   const rFull = calc(plan, atFullPrice(deal), ptd);
-  const rOn = calc(plan, { ...deal, attach: true }, ptd);
   const atStake = round2(rFull.totalPayoutImpact - r.totalPayoutImpact); // 4,298.75 in the opening state
   const lostOnDeal = round2(rFull.commissionEffective - r.commissionEffective); // 660
 
@@ -71,12 +70,7 @@ export function outcome(plan: CompPlan, deal: DealInput, ptd: PeriodToDate) {
             ? 'past'
             : 'held';
 
-  return {
-    r, rFull, rOn, atStake, lostOnDeal, state,
-    attachDelta: round2(rOn.totalPayoutImpact - r.totalPayoutImpact),
-    attachCredit: rOn.credit - r.credit,
-    attachCrosses: plan.attach_enabled && !deal.attach && rOn.crossesAccelerator && !r.crossesAccelerator,
-  };
+  return { r, rFull, atStake, lostOnDeal, state };
 }
 
 export type Outcome = ReturnType<typeof outcome>;
@@ -198,20 +192,6 @@ export function sliderCaption(deal: DealInput, r: CalcResult): string {
   const d = deal.subscriptionDiscountPct;
   if (d <= 0) return 'Full price';
   return `${fmtPctShort(d)} off = ${fmtMoney((r.subMrrList * d) / 100)} a month off · the customer saves ${fmtMoney((r.subAnnualList * d) / 100)} a year`;
-}
-
-/** The attach nudge — the second moment. */
-export function attachCopy(plan: CompPlan, deal: DealInput, o: Outcome): string {
-  const { r, rOn } = o;
-  if (deal.attach) {
-    return `On all ${r.units} unit${r.units === 1 ? '' : 's'} at ${fmtMoney(plan.attach_mrr)} a month each — ${fmtMoney(r.attachMrr)} a month on this deal.`;
-  }
-  const retro = plan.accelerator_style === 'retro_bump';
-  const quota = o.attachCredit > 0 ? ` and +${fmtCredit(plan, o.attachCredit)} toward quota` : '';
-  const crosses = o.attachCrosses
-    ? ` — it crosses your accelerator${retro ? ` and unlocks ${fmtSigned(rOn.retroBump)} retroactively` : ''}`
-    : '';
-  return `Attach for ${fmtSigned(o.attachDelta)} on this deal${quota}${crosses}.`;
 }
 
 /** One line under the one-time / implementation pair. */

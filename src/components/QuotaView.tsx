@@ -21,19 +21,6 @@ export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: P
   const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
   const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
 
-  // The add-on: what the unattached units are leaving behind.
-  const attachUnits = deals.filter((d) => d.attach).reduce((n, d) => n + d.units, 0);
-  const nonAttach = units - attachUnits;
-  const missedArr = nonAttach * plan.attach_mrr * 12;
-  const missedCommission =
-    plan.commission_style === 'months_of_mrr'
-      ? nonAttach * plan.attach_mrr * plan.base_rate
-      : missedArr * (plan.base_rate / 100);
-  const missedCredit = plan.quota_basis === 'arr' ? missedArr : 0;
-  const wouldBe = ptd.creditBooked + missedCredit;
-  const wouldCross = hasAccel && !s.accelerated && wouldBe >= plan.accelerator_threshold;
-  const addOn = (plan.attach_name || 'add-on').replace(/^./, (c) => c.toLowerCase());
-
   const sentence = hasAccel
     ? s.accelerated
       ? retro
@@ -60,23 +47,7 @@ export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: P
             : `· at ${fmtRateShort(plan, plan.base_rate)}`,
     },
     { label: 'Left on the table', value: lost > 0 ? fmtMoney(lost) : '—', tone: lost > 0 ? 'red' : 'dim' },
-    ...(plan.attach_enabled
-      ? [{ label: plan.attach_name || 'Add-on', value: `on ${attachUnits} of ${units} unit${units === 1 ? '' : 's'}` }]
-      : []),
   ];
-
-  const attachSentence =
-    plan.attach_enabled && !empty && nonAttach > 0
-      ? wouldCross
-        ? `With the ${addOn} on every unit you’ve sold, this ${noun} would sit at ${fmtCredit(plan, wouldBe)} — past your accelerator${
-            retro
-              ? `, with ${fmtSigned((plan.accelerator_rate / 100) * (ptd.commissionBooked + missedCommission))} unlocked retroactively`
-              : ''
-          }.`
-        : plan.quota_basis === 'arr'
-          ? `With the ${addOn} on every unit you’ve sold, this ${noun} would sit at ${fmtMoney(wouldBe)} of ${fmtMoney(plan.quota)}.`
-          : `That’s ${fmtMoney(missedCommission)} of commission this ${noun} from one toggle.`
-      : null;
 
   return (
     <div className="quota">
@@ -103,7 +74,6 @@ export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: P
           <p className="quota-sentence">{sentence}</p>
           <h2 className="section-h">This {noun} so far</h2>
           <Ledger rows={rows} />
-          {attachSentence && <p className="quota-attach">{attachSentence}</p>}
         </>
       )}
     </div>

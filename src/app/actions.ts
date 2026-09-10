@@ -21,7 +21,6 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
     subscription: money(input.subscription),
     subMode: input.subMode === 'acv' ? 'acv' : 'mrr',
     units: Math.max(1, Math.round(Number(input.units) || 1)),
-    attach: Boolean(input.attach),
     oneTimeDiscountPct: clampPct(input.oneTimeDiscountPct),
     implementationDiscountPct: clampPct(input.implementationDiscountPct),
     subscriptionDiscountPct: clampPct(input.subscriptionDiscountPct),
@@ -40,7 +39,6 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
     subscription_amount: deal.subscription,
     subscription_mode: deal.subMode,
     units: deal.units,
-    attach: deal.attach,
     one_time_discount_pct: deal.oneTimeDiscountPct,
     implementation_discount_pct: deal.implementationDiscountPct,
     subscription_discount_pct: deal.subscriptionDiscountPct,
@@ -82,13 +80,10 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     accelerator_rate: n(input.accelerator_rate),
     one_time_weight: clampPct(Number(input.one_time_weight)),
     implementation_weight: clampPct(Number(input.implementation_weight)),
-    attach_enabled: Boolean(input.attach_enabled),
-    attach_name: String(input.attach_name ?? '').trim(),
-    attach_mrr: n(input.attach_mrr),
   };
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };
-  for (const k of ['base_rate', 'accelerator_threshold', 'accelerator_rate', 'attach_mrr'] as const) {
+  for (const k of ['base_rate', 'accelerator_threshold', 'accelerator_rate'] as const) {
     if (!Number.isFinite(plan[k])) return { error: `${k.replaceAll('_', ' ')} must be a number.` };
   }
 

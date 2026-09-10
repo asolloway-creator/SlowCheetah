@@ -97,10 +97,7 @@ export default function HistoryView({
                     return (
                       <tr key={d.id}>
                         <td>{fmtDate(d.created_at)}</td>
-                        <td>
-                          {d.units}
-                          {d.attach ? ' + add-on' : ''}
-                        </td>
+                        <td>{d.units}</td>
                         <td>{fmtMoney(dealValue(d))}</td>
                         <td className={disc > 0 ? '' : 'is-dim'}>{disc > 0 ? fmtPctShort(disc) : '—'}</td>
                         <td>{fmtMoney(d.commission_earned)}</td>

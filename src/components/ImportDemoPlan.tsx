@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_PLAN, type CompPlan } from '@/lib/calc';
 import { fmt, periodNoun, planSentence } from '@/lib/format';
 import { peekDemoState, clearDemoState } from '@/lib/demo';
 import { importDemoPlanAction } from '@/app/actions';
+
+function customizedDemoPlan(): CompPlan | null {
+  const s = peekDemoState();
+  return s && JSON.stringify(s.plan) !== JSON.stringify(DEMO_PLAN) ? s.plan : null;
+}
 
 /**
  * Shown above the blank plan form the first time a signed-in user with no
@@ -17,14 +22,14 @@ import { importDemoPlanAction } from '@/app/actions';
  */
 export default function ImportDemoPlan() {
   const router = useRouter();
-  const [plan, setPlan] = useState<CompPlan | null>(null);
+  // Lazy initializer, not an effect: it runs during the client's first
+  // render (including hydration), so the banner is correct on the very
+  // first paint instead of popping in a tick after mount. Server-side it
+  // safely returns null — `peekDemoState` swallows the ReferenceError from
+  // `localStorage` not existing in Node.
+  const [plan, setPlan] = useState<CompPlan | null>(customizedDemoPlan);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const s = peekDemoState();
-    if (s && JSON.stringify(s.plan) !== JSON.stringify(DEMO_PLAN)) setPlan(s.plan);
-  }, []);
 
   if (!plan) return null;
 

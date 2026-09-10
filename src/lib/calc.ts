@@ -7,8 +7,8 @@
  *    deal value, rate SWITCHES to an accelerated % once N units land.
  *  - MarginEdge-style: quarterly ARR quota, commission as N months of MRR,
  *    a RETROACTIVE % bump on the whole period once quota is met.
- * Plus the flat-rate-no-accelerator case, and an optional per-unit attach
- * product (hardware add-on etc.) that feeds both commission and quota.
+ * Plus the flat-rate-no-accelerator case. Straight SaaS only — any add-on
+ * is bundled into the subscription line, not tracked as its own product.
  */
 
 export type Period = 'month' | 'quarter';
@@ -35,10 +35,6 @@ export type CompPlan = {
   /** % of one-time / implementation revenue that is commissionable ('percent' style). */
   one_time_weight: number;
   implementation_weight: number;
-  attach_enabled: boolean;
-  attach_name: string;
-  /** Monthly price per unit when the attach product is on the deal. */
-  attach_mrr: number;
 };
 
 export type DealInput = {
@@ -47,7 +43,6 @@ export type DealInput = {
   subscription: number;
   subMode: SubscriptionMode;
   units: number;
-  attach: boolean;
   oneTimeDiscountPct: number;
   implementationDiscountPct: number;
   subscriptionDiscountPct: number;
@@ -65,12 +60,11 @@ export type PeriodToDate = {
 
 export type CalcResult = {
   units: number;
-  /** Monthly subscription incl. attach, at list. */
+  /** Monthly subscription, at list. */
   subMrrList: number;
   subMrr: number;
   subAnnualList: number;
   subAnnual: number;
-  attachMrr: number;
   /** Commissionable value ('percent' style) at list / after discount. */
   commissionableFull: number;
   commissionable: number;
@@ -113,9 +107,7 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   const dImpl = clamp(deal.implementationDiscountPct, 0, 100) / 100;
   const dSub = clamp(deal.subscriptionDiscountPct, 0, 100) / 100;
 
-  const attachMrr = plan.attach_enabled && deal.attach ? plan.attach_mrr * units : 0;
-  const baseMrr = deal.subMode === 'acv' ? deal.subscription / 12 : deal.subscription;
-  const subMrrList = baseMrr + attachMrr;
+  const subMrrList = deal.subMode === 'acv' ? deal.subscription / 12 : deal.subscription;
   const subMrr = subMrrList * (1 - dSub);
   const subAnnualList = subMrrList * 12;
   const subAnnual = subMrr * 12;
@@ -187,7 +179,6 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     subMrr,
     subAnnualList,
     subAnnual,
-    attachMrr,
     commissionableFull,
     commissionable,
     commissionBase,
@@ -274,7 +265,7 @@ export const PRESETS: Preset[] = [
     id: 'arr-retro',
     name: 'Quarterly ARR · retroactive accelerator',
     blurb:
-      'Earn N months of MRR per deal. Cross the ARR quota and a % bump applies to the whole quarter, past deals included. Optional per-unit hardware attach.',
+      'Earn N months of MRR per deal. Cross the ARR quota and a % bump applies to the whole quarter, past deals included.',
     plan: {
       role_name: 'Account Executive',
       period: 'quarter',
@@ -287,9 +278,6 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 25,
       one_time_weight: 0,
       implementation_weight: 0,
-      attach_enabled: true,
-      attach_name: 'Hardware add-on',
-      attach_mrr: 150,
     },
   },
   {
@@ -309,9 +297,6 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 10.5,
       one_time_weight: 50,
       implementation_weight: 50,
-      attach_enabled: false,
-      attach_name: '',
-      attach_mrr: 0,
     },
   },
   {
@@ -330,9 +315,6 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 0,
       one_time_weight: 50,
       implementation_weight: 50,
-      attach_enabled: false,
-      attach_name: '',
-      attach_mrr: 0,
     },
   },
 ];

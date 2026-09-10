@@ -21,8 +21,13 @@ Generalized only as far as the real plans we've seen:
   rate switches to an accelerated % once a unit threshold lands.
 - *ARR + retroactive bump*: quarterly new-ARR quota, commission as N months of
   MRR, a % bump applied to the whole period — earlier deals included — once
-  quota is crossed. Optional per-unit attach product that feeds MRR and quota.
+  quota is crossed.
 - *Flat*: one rate, quota tracked, no accelerator.
+
+Straight SaaS only — no separate per-unit add-on product. Any add-on is
+bundled into the subscription line like any other price increase, not
+tracked as its own thing; a dedicated attach toggle existed through v3 and
+was removed as a redundant complication (2026-09-10).
 
 Presets for each ship on the Comp plan screen; every number stays editable.
 The engine is parity-tested against both original implementations
@@ -30,8 +35,7 @@ The engine is parity-tested against both original implementations
 
 **The signature moments.** Hold the Line shows money left on the table per
 deal, and calls it out when a discount is the thing keeping a rep under their
-accelerator. The attach toggle shows exactly what attaching is worth on this
-deal — including when it's the difference between crossing quota and not.
+accelerator.
 
 **Storage.** Deals store `commission_base` (base rate) and `commission_earned`
 (as paid at booking). Retroactive bumps are applied at the period level, never

@@ -30,7 +30,6 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
     subscription_amount: deal.subscription,
     subscription_mode: deal.subMode,
     units: r.units,
-    attach: deal.attach,
     one_time_discount_pct: deal.oneTimeDiscountPct,
     implementation_discount_pct: deal.implementationDiscountPct,
     subscription_discount_pct: deal.subscriptionDiscountPct,
@@ -43,7 +42,7 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
   };
 }
 
-/** A mid-period rep: ~87% to quota, mixed attach, a couple of discounts. */
+/** A mid-period rep: ~87% to quota, a couple of discounts. */
 function seedDeals(plan: CompPlan): DealRow[] {
   const start = startOfPeriod(plan.period).getTime();
   const now = Date.now();
@@ -51,14 +50,14 @@ function seedDeals(plan: CompPlan): DealRow[] {
   const D = (
     p: Partial<DealInput> & { subscription: number; units: number },
   ): DealInput => ({
-    oneTime: 0, implementation: 0, subMode: 'mrr', attach: false,
+    oneTime: 0, implementation: 0, subMode: 'mrr',
     oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
   });
   const script: [DealInput, number][] = [
-    [D({ units: 2, subscription: 700, attach: true, oneTime: 1500 }), 0.08],
+    [D({ units: 2, subscription: 1000, oneTime: 1500 }), 0.08],
     [D({ units: 1, subscription: 350, subscriptionDiscountPct: 10, oneTime: 500 }), 0.2],
     [D({ units: 6, subscription: 2100, oneTime: 3000, implementation: 1500, oneTimeDiscountPct: 20 }), 0.35],
-    [D({ units: 3, subscription: 1050, attach: true, oneTime: 2000 }), 0.55],
+    [D({ units: 3, subscription: 1500, oneTime: 2000 }), 0.55],
     [D({ units: 2, subscription: 700, oneTime: 750 }), 0.72],
     [D({ units: 5, subscription: 1750, subscriptionDiscountPct: 5, oneTime: 1750 }), 0.9],
   ];

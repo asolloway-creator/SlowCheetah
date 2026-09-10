@@ -1,6 +1,14 @@
--- IOI schema v3 (2026-09-10): generic engine, two proven plan shapes.
--- Run once in the Supabase SQL editor. Drops v2 comp_plans/deals (demo data).
+-- IOI schema v4 (2026-09-10): generic engine, two proven plan shapes.
+-- Run once in the Supabase SQL editor. Drops v3 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
+--
+-- v4 drops the per-unit attach product (comp_plans.attach_enabled/attach_name/
+-- attach_mrr, deals.attach) — straight SaaS only now; any add-on is bundled
+-- into the subscription line. A live database still on v3 keeps those columns
+-- with harmless defaults (the app no longer reads or writes them) unless you
+-- run:
+--   alter table public.comp_plans drop column attach_enabled, drop column attach_name, drop column attach_mrr;
+--   alter table public.deals drop column attach;
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -37,9 +45,6 @@ create table public.comp_plans (
   accelerator_rate      numeric(8,3)  not null default 0 check (accelerator_rate >= 0),
   one_time_weight       numeric(6,2)  not null default 50 check (one_time_weight between 0 and 100),
   implementation_weight numeric(6,2)  not null default 50 check (implementation_weight between 0 and 100),
-  attach_enabled        boolean not null default false,
-  attach_name           text not null default '',
-  attach_mrr            numeric(10,2) not null default 0 check (attach_mrr >= 0),
   created_at            timestamptz not null default now(),
   unique (user_id)
 );
@@ -55,7 +60,6 @@ create table public.deals (
   subscription_amount         numeric(14,2) not null default 0,
   subscription_mode           text not null default 'mrr' check (subscription_mode in ('mrr','acv')),
   units                       integer not null default 1 check (units >= 1),
-  attach                      boolean not null default false,
   one_time_discount_pct       numeric(5,2) not null default 0 check (one_time_discount_pct between 0 and 100),
   implementation_discount_pct numeric(5,2) not null default 0 check (implementation_discount_pct between 0 and 100),
   subscription_discount_pct   numeric(5,2) not null default 0 check (subscription_discount_pct between 0 and 100),

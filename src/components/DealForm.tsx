@@ -3,24 +3,21 @@
 import type { CompPlan, DealInput, PeriodToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort } from '@/lib/format';
 import NumField from '@/components/NumField';
-import Toggle from '@/components/Toggle';
 import Segmented from '@/components/Segmented';
 import DiscountSlider from '@/components/DiscountSlider';
-import { attachCopy, costOf, dealSummary, oneTimeCopy, type Outcome } from '@/components/opening';
+import { costOf, dealSummary, oneTimeCopy } from '@/components/opening';
 
 type Setter = <K extends keyof DealInput>(k: K, v: DealInput[K]) => void;
 
 /**
  * The deal column. One DOM for every breakpoint: on desktop `.deal-more` is
  * `display: contents` and the grid orders the pairs; below 900px it becomes
- * the "Edit the deal" disclosure and the attach row is pulled out beneath
- * the money block so the second moment is never hidden.
+ * the "Edit the deal" disclosure.
  */
 export default function DealForm({
   plan,
   ptd,
   deal,
-  o,
   set,
   open,
   onToggle,
@@ -28,7 +25,6 @@ export default function DealForm({
   plan: CompPlan;
   ptd: PeriodToDate;
   deal: DealInput;
-  o: Outcome;
   set: Setter;
   open: boolean;
   onToggle: () => void;
@@ -123,20 +119,6 @@ export default function DealForm({
 
         <p className="deal-note">{oneTimeCopy(plan, deal, otCost, implCost)}</p>
       </div>
-
-      {plan.attach_enabled && (
-        <>
-          <div className="attach-row">
-            <span id="attach-label" className="field-label">
-              {plan.attach_name || 'Add-on'}
-            </span>
-            <div className="attach-ctl">
-              <Toggle on={deal.attach} labelledBy="attach-label" onChange={(v) => set('attach', v)} />
-            </div>
-          </div>
-          <p className="nudge">{attachCopy(plan, deal, o)}</p>
-        </>
-      )}
     </section>
   );
 }

@@ -128,7 +128,7 @@ export default function DealStage({
         <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} />
 
         <div className="stage-grid">
-          <DealForm plan={plan} ptd={ptd} deal={deal} o={o} set={set} open={open} onToggle={() => setOpen((v) => !v)} />
+          <DealForm plan={plan} ptd={ptd} deal={deal} set={set} open={open} onToggle={() => setOpen((v) => !v)} />
 
           <section className="money" aria-labelledby="outcome-h">
             <Outcome copy={copy} state={o.state}>
