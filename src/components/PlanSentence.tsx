@@ -168,7 +168,15 @@ export default function PlanSentence({
           />
         </div>
       </div>
-      <NumField id="quota" label={`Quota per ${noun}`} value={p.quota} prefix={arr ? '$' : undefined} integer={!arr} onChange={(n) => set('quota', n)} />
+      <NumField
+        id="quota"
+        label={`Quota per ${noun}`}
+        value={p.quota}
+        prefix={arr ? '$' : undefined}
+        suffix={arr ? undefined : 'units'}
+        integer={!arr}
+        onChange={(n) => set('quota', n)}
+      />
 
       <h2 className="section-h">Commission</h2>
       <div className="field-grid">
@@ -188,13 +196,14 @@ export default function PlanSentence({
           id="rate"
           label="Base rate"
           value={p.base_rate}
+          suffix={percent ? '%' : 'months of MRR'}
           onChange={(n) => set('base_rate', n)}
         />
       </div>
       {percent && (
         <div className="field-grid">
-          <NumField id="w1" label="One-time products count at" value={p.one_time_weight} onChange={(n) => set('one_time_weight', n)} />
-          <NumField id="w2" label="Implementation counts at" value={p.implementation_weight} onChange={(n) => set('implementation_weight', n)} />
+          <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" onChange={(n) => set('one_time_weight', n)} />
+          <NumField id="w2" label="Implementation counts at" value={p.implementation_weight} suffix="%" onChange={(n) => set('implementation_weight', n)} />
         </div>
       )}
 
@@ -224,6 +233,7 @@ export default function PlanSentence({
             label="Kicks in at"
             value={p.accelerator_threshold}
             prefix={arr ? '$' : undefined}
+            suffix={arr ? undefined : 'units'}
             integer={!arr}
             onChange={(n) => set('accelerator_threshold', n)}
           />
@@ -231,6 +241,7 @@ export default function PlanSentence({
             id="arate"
             label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
             value={p.accelerator_rate}
+            suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
             onChange={(n) => set('accelerator_rate', n)}
           />
         </div>
@@ -252,7 +263,7 @@ export default function PlanSentence({
       {p.attach_enabled && (
         <div className="field-grid">
           <TextField id="aname" label="Add-on name" value={p.attach_name} onChange={(v) => set('attach_name', v)} placeholder="Hardware add-on" />
-          <NumField id="amrr" label="Price per unit" value={p.attach_mrr} prefix="$" onChange={(n) => set('attach_mrr', n)} />
+          <NumField id="amrr" label="Price per unit" value={p.attach_mrr} prefix="$" suffix="/mo" onChange={(n) => set('attach_mrr', n)} />
         </div>
       )}
 

@@ -6,9 +6,13 @@ const display = (n: number) =>
   n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 /**
- * A money or count field. Label above, `$` prefix inside the field, thousands
- * separators when it isn't focused, raw digits while it is. Enter blurs.
- * Parses on change and clamps at `min`.
+ * A money, count, or rate field. Label above, `$` prefix inside the field,
+ * thousands separators when it isn't focused, raw digits while it is. Enter
+ * blurs. Parses on change and clamps at `min`.
+ *
+ * `suffix` names the unit when the label alone doesn't ("2" is not a
+ * number anyone can read as "2%" or "2 months of MRR" on its own — it has
+ * to be on the field, not just implied by context).
  */
 export default function NumField({
   id,
@@ -16,6 +20,7 @@ export default function NumField({
   value,
   onChange,
   prefix,
+  suffix,
   min = 0,
   integer = false,
   head,
@@ -26,6 +31,7 @@ export default function NumField({
   value: number;
   onChange: (n: number) => void;
   prefix?: string;
+  suffix?: string;
   min?: number;
   integer?: boolean;
   /** Something to sit at the right of the label row (a segmented control). */
@@ -66,7 +72,7 @@ export default function NumField({
       ) : (
         <label className="field-label" htmlFor={id}>{label}</label>
       )}
-      <div className={`field-box${prefix ? ' has-prefix' : ''}`}>
+      <div className={`field-box${prefix ? ' has-prefix' : ''}${suffix ? ' has-suffix' : ''}`}>
         {prefix && <span className="field-prefix" aria-hidden="true">{prefix}</span>}
         <input
           id={id}
@@ -89,6 +95,7 @@ export default function NumField({
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
         />
+        {suffix && <span className="field-suffix" aria-hidden="true">{suffix}</span>}
       </div>
     </div>
   );

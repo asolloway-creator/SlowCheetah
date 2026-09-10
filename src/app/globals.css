@@ -149,7 +149,9 @@ strong { font-weight: 500; }
 .field-input:focus-visible { border-color: var(--ink); box-shadow: var(--ring); }
 .field-input:disabled { background: var(--hairline); color: var(--grey-1); }
 .field-box.has-prefix .field-input { padding-left: calc(var(--s-3) + var(--s-4)); }
+.field-box.has-suffix .field-input { padding-right: calc(var(--s-3) + 6.5em); }
 .field-prefix { position: absolute; left: var(--s-3); top: 0; height: var(--h-ctl); display: flex; align-items: center; color: var(--grey-1); pointer-events: none; }
+.field-suffix { position: absolute; right: var(--s-3); top: 0; height: var(--h-ctl); display: flex; align-items: center; color: var(--grey-1); pointer-events: none; white-space: nowrap; }
 .field-note { margin-top: var(--s-2); color: var(--grey-1); }
 
 /* segmented */
