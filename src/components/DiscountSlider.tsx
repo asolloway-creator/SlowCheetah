@@ -10,7 +10,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  * A native range with a filled track, a click-to-type value bubble and a
  * "try 0%" tween. Keyboard: ←/→ 0.5, Shift 5, Home/End 0/max.
  * `size="lg"` is the promoted control under the outcome figure;
- * `size="sm"` is the compact one under the one-time / implementation fields.
+ * `size="sm"` is the compact one under the one-time products field.
  */
 export default function DiscountSlider({
   id,

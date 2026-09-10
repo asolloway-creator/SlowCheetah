@@ -57,13 +57,8 @@ export function planSentence(p: CompPlan): string {
       : `${fmtRateShort(p, p.accelerator_rate)} on every deal once ${p.quota_basis === 'units' ? `${th} land` : `you cross ${th}`}`;
 
   let weights: string | null = null;
-  if (percent && !(p.one_time_weight === 100 && p.implementation_weight === 100)) {
-    weights =
-      p.one_time_weight === 50 && p.implementation_weight === 50
-        ? 'one-time and implementation at half weight'
-        : p.one_time_weight === 0 && p.implementation_weight === 0
-          ? 'subscription only'
-          : `one-time at ${fmtPctShort(p.one_time_weight)} · implementation at ${fmtPctShort(p.implementation_weight)}`;
+  if (percent && p.one_time_weight !== 100) {
+    weights = p.one_time_weight === 0 ? 'subscription only' : `one-time products at ${fmtPctShort(p.one_time_weight)}`;
   }
   return [base, accel, weights].filter(Boolean).join(' · ');
 }

@@ -32,19 +32,18 @@ export type CompPlan = {
   /** 'rate_switch': the accelerated rate (same unit as base_rate).
    *  'retro_bump': the % bump applied to the whole period. */
   accelerator_rate: number;
-  /** % of one-time / implementation revenue that is commissionable ('percent' style). */
+  /** % of one-time revenue that is commissionable ('percent' style). One
+   *  bucket for every non-recurring cost on the deal — hardware,
+   *  implementation, setup fees, whatever a given plan charges once. */
   one_time_weight: number;
-  implementation_weight: number;
 };
 
 export type DealInput = {
   oneTime: number;
-  implementation: number;
   subscription: number;
   subMode: SubscriptionMode;
   units: number;
   oneTimeDiscountPct: number;
-  implementationDiscountPct: number;
   subscriptionDiscountPct: number;
 };
 
@@ -95,8 +94,6 @@ export type CalcResult = {
   toQuota: number;
   quotaPct: number;
   totalPayoutImpact: number;
-  oneTimeRevenue: number;
-  oneTimeRevenueList: number;
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -104,7 +101,6 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcResult {
   const units = Math.max(1, Math.round(deal.units));
   const dOt = clamp(deal.oneTimeDiscountPct, 0, 100) / 100;
-  const dImpl = clamp(deal.implementationDiscountPct, 0, 100) / 100;
   const dSub = clamp(deal.subscriptionDiscountPct, 0, 100) / 100;
 
   const subMrrList = deal.subMode === 'acv' ? deal.subscription / 12 : deal.subscription;
@@ -113,14 +109,10 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   const subAnnual = subMrr * 12;
 
   const otDisc = deal.oneTime * (1 - dOt);
-  const implDisc = deal.implementation * (1 - dImpl);
-  const oneTimeRevenueList = deal.oneTime + deal.implementation;
-  const oneTimeRevenue = otDisc + implDisc;
 
   const w1 = plan.one_time_weight / 100;
-  const w2 = plan.implementation_weight / 100;
-  const commissionableFull = deal.oneTime * w1 + deal.implementation * w2 + subAnnualList;
-  const commissionable = otDisc * w1 + implDisc * w2 + subAnnual;
+  const commissionableFull = deal.oneTime * w1 + subAnnualList;
+  const commissionable = otDisc * w1 + subAnnual;
 
   const commissionAt = (rate: number, full: boolean) =>
     plan.commission_style === 'percent'
@@ -161,10 +153,9 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     if (crossesAccelerator) retroBump = crossingWorth;
   }
 
-  const hasDiscount = dOt > 0 || dImpl > 0 || dSub > 0;
+  const hasDiscount = dOt > 0 || dSub > 0;
   const lost = commissionFullEffective - commissionEffective;
-  const customerSavesAnnual =
-    deal.oneTime * dOt + deal.implementation * dImpl + subAnnualList * dSub;
+  const customerSavesAnnual = deal.oneTime * dOt + subAnnualList * dSub;
 
   const fullPriceCrosses = hasAccel && ptd.creditBooked + creditFull >= threshold;
   const discountBlocksAccelerator = !isAccelerated && fullPriceCrosses;
@@ -202,8 +193,6 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     toQuota,
     quotaPct,
     totalPayoutImpact: commissionEffective + retroBump,
-    oneTimeRevenue,
-    oneTimeRevenueList,
   };
 }
 
@@ -277,14 +266,13 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 100000,
       accelerator_rate: 25,
       one_time_weight: 0,
-      implementation_weight: 0,
     },
   },
   {
     id: 'units-switch',
     name: 'Monthly units · rate accelerator',
     blurb:
-      'Commission is a % of commissionable deal value. Hit the unit threshold and every deal from there earns the accelerated rate. One-time and implementation count at half weight.',
+      'Commission is a % of commissionable deal value. Hit the unit threshold and every deal from there earns the accelerated rate. One-time products count at half weight.',
     plan: {
       role_name: 'Senior AE',
       period: 'month',
@@ -296,7 +284,6 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 6,
       accelerator_rate: 10.5,
       one_time_weight: 50,
-      implementation_weight: 50,
     },
   },
   {
@@ -314,7 +301,6 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 0,
       accelerator_rate: 0,
       one_time_weight: 50,
-      implementation_weight: 50,
     },
   },
 ];

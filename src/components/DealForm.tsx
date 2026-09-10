@@ -41,7 +41,6 @@ export default function DealForm({
       : 'Per month or per year — whichever your quote says.';
 
   const otCost = costOf(plan, deal, ptd, 'oneTimeDiscountPct');
-  const implCost = costOf(plan, deal, ptd, 'implementationDiscountPct');
   const costText = (pct: number, cost: number) =>
     `${fmtPctShort(pct)} off${cost > 0 ? ` — costs you ${fmtMoney(cost)}` : ' — costs you nothing'}`;
 
@@ -97,27 +96,7 @@ export default function DealForm({
           />
         </div>
 
-        <div className="deal-impl">
-          <NumField
-            id="impl"
-            label="Implementation"
-            prefix="$"
-            value={deal.implementation}
-            onChange={(n) => set('implementation', n)}
-          />
-          <DiscountSlider
-            size="sm"
-            id="implD"
-            label="Discount on implementation"
-            value={deal.implementationDiscountPct}
-            onChange={(v) => set('implementationDiscountPct', v)}
-            costsYou={implCost}
-            valueText={costText(deal.implementationDiscountPct, implCost)}
-            disabled={deal.implementation <= 0}
-          />
-        </div>
-
-        <p className="deal-note">{oneTimeCopy(plan, deal, otCost, implCost)}</p>
+        <p className="deal-note">{oneTimeCopy(plan, deal, otCost)}</p>
       </div>
     </section>
   );

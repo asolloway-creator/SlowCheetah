@@ -21,14 +21,14 @@ import {
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 
 export const EMPTY: DealInput = {
-  oneTime: 0, implementation: 0, subscription: 0, subMode: 'mrr', units: 1,
-  oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 0,
+  oneTime: 0, subscription: 0, subMode: 'mrr', units: 1,
+  oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
 };
 
 /** The seeded deal: $3,000 one-time, $1,100 MRR × 3 units, 5% off the subscription. */
 export const SAMPLE: DealInput = {
-  oneTime: 3000, implementation: 0, subscription: 1100, subMode: 'mrr', units: 3,
-  oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 5,
+  oneTime: 3000, subscription: 1100, subMode: 'mrr', units: 3,
+  oneTimeDiscountPct: 0, subscriptionDiscountPct: 5,
 };
 
 /**
@@ -37,13 +37,13 @@ export const SAMPLE: DealInput = {
  */
 export const OPENING_PTD: PeriodToDate = { creditBooked: 87330, commissionBooked: 14555, earnedBooked: 14555 };
 
-export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.implementation === 0 && d.subscription === 0;
+export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 
 export const atFullPrice = (d: DealInput): DealInput => ({
-  ...d, oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 0,
+  ...d, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
 });
 
-export type DiscountKey = 'oneTimeDiscountPct' | 'implementationDiscountPct' | 'subscriptionDiscountPct';
+export type DiscountKey = 'oneTimeDiscountPct' | 'subscriptionDiscountPct';
 
 export type OutcomeState = 'empty' | 'blocked' | 'crossed' | 'loss' | 'past' | 'held';
 
@@ -115,7 +115,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
   const bump = `${fmtPctShort(plan.accelerator_rate)}`;
   const accelRate = fmtRateShort(plan, plan.accelerator_rate);
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
-  const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0 && deal.implementationDiscountPct === 0;
+  const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0;
   const residual =
     o.atStake > 0
       ? onlySub
@@ -194,16 +194,13 @@ export function sliderCaption(deal: DealInput, r: CalcResult): string {
   return `${fmtPctShort(d)} off = ${fmtMoney((r.subMrrList * d) / 100)} a month off · the customer saves ${fmtMoney((r.subAnnualList * d) / 100)} a year`;
 }
 
-/** One line under the one-time / implementation pair. */
-export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number, implCost: number): string {
-  if (plan.commission_style !== 'percent' || (plan.one_time_weight === 0 && plan.implementation_weight === 0)) {
+/** One line under the one-time products field. */
+export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number): string {
+  if (plan.commission_style !== 'percent' || plan.one_time_weight === 0) {
     return 'Discounts here cost you nothing on this plan.';
   }
-  const parts: string[] = [];
-  if (deal.oneTimeDiscountPct > 0) parts.push(`${fmtPctShort(deal.oneTimeDiscountPct)} off the one-time products costs you ${fmtMoney(otCost)}.`);
-  if (deal.implementationDiscountPct > 0) parts.push(`${fmtPctShort(deal.implementationDiscountPct)} off implementation costs you ${fmtMoney(implCost)}.`);
-  if (parts.length) return parts.join(' ');
-  return `One-time products count at ${fmtPctShort(plan.one_time_weight)} and implementation at ${fmtPctShort(plan.implementation_weight)} toward your commission.`;
+  if (deal.oneTimeDiscountPct > 0) return `${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products costs you ${fmtMoney(otCost)}.`;
+  return `One-time products count at ${fmtPctShort(plan.one_time_weight)} toward your commission.`;
 }
 
 /** "$3,000 one-time · $1,100 a month × 3 units · 5% off" for the mobile disclosure. */
@@ -211,7 +208,6 @@ export function dealSummary(deal: DealInput): string {
   if (isEmpty(deal)) return 'Nothing yet';
   const parts: string[] = [];
   if (deal.oneTime > 0) parts.push(`${fmtMoney(deal.oneTime)} one-time`);
-  if (deal.implementation > 0) parts.push(`${fmtMoney(deal.implementation)} implementation`);
   if (deal.subscription > 0) {
     parts.push(`${fmtMoney(deal.subscription)} ${deal.subMode === 'acv' ? 'a year' : 'a month'} × ${Math.max(1, Math.round(deal.units))} unit${deal.units === 1 ? '' : 's'}`);
   }

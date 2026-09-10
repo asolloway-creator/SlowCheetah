@@ -377,7 +377,6 @@ main { display: block; padding-bottom: var(--s-8); }
 .deal-sub { order: 1; }
 .deal-units { order: 2; margin-top: var(--s-3); }
 .deal-ot { order: 5; margin-top: var(--s-3); }
-.deal-impl { order: 6; margin-top: var(--s-3); }
 .deal-note { order: 7; color: var(--grey-1); }
 
 /* money column */
@@ -491,7 +490,7 @@ main { display: block; padding-bottom: var(--s-8); }
   .deal-more { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-top: var(--s-4); }
   .deal-more.is-collapsed { display: none; }
   .deal-sub, .deal-note { grid-column: 1 / -1; }
-  .deal-units, .deal-ot, .deal-impl { margin-top: 0; }
+  .deal-units, .deal-ot { margin-top: 0; }
   .deal-summary {
     order: 7; display: flex; flex-direction: column; gap: var(--s-1); width: 100%; margin-top: var(--s-5);
     padding: var(--s-3) var(--s-4); border: var(--hair); border-radius: var(--r-ctl); background: var(--paper);

@@ -1,14 +1,21 @@
--- IOI schema v4 (2026-09-10): generic engine, two proven plan shapes.
--- Run once in the Supabase SQL editor. Drops v3 comp_plans/deals (demo data).
+-- IOI schema v5 (2026-09-10): generic engine, two proven plan shapes.
+-- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
--- v4 drops the per-unit attach product (comp_plans.attach_enabled/attach_name/
+-- v4 dropped the per-unit attach product (comp_plans.attach_enabled/attach_name/
 -- attach_mrr, deals.attach) — straight SaaS only now; any add-on is bundled
--- into the subscription line. A live database still on v3 keeps those columns
--- with harmless defaults (the app no longer reads or writes them) unless you
--- run:
---   alter table public.comp_plans drop column attach_enabled, drop column attach_name, drop column attach_mrr;
---   alter table public.deals drop column attach;
+-- into the subscription line.
+--
+-- v5 drops implementation as its own commission category
+-- (comp_plans.implementation_weight, deals.implementation_amount/
+-- implementation_discount_pct) — it's a one-time cost like hardware or any
+-- other non-recurring line, not a separate weighted bucket; merged into
+-- one_time_weight / one_time_amount / one_time_discount_pct.
+--
+-- A live database on an older version keeps the old columns with harmless
+-- defaults (the app no longer reads or writes them) unless you run:
+--   alter table public.comp_plans drop column attach_enabled, drop column attach_name, drop column attach_mrr, drop column implementation_weight;
+--   alter table public.deals drop column attach, drop column implementation_amount, drop column implementation_discount_pct;
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -44,7 +51,6 @@ create table public.comp_plans (
   accelerator_threshold numeric(14,2) not null default 0 check (accelerator_threshold >= 0),
   accelerator_rate      numeric(8,3)  not null default 0 check (accelerator_rate >= 0),
   one_time_weight       numeric(6,2)  not null default 50 check (one_time_weight between 0 and 100),
-  implementation_weight numeric(6,2)  not null default 50 check (implementation_weight between 0 and 100),
   created_at            timestamptz not null default now(),
   unique (user_id)
 );
@@ -56,12 +62,10 @@ create table public.deals (
   id                          uuid primary key default gen_random_uuid(),
   user_id                     uuid not null references public.users (id) on delete cascade,
   one_time_amount             numeric(14,2) not null default 0,
-  implementation_amount       numeric(14,2) not null default 0,
   subscription_amount         numeric(14,2) not null default 0,
   subscription_mode           text not null default 'mrr' check (subscription_mode in ('mrr','acv')),
   units                       integer not null default 1 check (units >= 1),
   one_time_discount_pct       numeric(5,2) not null default 0 check (one_time_discount_pct between 0 and 100),
-  implementation_discount_pct numeric(5,2) not null default 0 check (implementation_discount_pct between 0 and 100),
   subscription_discount_pct   numeric(5,2) not null default 0 check (subscription_discount_pct between 0 and 100),
   quota_credit                numeric(14,2) not null default 0,
   arr                         numeric(14,2) not null default 0,

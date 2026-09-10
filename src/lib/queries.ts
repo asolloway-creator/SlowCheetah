@@ -10,12 +10,10 @@ import {
 export type DealRow = {
   id: string;
   one_time_amount: number;
-  implementation_amount: number;
   subscription_amount: number;
   subscription_mode: SubscriptionMode;
   units: number;
   one_time_discount_pct: number;
-  implementation_discount_pct: number;
   subscription_discount_pct: number;
   quota_credit: number;
   arr: number;
@@ -51,7 +49,6 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
     accelerator_threshold: num(data.accelerator_threshold),
     accelerator_rate: num(data.accelerator_rate),
     one_time_weight: num(data.one_time_weight),
-    implementation_weight: num(data.implementation_weight),
   };
 }
 
@@ -59,12 +56,10 @@ function toDealRow(d: Record<string, unknown>): DealRow {
   return {
     id: String(d.id),
     one_time_amount: num(d.one_time_amount),
-    implementation_amount: num(d.implementation_amount),
     subscription_amount: num(d.subscription_amount),
     subscription_mode: d.subscription_mode as SubscriptionMode,
     units: num(d.units),
     one_time_discount_pct: num(d.one_time_discount_pct),
-    implementation_discount_pct: num(d.implementation_discount_pct),
     subscription_discount_pct: num(d.subscription_discount_pct),
     quota_credit: num(d.quota_credit),
     arr: num(d.arr),

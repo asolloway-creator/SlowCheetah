@@ -26,7 +26,6 @@ const BLANK_PLAN: CompPlan = {
   accelerator_threshold: 0,
   accelerator_rate: 0,
   one_time_weight: 0,
-  implementation_weight: 0,
 };
 
 /** A plain text field, same visual language as NumField. */
@@ -222,10 +221,7 @@ export default function PlanSentence({
         />
       </div>
       {percent && (
-        <div className="field-grid">
-          <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" onChange={(n) => set('one_time_weight', n)} />
-          <NumField id="w2" label="Implementation counts at" value={p.implementation_weight} suffix="%" onChange={(n) => set('implementation_weight', n)} />
-        </div>
+        <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" onChange={(n) => set('one_time_weight', n)} />
       )}
 
       <h2 className="section-h">Accelerator</h2>

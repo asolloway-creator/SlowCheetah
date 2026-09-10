@@ -26,12 +26,10 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
   return {
     id: `${createdAt.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
     one_time_amount: deal.oneTime,
-    implementation_amount: deal.implementation,
     subscription_amount: deal.subscription,
     subscription_mode: deal.subMode,
     units: r.units,
     one_time_discount_pct: deal.oneTimeDiscountPct,
-    implementation_discount_pct: deal.implementationDiscountPct,
     subscription_discount_pct: deal.subscriptionDiscountPct,
     quota_credit: Number(r.credit.toFixed(2)),
     arr: Number(r.subAnnual.toFixed(2)),
@@ -50,13 +48,15 @@ function seedDeals(plan: CompPlan): DealRow[] {
   const D = (
     p: Partial<DealInput> & { subscription: number; units: number },
   ): DealInput => ({
-    oneTime: 0, implementation: 0, subMode: 'mrr',
-    oneTimeDiscountPct: 0, implementationDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
+    oneTime: 0, subMode: 'mrr',
+    oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
   });
   const script: [DealInput, number][] = [
     [D({ units: 2, subscription: 1000, oneTime: 1500 }), 0.08],
     [D({ units: 1, subscription: 350, subscriptionDiscountPct: 10, oneTime: 500 }), 0.2],
-    [D({ units: 6, subscription: 2100, oneTime: 3000, implementation: 1500, oneTimeDiscountPct: 20 }), 0.35],
+    // $3,000 one-time + $1,500 implementation, folded into one $4,500 line —
+    // 13.3% blends to the same $3,900 net as the old 20%-off-$3,000-only split.
+    [D({ units: 6, subscription: 2100, oneTime: 4500, oneTimeDiscountPct: 13.3 }), 0.35],
     [D({ units: 3, subscription: 1500, oneTime: 2000 }), 0.55],
     [D({ units: 2, subscription: 700, oneTime: 750 }), 0.72],
     [D({ units: 5, subscription: 1750, subscriptionDiscountPct: 5, oneTime: 1750 }), 0.9],

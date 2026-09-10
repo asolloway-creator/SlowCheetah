@@ -17,8 +17,8 @@ get the same UI against their own private rows (RLS-scoped).
 **One engine, two proven plan shapes** ([src/lib/calc.ts](src/lib/calc.ts)).
 Generalized only as far as the real plans we've seen:
 - *Units + rate switch*: monthly unit quota, commission as a % of
-  commissionable value (one-time and implementation at a configurable weight),
-  rate switches to an accelerated % once a unit threshold lands.
+  commissionable value (one-time products at a configurable weight), rate
+  switches to an accelerated % once a unit threshold lands.
 - *ARR + retroactive bump*: quarterly new-ARR quota, commission as N months of
   MRR, a % bump applied to the whole period — earlier deals included — once
   quota is crossed.
@@ -28,6 +28,15 @@ Straight SaaS only — no separate per-unit add-on product. Any add-on is
 bundled into the subscription line like any other price increase, not
 tracked as its own thing; a dedicated attach toggle existed through v3 and
 was removed as a redundant complication (2026-09-10).
+
+One-time products is a single bucket — hardware, implementation, setup fees,
+whatever a plan charges once. Implementation used to be its own parallel
+category with its own weight and discount slider; dropped (2026-09-10) once
+it turned out every real preset weighted it identically to one-time products
+anyway, and the real MarginEdge plan (`months_of_mrr`) never commissioned
+either one — implementation as a separately-tracked payout category was
+never actually confirmed as part of Bob's plan and is now removed from the
+payout math entirely, not just hidden.
 
 Presets for each ship on the Comp plan screen; every number stays editable.
 The engine is parity-tested against both original implementations

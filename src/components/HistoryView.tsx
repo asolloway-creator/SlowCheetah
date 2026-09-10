@@ -6,16 +6,11 @@ import { periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmtDate, fmtMoney, fmtPctShort } from '@/lib/format';
 
-const dealValue = (d: DealRow) =>
-  d.one_time_amount * (1 - d.one_time_discount_pct / 100) +
-  d.implementation_amount * (1 - d.implementation_discount_pct / 100) +
-  d.arr;
+const dealValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + d.arr;
 
 const blendedDisc = (d: DealRow) => {
   const full =
-    d.one_time_amount +
-    d.implementation_amount +
-    (d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12);
+    d.one_time_amount + (d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12);
   return full > 0 ? ((full - dealValue(d)) / full) * 100 : 0;
 };
 

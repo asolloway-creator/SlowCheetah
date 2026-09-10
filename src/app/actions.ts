@@ -17,15 +17,13 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
 
   const deal: DealInput = {
     oneTime: money(input.oneTime),
-    implementation: money(input.implementation),
     subscription: money(input.subscription),
     subMode: input.subMode === 'acv' ? 'acv' : 'mrr',
     units: Math.max(1, Math.round(Number(input.units) || 1)),
     oneTimeDiscountPct: clampPct(input.oneTimeDiscountPct),
-    implementationDiscountPct: clampPct(input.implementationDiscountPct),
     subscriptionDiscountPct: clampPct(input.subscriptionDiscountPct),
   };
-  if (deal.oneTime === 0 && deal.implementation === 0 && deal.subscription === 0)
+  if (deal.oneTime === 0 && deal.subscription === 0)
     return { error: 'Enter at least one line item before saving.' };
 
   // Recompute against the live period rather than trusting the browser.
@@ -35,12 +33,10 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   const { error } = await supabase.from('deals').insert({
     user_id: user.id,
     one_time_amount: deal.oneTime,
-    implementation_amount: deal.implementation,
     subscription_amount: deal.subscription,
     subscription_mode: deal.subMode,
     units: deal.units,
     one_time_discount_pct: deal.oneTimeDiscountPct,
-    implementation_discount_pct: deal.implementationDiscountPct,
     subscription_discount_pct: deal.subscriptionDiscountPct,
     quota_credit: Number(r.credit.toFixed(2)),
     arr: Number(r.subAnnual.toFixed(2)),
@@ -79,7 +75,6 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     accelerator_threshold: n(input.accelerator_threshold),
     accelerator_rate: n(input.accelerator_rate),
     one_time_weight: clampPct(Number(input.one_time_weight)),
-    implementation_weight: clampPct(Number(input.implementation_weight)),
   };
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };
