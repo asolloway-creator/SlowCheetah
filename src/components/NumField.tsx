@@ -83,9 +83,18 @@ export default function NumField({
           value={draft}
           disabled={disabled}
           onChange={(e) => handle(e.target.value)}
-          onFocus={() => {
+          onFocus={(e) => {
             setFocused(true);
             setDraft(String(value));
+            // Select the whole value so the first keystroke replaces it —
+            // otherwise typing into a field showing "0" inserts at wherever
+            // the click landed the cursor (e.g. "0" + "5" = "05"), and the
+            // same happens to any other leftover value, not just zero.
+            // Deferred a tick: the browser sets its own cursor position on
+            // the native click AFTER this focus handler runs, which would
+            // otherwise collapse the selection right back down to a point.
+            const el = e.currentTarget;
+            setTimeout(() => el.select(), 0);
           }}
           onBlur={() => {
             setFocused(false);
