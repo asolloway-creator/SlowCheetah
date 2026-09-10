@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { calc, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmt, fmtD, fmtCredit, fmtRate, periodNoun } from '@/lib/format';
 import TweenedMoney from '@/components/TweenedMoney';
@@ -89,6 +90,13 @@ export default function DealBuilder({ plan, ptd, demo, onSave }: {
 
   return (
     <>
+      {demo && (
+        <div className="sample-chip">
+          <span className="sample-dot" />
+          You&rsquo;re looking at a sample rep &mdash; {plan.role_name}, {fmtCredit(plan, plan.quota)} {noun}ly quota, {Math.round((ptd.creditBooked / plan.quota) * 100)}% there.
+          <Link href="/plan">Swap in your plan &rarr;</Link>
+        </div>
+      )}
       <div className="context">
         <div className="ctx-field"><span className="label">Plan</span><span className="ctx-value">{plan.role_name}</span></div>
         <div className="ctx-field">
@@ -160,7 +168,7 @@ export default function DealBuilder({ plan, ptd, demo, onSave }: {
           <div className="card">
             <div className="card-title">Book it</div>
             {msg.error && <div className="notice err">{msg.error}</div>}
-            {msg.ok && <div className="notice ok">{msg.ok} Your position above has moved.</div>}
+            {msg.ok && <div className="notice ok">{msg.ok} Your position above has moved. <Link href="/quota" style={{ fontWeight: 600, textDecoration: 'underline' }}>See it on your quota &rarr;</Link></div>}
             <div className="card-note" style={{ marginBottom: 14 }}>
               {demo
                 ? 'Booking saves to this browser only. Sign in to keep deals across devices and sessions.'

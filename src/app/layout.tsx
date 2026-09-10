@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter, IBM_Plex_Mono } from 'next/font/google';
+import { Instrument_Serif, Instrument_Sans } from 'next/font/google';
 import './globals.css';
 
-const sans = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--sans' });
-const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--mono' });
+const display = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], variable: '--display' });
+const sans = Instrument_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--sans' });
 
 const TITLE = 'IOI — See the whole deal before the offer is made';
 const DESC =
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body>{children}</body>
     </html>
   );
