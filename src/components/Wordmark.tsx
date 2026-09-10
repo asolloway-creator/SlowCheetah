@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import Mark from '@/components/Mark';
 
-/** The brand says its name once. Used by the masthead on every route. */
+/**
+ * The brand says its name once. The mark (post-ring-post) lives on the
+ * favicon only — putting it beside the text here just repeated "IOI" twice.
+ */
 export default function Wordmark() {
   return (
     <Link href="/" className="wordmark">
-      <Mark />
-      <span>IOI</span>
+      IOI
     </Link>
   );
 }

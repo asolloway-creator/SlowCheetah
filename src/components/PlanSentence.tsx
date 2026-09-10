@@ -2,141 +2,58 @@
 
 import { useState } from 'react';
 import { PRESETS, type CompPlan, type Preset } from '@/lib/calc';
-import { periodNoun } from '@/lib/format';
+import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
+import NumField from '@/components/NumField';
+import Segmented from '@/components/Segmented';
+import Toggle from '@/components/Toggle';
 
 const matchPreset = (plan: CompPlan) =>
   PRESETS.find((p) => JSON.stringify(p.plan) === JSON.stringify(plan))?.id ?? null;
 
-const showNum = (n: number, money: boolean) =>
-  `${money ? '$' : ''}${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
-
-/** A text blank sized to its content. */
-function TextBlank({
+/** A plain text field, same visual language as NumField. */
+function TextField({
   id,
   label,
   value,
   onChange,
+  placeholder,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
-    <span className="blank-wrap" data-value={value || label}>
-      <label className="sr-only" htmlFor={id}>
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
         {label}
       </label>
-      <input
-        id={id}
-        className="blank"
-        type="text"
-        value={value}
-        placeholder={label}
-        autoComplete="off"
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-      />
-    </span>
-  );
-}
-
-/** A numeric blank: formatted at rest, raw digits while focused. */
-function NumBlank({
-  id,
-  label,
-  value,
-  onChange,
-  money = false,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-  money?: boolean;
-}) {
-  const [focused, setFocused] = useState(false);
-  const [draft, setDraft] = useState(showNum(value, money));
-  const [emitted, setEmitted] = useState(value);
-  if (value !== emitted) {
-    setEmitted(value);
-    setDraft(focused ? String(value) : showNum(value, money));
-  }
-  const parse = (raw: string) => {
-    const n = parseFloat(raw.replace(/[^0-9.]/g, ''));
-    return Number.isNaN(n) ? 0 : Math.max(0, Math.round(n * 100) / 100);
-  };
-  return (
-    <span className="blank-wrap" data-value={draft || '0'}>
-      <label className="sr-only" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        className="blank"
-        type="text"
-        inputMode="decimal"
-        autoComplete="off"
-        value={draft}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          const n = parse(e.target.value);
-          setEmitted(n);
-          onChange(n);
-        }}
-        onFocus={() => {
-          setFocused(true);
-          setDraft(String(value));
-        }}
-        onBlur={() => {
-          setFocused(false);
-          setDraft(showNum(parse(draft), money));
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-      />
-    </span>
-  );
-}
-
-/** A native select styled as an underlined word with a chevron. */
-function Choice<T extends string>({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: T;
-  options: [T, string][];
-  onChange: (v: T) => void;
-}) {
-  const shown = options.find(([v]) => v === value)?.[1] ?? '';
-  return (
-    <span className="blank-wrap blank-wrap-select" data-value={shown}>
-      <label className="sr-only" htmlFor={id}>
-        {label}
-      </label>
-      <select id={id} className="blank blank-select" value={value} onChange={(e) => onChange(e.target.value as T)}>
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </span>
+      <div className="field-box">
+        <input
+          id={id}
+          className="field-input"
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
 /**
- * Your plan, in a sentence: three preset tiles, then the plan rendered as
- * prose with editable blanks. Editing any blank deselects the tiles.
+ * Your plan: three preset tiles to start from, then the numbers as a
+ * conventional labelled form — grouped into what you're paid on, how the
+ * accelerator works, and the optional per-unit add-on. A one-line readout
+ * up top says the plan back in plain English so you can check it at a
+ * glance; the form below it is what you actually edit.
  */
 export default function PlanSentence({
   plan,
@@ -175,7 +92,9 @@ export default function PlanSentence({
   const percent = p.commission_style === 'percent';
   const noun = periodNoun(p);
   const article = /^[aeiou]/i.test(p.role_name.trim()) ? 'an' : 'a';
-  const unit = arr ? ' in new ARR' : ' units';
+
+  const target = arr ? fmt(p.quota) : `${p.quota.toLocaleString('en-US')} unit${p.quota === 1 ? '' : 's'}`;
+  const readout = `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
 
   return (
     <div className="plan">
@@ -188,103 +107,123 @@ export default function PlanSentence({
 
       <PresetTiles selected={preset} onSelect={choose} />
 
-      <h2 className="section-h">Your plan, in a sentence</h2>
-      <p className="plan-sentence">
-        I&rsquo;m {article} <TextBlank id="role" label="Role name" value={p.role_name} onChange={(v) => set('role_name', v)} />
-        . My quota is{' '}
-        <NumBlank id="quota" label={`Quota per ${noun}`} value={p.quota} money={arr} onChange={(n) => set('quota', n)} />
-        {arr ? ' of ' : ' '}
-        <Choice
-          id="basis"
-          label="Quota measured in"
-          value={p.quota_basis}
-          options={[
-            ['arr', 'new ARR'],
-            ['units', 'units'],
-          ]}
-          onChange={(v) => set('quota_basis', v)}
-        />{' '}
-        per{' '}
-        <Choice
-          id="period"
-          label="Quota period"
-          value={p.period}
-          options={[
-            ['quarter', 'quarter'],
-            ['month', 'month'],
-          ]}
-          onChange={(v) => set('period', v)}
+      <p className="plan-readout">{readout}</p>
+
+      <h2 className="section-h">Role &amp; quota</h2>
+      <TextField id="role" label="Role name" value={p.role_name} onChange={(v) => set('role_name', v)} placeholder="Account Executive" />
+      <div className="field-grid">
+        <div className="field">
+          <span className="field-label">Quota period</span>
+          <Segmented
+            label="Quota period"
+            value={p.period}
+            options={[
+              ['month', 'Monthly'],
+              ['quarter', 'Quarterly'],
+            ]}
+            onChange={(v) => set('period', v)}
+          />
+        </div>
+        <div className="field">
+          <span className="field-label">Quota measured in</span>
+          <Segmented
+            label="Quota measured in"
+            value={p.quota_basis}
+            options={[
+              ['arr', 'New ARR'],
+              ['units', 'Units'],
+            ]}
+            onChange={(v) => set('quota_basis', v)}
+          />
+        </div>
+      </div>
+      <NumField id="quota" label={`Quota per ${noun}`} value={p.quota} prefix={arr ? '$' : undefined} integer={!arr} onChange={(n) => set('quota', n)} />
+
+      <h2 className="section-h">Commission</h2>
+      <div className="field-grid">
+        <div className="field">
+          <span className="field-label">Paid as</span>
+          <Segmented
+            label="Commission paid as"
+            value={p.commission_style}
+            options={[
+              ['months_of_mrr', 'Months of MRR'],
+              ['percent', '% of deal value'],
+            ]}
+            onChange={(v) => set('commission_style', v)}
+          />
+        </div>
+        <NumField
+          id="rate"
+          label="Base rate"
+          value={p.base_rate}
+          onChange={(n) => set('base_rate', n)}
         />
-        . I earn <NumBlank id="rate" label="Base rate" value={p.base_rate} onChange={(n) => set('base_rate', n)} />{' '}
-        <Choice
-          id="style"
-          label="Commission paid as"
-          value={p.commission_style}
-          options={[
-            ['months_of_mrr', 'months of MRR'],
-            ['percent', '% of deal value'],
-          ]}
-          onChange={(v) => set('commission_style', v)}
-        />{' '}
-        on every deal.{' '}
-        {percent && (
-          <>
-            One-time products count at{' '}
-            <NumBlank id="w1" label="One-time products weight, percent" value={p.one_time_weight} onChange={(n) => set('one_time_weight', n)} />
-            % and implementation at{' '}
-            <NumBlank id="w2" label="Implementation weight, percent" value={p.implementation_weight} onChange={(n) => set('implementation_weight', n)} />
-            %.{' '}
-          </>
-        )}
-        <Choice
-          id="accel"
-          label="Accelerator"
+      </div>
+      {percent && (
+        <div className="field-grid">
+          <NumField id="w1" label="One-time products count at" value={p.one_time_weight} onChange={(n) => set('one_time_weight', n)} />
+          <NumField id="w2" label="Implementation counts at" value={p.implementation_weight} onChange={(n) => set('implementation_weight', n)} />
+        </div>
+      )}
+
+      <h2 className="section-h">Accelerator</h2>
+      <div className="field">
+        <span className="field-label">Style</span>
+        <Segmented
+          label="Accelerator style"
           value={p.accelerator_style}
           options={[
-            ['retro_bump', 'When I cross'],
-            ['rate_switch', 'Once I land'],
-            ['none', 'There’s no accelerator'],
+            ['none', 'None'],
+            ['rate_switch', 'Rate switch'],
+            ['retro_bump', 'Retroactive bump'],
           ]}
           onChange={(v) => set('accelerator_style', v)}
         />
-        {p.accelerator_style === 'retro_bump' && (
-          <>
-            {' '}
-            <NumBlank id="th" label="Accelerator threshold" value={p.accelerator_threshold} money={arr} onChange={(n) => set('accelerator_threshold', n)} />
-            {unit}, every deal this {noun} pays{' '}
-            <NumBlank id="arate" label="Bump, percent" value={p.accelerator_rate} onChange={(n) => set('accelerator_rate', n)} />% more — including the ones
-            already closed.
-          </>
-        )}
-        {p.accelerator_style === 'rate_switch' && (
-          <>
-            {' '}
-            <NumBlank id="th" label="Accelerator threshold" value={p.accelerator_threshold} money={arr} onChange={(n) => set('accelerator_threshold', n)} />
-            {unit}, every deal from there pays{' '}
-            <NumBlank id="arate" label="Accelerated rate" value={p.accelerator_rate} onChange={(n) => set('accelerator_rate', n)} />
-            {percent ? '%' : ' months of MRR'}.
-          </>
-        )}
-        {p.accelerator_style === 'none' && <> — the same rate all {noun}.</>}{' '}
-        <label className="blank blank-check">
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={p.attach_enabled}
-            onChange={(e) => set('attach_enabled', e.target.checked)}
-          />
-          <span className="check-glyph" aria-hidden="true" />
-          <span className="sr-only">Per-unit add-on: </span>
-          {p.attach_enabled ? 'Each unit can carry a' : 'No per-unit add-on.'}
-        </label>
-        {p.attach_enabled && (
-          <>
-            {' '}
-            <TextBlank id="aname" label="Add-on name" value={p.attach_name} onChange={(v) => set('attach_name', v)} /> at{' '}
-            <NumBlank id="amrr" label="Add-on price per unit, per month" value={p.attach_mrr} money onChange={(n) => set('attach_mrr', n)} /> a month.
-          </>
-        )}
+      </div>
+      <p className="field-note">
+        {p.accelerator_style === 'none' && 'Same rate on every deal, all ' + noun + ' long. Quota is still tracked.'}
+        {p.accelerator_style === 'rate_switch' && `Once the threshold lands, every deal from that one on earns the accelerated rate. Earlier deals keep the base rate.`}
+        {p.accelerator_style === 'retro_bump' && `Once the threshold lands, the bump applies to every deal in the ${noun} — including the ones already closed.`}
       </p>
+      {p.accelerator_style !== 'none' && (
+        <div className="field-grid">
+          <NumField
+            id="th"
+            label="Kicks in at"
+            value={p.accelerator_threshold}
+            prefix={arr ? '$' : undefined}
+            integer={!arr}
+            onChange={(n) => set('accelerator_threshold', n)}
+          />
+          <NumField
+            id="arate"
+            label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
+            value={p.accelerator_rate}
+            onChange={(n) => set('accelerator_rate', n)}
+          />
+        </div>
+      )}
+
+      <h2 className="section-h">Add-on product</h2>
+      <p className="field-note">
+        Optional. Some plans pay extra for a per-unit add-on — hardware, an upsell module, extra seats — priced monthly and counted
+        toward both commission and quota. Most plans don&rsquo;t have one; leave this off unless yours does.
+      </p>
+      <div className="plan-attach-row">
+        <span id="attach-label" className="field-label">
+          Per-unit add-on on deals
+        </span>
+        <div className="attach-ctl">
+          <Toggle on={p.attach_enabled} labelledBy="attach-label" onChange={(v) => set('attach_enabled', v)} />
+        </div>
+      </div>
+      {p.attach_enabled && (
+        <div className="field-grid">
+          <TextField id="aname" label="Add-on name" value={p.attach_name} onChange={(v) => set('attach_name', v)} placeholder="Hardware add-on" />
+          <NumField id="amrr" label="Price per unit" value={p.attach_mrr} prefix="$" onChange={(n) => set('attach_mrr', n)} />
+        </div>
+      )}
 
       <div className="plan-save">
         <p className={`plan-msg${msg.error ? ' is-error' : ''}`} aria-live="polite">
