@@ -61,6 +61,25 @@ comp, stacked SPIFs, multiple simultaneous quotas, ramp schedules, non-USD,
 and periods other than month/quarter. Tiered commission is the most common
 gap and the next one worth closing if a real plan needs it.
 
+**Scope for tiered commission, when it's next up (2026-09-10):** a third
+`commission_style: 'tiered'` — not another `accelerator_style`, since a
+tiered plan has no separate base rate, the brackets are the rate structure.
+`accelerator_style` forced to `'none'` alongside it for v1; stacking a
+retroactive bump or rate switch on top of tiers is a real thing some plans
+do, but scoping it now would be guessing at a shape nobody's confirmed yet.
+Needs: a new `tiers: {upTo, rate}[]` shape (a JSONB column on `comp_plans`,
+since every other field is a fixed scalar), a proportional bracket-split
+calculation for a deal that straddles more than one tier (needs its own
+exhaustive test suite — this is the one piece of new math and it has to be
+exactly right), a variable-length tier-list editor component (add/remove/
+reorder rows — no existing form pattern in the app does this), a fourth
+preset, and new deal-page narrative copy — "Hold the Line" is built around
+one dramatic threshold crossing, and tiered plans don't have that moment;
+a discount still costs something (less of the deal lands in the top
+bracket), but it needs its own sentence, not a copy tweak on the existing
+one. Roughly a half-day of careful work; the math correctness and the new
+narrative are where the time goes, not the fields.
+
 **Next feature, scoped but not built:** let a rep describe their plan in free
 text and have an LLM map it onto the *existing* `CompPlan` fields — a better
 front door to the same three shapes, not a new calculation engine. The
