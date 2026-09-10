@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { Instrument_Serif, Instrument_Sans } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-const display = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], variable: '--display' });
-const sans = Instrument_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--sans' });
+// One family. The optical-size axis gives the display cut above 32px; the
+// tabular figures come from the font itself (see :root in globals.css).
+const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter', display: 'swap' });
 
 const TITLE = 'IOI — See the whole deal before the offer is made';
 const DESC =
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

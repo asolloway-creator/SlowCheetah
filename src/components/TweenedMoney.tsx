@@ -1,18 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { fmtD } from '@/lib/format';
+import { fmtMoney } from '@/lib/format';
 
 /**
- * Eases a currency figure from its previous value to the new one, the way the
- * prototype's hero numbers did. Respects prefers-reduced-motion.
+ * Eases a currency figure from its previous value to the new one — 400ms,
+ * cubic-out (the same curve as --ease-out), snapping under
+ * prefers-reduced-motion. Set in a face with tabular figures, so the width
+ * holds while digits change and only shifts when the digit count does.
  */
 export default function TweenedMoney({
   value,
   className,
+  format = fmtMoney,
+  signed = false,
+  duration = 400,
 }: {
   value: number;
   className?: string;
+  format?: (n: number) => string;
+  signed?: boolean;
+  duration?: number;
 }) {
   const [shown, setShown] = useState(value);
   const from = useRef(value);
@@ -20,8 +28,7 @@ export default function TweenedMoney({
 
   useEffect(() => {
     const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     const start = from.current;
     from.current = value;
@@ -31,13 +38,15 @@ export default function TweenedMoney({
       return;
     }
 
+    // Whole-dollar figures count in whole dollars so cents never flicker in.
+    const whole = Number.isInteger(Math.round(start * 100) / 100) && Number.isInteger(Math.round(value * 100) / 100);
     const t0 = performance.now();
-    const dur = 240;
 
     const step = (ts: number) => {
-      const p = Math.min(1, (ts - t0) / dur);
+      const p = Math.min(1, (ts - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      setShown(start + (value - start) * eased);
+      const v = start + (value - start) * eased;
+      setShown(p >= 1 ? value : whole ? Math.round(v) : v);
       if (p < 1) raf.current = requestAnimationFrame(step);
     };
     raf.current = requestAnimationFrame(step);
@@ -45,7 +54,8 @@ export default function TweenedMoney({
     return () => {
       if (raf.current !== null) cancelAnimationFrame(raf.current);
     };
-  }, [value]);
+  }, [value, duration]);
 
-  return <span className={className}>{fmtD(shown)}</span>;
+  const text = signed ? `${shown > 0 ? '+' : shown < 0 ? '−' : ''}${format(Math.abs(shown))}` : format(shown);
+  return <span className={className}>{text}</span>;
 }

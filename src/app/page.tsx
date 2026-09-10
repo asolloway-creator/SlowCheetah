@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
+import { periodLabel } from '@/lib/calc';
 import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
 import { saveDealAction } from './actions';
-import { AccountShell } from './AccountViews';
+import { Shell } from './AccountViews';
 import { DemoDeal } from './demo/DemoViews';
-import DealBuilder from '@/components/DealBuilder';
+import DealStage from '@/components/DealStage';
 
 export default async function Home() {
   const { user } = await currentUser();
@@ -15,8 +16,9 @@ export default async function Home() {
   void _deals;
 
   return (
-    <AccountShell current="/" email={user.email ?? ''}>
-      <DealBuilder plan={plan} ptd={ptd} demo={false} onSave={saveDealAction} />
-    </AccountShell>
+    <Shell current="/" email={user.email ?? ''}>
+      <h1 className="page-title">New deal · {periodLabel(plan.period)}</h1>
+      <DealStage plan={plan} ptd={ptd} demo={false} onSave={saveDealAction} />
+    </Shell>
   );
 }

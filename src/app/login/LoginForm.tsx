@@ -16,9 +16,7 @@ export default function LoginForm() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
-      },
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
     });
 
     if (error) {
@@ -31,45 +29,55 @@ export default function LoginForm() {
 
   if (status === 'sent') {
     return (
-      <>
-        <div className="notice ok">
-          Link sent to <strong>{email}</strong>. Open it in this browser to finish
-          signing in.
-        </div>
-        <button className="btn btn-quiet btn-lg" onClick={() => setStatus('idle')}>
-          Use a different email
-        </button>
-      </>
+      <div className="auth-page">
+        <h1 className="page-title">Check your email</h1>
+        <p className="auth-copy">
+          We sent a sign-in link to <strong>{email}</strong>. Open it in this browser to finish signing in.
+        </p>
+        <p className="auth-copy">
+          <button type="button" className="btn-text" onClick={() => setStatus('idle')}>
+            Use a different email
+          </button>
+        </p>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={onSubmit}>
-      {error && <div className="notice err">{error}</div>}
-      <div className="field">
-        <label className="label" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          className="txt"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          required
-          autoComplete="email"
-          autoFocus
-        />
-      </div>
-      <button
-        className="btn btn-primary btn-lg"
-        type="submit"
-        disabled={status === 'sending' || !email.trim()}
-        style={{ marginTop: 6 }}
-      >
-        {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
-      </button>
-    </form>
+    <div className="auth-page">
+      <h1 className="page-title">Sign in</h1>
+      <p className="auth-copy">
+        Keep your plan, your deals and your quarter &mdash; on any device. We&rsquo;ll email you a link; there&rsquo;s
+        no password.
+      </p>
+      <form className="auth-form" onSubmit={onSubmit} noValidate={false}>
+        {error && <p className="auth-error">{error}</p>}
+        <div className="field">
+          <label className="field-label" htmlFor="email">
+            Email
+          </label>
+          <div className="field-box">
+            <input
+              id="email"
+              className="field-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              required
+              autoComplete="email"
+              autoFocus
+            />
+          </div>
+        </div>
+        <button className="btn btn-primary btn-block" type="submit" disabled={status === 'sending'}>
+          {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
+        </button>
+      </form>
+      <p className="auth-privacy">
+        Your plan and your deals are stored under your account, visible only to you &mdash; nobody who runs this app
+        can read them through it.
+      </p>
+    </div>
   );
 }

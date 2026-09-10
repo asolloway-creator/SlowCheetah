@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, listDeals } from '@/lib/queries';
 import { deleteDealAction } from '../actions';
-import { AccountShell } from '../AccountViews';
+import { Shell } from '../AccountViews';
 import { DemoHistory } from '../demo/DemoViews';
 import HistoryView from '@/components/HistoryView';
 
-export const metadata = { title: 'Deal history — IOI' };
+export const metadata = { title: 'Your deals — IOI' };
 
 export default async function HistoryPage() {
   const { user } = await currentUser();
@@ -14,8 +14,8 @@ export default async function HistoryPage() {
   if (!plan) redirect('/plan');
   const deals = await listDeals(user.id);
   return (
-    <AccountShell current="/history" email={user.email ?? ''}>
+    <Shell current="/history" email={user.email ?? ''} width="table">
       <HistoryView plan={plan} deals={deals} onDelete={deleteDealAction} />
-    </AccountShell>
+    </Shell>
   );
 }

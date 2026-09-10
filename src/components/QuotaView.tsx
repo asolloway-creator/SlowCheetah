@@ -3,109 +3,109 @@
 import Link from 'next/link';
 import { periodLabel, periodSummary, type CompPlan, type PeriodToDate } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { fmt, fmtD, fmtCredit, fmtRate, periodNoun } from '@/lib/format';
-import ProgressBar from '@/components/ProgressBar';
+import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import QuotaLine from '@/components/QuotaLine';
+import Ledger, { type LedgerRow } from '@/components/Ledger';
 
+/** Where you stand: one narrative — a figure, the line, one sentence, a ledger. */
 export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: PeriodToDate; deals: DealRow[] }) {
   const s = periodSummary(plan, ptd);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const retro = plan.accelerator_style === 'retro_bump';
   const hasAccel = plan.accelerator_style !== 'none';
-  const accelWord = retro ? `+${plan.accelerator_rate}%` : fmtRate(plan, plan.accelerator_rate);
+  const empty = deals.length === 0;
 
   const units = deals.reduce((n, d) => n + d.units, 0);
   const arr = deals.reduce((n, d) => n + d.arr, 0);
   const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
-  const barColor = s.accelerated ? 'var(--green)' : s.quotaPct >= 70 ? 'var(--amber)' : 'var(--steel)';
+  const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
 
-  // Attach product: what the unattached units are leaving behind.
+  // The add-on: what the unattached units are leaving behind.
   const attachUnits = deals.filter((d) => d.attach).reduce((n, d) => n + d.units, 0);
   const nonAttach = units - attachUnits;
-  const attachPct = units > 0 ? Math.round((attachUnits / units) * 100) : 0;
   const missedArr = nonAttach * plan.attach_mrr * 12;
   const missedCommission =
-    plan.commission_style === 'months_of_mrr' ? nonAttach * plan.attach_mrr * plan.base_rate : missedArr * (plan.base_rate / 100);
+    plan.commission_style === 'months_of_mrr'
+      ? nonAttach * plan.attach_mrr * plan.base_rate
+      : missedArr * (plan.base_rate / 100);
   const missedCredit = plan.quota_basis === 'arr' ? missedArr : 0;
   const wouldBe = ptd.creditBooked + missedCredit;
   const wouldCross = hasAccel && !s.accelerated && wouldBe >= plan.accelerator_threshold;
+  const addOn = (plan.attach_name || 'add-on').replace(/^./, (c) => c.toLowerCase());
+
+  const sentence = hasAccel
+    ? s.accelerated
+      ? retro
+        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(plan.accelerator_rate)} more — ${fmtMoney(s.acceleratorValue)} so far.`
+        : `You’re past your accelerator. Every deal from here earns ${fmtRateShort(plan, plan.accelerator_rate)}.`
+      : retro
+        ? `Hold the line on the next ${fmtCredit(plan, s.toAccelerator)} and you unlock ${fmtSigned(s.acceleratorValue)} on the deals you’ve already closed.`
+        : `${fmtCredit(plan, plan.accelerator_threshold)} land and every deal from there earns ${fmtRateShort(plan, plan.accelerator_rate)} — ${fmtCredit(plan, s.toAccelerator)} to go.`
+    : s.attained
+      ? 'Quota made. Same rate on every deal.'
+      : `${fmtCredit(plan, s.toQuota)} to quota. Same rate on every deal.`;
+
+  const rows: LedgerRow[] = [
+    { label: 'Deals booked', value: String(deals.length), suffix: `· ${units} unit${units === 1 ? '' : 's'}` },
+    { label: 'New ARR', value: fmtMoney(arr) },
+    {
+      label: 'Commission so far',
+      value: fmtMoney(s.payout),
+      suffix:
+        s.accelerated && retro
+          ? `· includes the +${fmtPctShort(plan.accelerator_rate)} bump`
+          : plan.accelerator_style === 'rate_switch' && s.accelerated
+            ? '· as booked'
+            : `· at ${fmtRateShort(plan, plan.base_rate)}`,
+    },
+    { label: 'Left on the table', value: lost > 0 ? fmtMoney(lost) : '—', tone: lost > 0 ? 'red' : 'dim' },
+    ...(plan.attach_enabled
+      ? [{ label: plan.attach_name || 'Add-on', value: `on ${attachUnits} of ${units} unit${units === 1 ? '' : 's'}` }]
+      : []),
+  ];
+
+  const attachSentence =
+    plan.attach_enabled && !empty && nonAttach > 0
+      ? wouldCross
+        ? `With the ${addOn} on every unit you’ve sold, this ${noun} would sit at ${fmtCredit(plan, wouldBe)} — past your accelerator${
+            retro
+              ? `, with ${fmtSigned((plan.accelerator_rate / 100) * (ptd.commissionBooked + missedCommission))} unlocked retroactively`
+              : ''
+          }.`
+        : plan.quota_basis === 'arr'
+          ? `With the ${addOn} on every unit you’ve sold, this ${noun} would sit at ${fmtMoney(wouldBe)} of ${fmtMoney(plan.quota)}.`
+          : `That’s ${fmtMoney(missedCommission)} of commission this ${noun} from one toggle.`
+      : null;
 
   return (
-    <>
-      <div className="context">
-        <div className="ctx-field"><span className="label">{plan.period === 'quarter' ? 'Quarter' : 'Month'}</span><span className="ctx-value">{label}</span></div>
-        <div className="ctx-field"><span className="label">Plan</span><span className="ctx-value">{plan.role_name}</span></div>
-        <div className="rate-block">
-          {hasAccel && s.accelerated ? (
-            <><span className="rate-num" style={{ color: 'var(--green)' }}>{accelWord}</span>
-              <div className="rate-side"><span className="rate-state" style={{ color: 'var(--green)' }}>ACCELERATED</span>
-                <span className="rate-note">{retro ? `retroactive on the whole ${noun}` : `base was ${fmtRate(plan, plan.base_rate)}`}</span></div></>
-          ) : (
-            <><span className="rate-num" style={{ color: 'var(--amber)' }}>{hasAccel ? fmtCredit(plan, s.toAccelerator) : fmtRate(plan, plan.base_rate)}</span>
-              <div className="rate-side"><span className="rate-state" style={{ color: 'var(--amber)' }}>{hasAccel ? 'TO ACCELERATOR' : 'FLAT RATE'}</span>
-                <span className="rate-note">{hasAccel ? (retro ? `then ${accelWord} on everything closed` : `then every deal earns ${accelWord}`) : 'no accelerator on this plan'}</span></div></>
-          )}
-        </div>
-      </div>
+    <div className="quota">
+      <h1 className="page-title">Where you stand in {label}</h1>
+      <p className={`quota-figure${s.accelerated ? ' is-green' : ''}`}>{fmtCredit(plan, ptd.creditBooked)}</p>
+      <p className="quota-caption">
+        {empty
+          ? `Nothing booked in ${label} yet.`
+          : plan.quota_basis === 'arr'
+            ? `booked toward a ${fmtMoney(plan.quota)} quota — ${pct}% there.`
+            : `of ${fmtCredit(plan, plan.quota)} — ${pct}% there.`}
+      </p>
 
-      <div className="card">
-        <div className="card-title">{label}, from your booked deals</div>
-        <div className="stat-grid">
-          <div className="stat"><span className="label">Deals</span><div className="stat-value">{deals.length}</div><div className="stat-sub">{units} unit{units !== 1 ? 's' : ''}</div></div>
-          <div className="stat"><span className="label">New ARR</span><div className="stat-value">{fmt(arr)}</div><div className="stat-sub">annualized, after discount</div></div>
-          <div className="stat"><span className="label">{s.accelerated && retro ? `${noun} payout` : 'Payout at current pace'}</span>
-            <div className={`stat-value${s.accelerated ? ' green' : ''}`}>{fmtD(s.payout)}</div>
-            <div className="stat-sub">{s.accelerated && retro ? `includes the ${accelWord} retroactive bump` : 'commission as earned'}</div></div>
-          <div className="stat"><span className="label">Left on the table</span>
-            <div className={`stat-value${lost > 0 ? ' red' : ' green'}`}>{fmtD(lost)}</div>
-            <div className="stat-sub">{lost > 0 ? 'given away in discounts' : 'holding the line'}</div></div>
-        </div>
-      </div>
+      <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
 
-      <div className="card">
-        <div className="card-title">Quota position</div>
-        <div className="tracker-row">
-          <span className="label">{plan.period === 'quarter' ? 'Quarterly' : 'Monthly'} quota</span>
-          <div className="tracker-main">{fmtCredit(plan, ptd.creditBooked)} / {fmtCredit(plan, plan.quota)}</div>
-          <ProgressBar pct={s.quotaPct} color={barColor} />
-          <div className="tracker-sub">
-            {s.attained ? <span style={{ color: 'var(--green)', fontWeight: 600 }}>Quota made.</span> : <>{s.quotaPct}% there — {fmtCredit(plan, s.toQuota)} to go.</>}{' '}
-            {hasAccel && !s.accelerated && (retro
-              ? <span style={{ color: 'var(--amber)' }}>{fmtCredit(plan, s.toAccelerator)} more unlocks +{fmtD(s.acceleratorValue)} retroactively.</span>
-              : <span style={{ color: 'var(--amber)' }}>{fmtCredit(plan, s.toAccelerator)} more and every deal earns {accelWord}.</span>)}
-            {hasAccel && s.accelerated && <span style={{ color: 'var(--green)', fontWeight: 600 }}>Accelerator active at {accelWord}.</span>}
-          </div>
-        </div>
-      </div>
-
-      {plan.attach_enabled && deals.length > 0 && (
-        <div className="card">
-          <div className="card-title">{plan.attach_name || 'Attach'} rate</div>
-          <div className="stat-grid">
-            <div className="stat"><span className="label">Attach rate</span><div className={`stat-value${attachPct >= 50 ? ' green' : ''}`}>{attachPct}%</div><div className="stat-sub">{attachUnits} of {units} units this {noun}</div></div>
-            <div className="stat"><span className="label">Units without it</span><div className="stat-value">{nonAttach}</div><div className="stat-sub">each one is {fmt(plan.attach_mrr * 12)} ARR not taken</div></div>
-            <div className="stat"><span className="label">Left unattached</span><div className={`stat-value${nonAttach > 0 ? ' red' : ' green'}`}>{fmt(missedArr)}</div><div className="stat-sub">ARR, plus {fmtD(missedCommission)} commission not earned</div></div>
-          </div>
-          {nonAttach > 0 && (
-            <div className="tracker-sub" style={{ marginTop: 12 }}>
-              {wouldCross ? (
-                <span style={{ color: 'var(--amber)', fontWeight: 600 }}>
-                  With {plan.attach_name || 'the attach'} on every unit you&rsquo;ve sold, this {noun} would sit at {fmtCredit(plan, wouldBe)} — past your accelerator
-                  {retro ? `, with +${fmtD((plan.accelerator_rate / 100) * (ptd.commissionBooked + missedCommission))} unlocked retroactively` : ''}.
-                </span>
-              ) : plan.quota_basis === 'arr' ? (
-                <>With {plan.attach_name || 'the attach'} on every unit you&rsquo;ve sold, this {noun} would sit at {fmt(wouldBe)} of {fmt(plan.quota)}.</>
-              ) : (
-                <>That&rsquo;s {fmtD(missedCommission)} of commission this {noun} from one toggle.</>
-              )}
-            </div>
-          )}
-        </div>
+      {empty ? (
+        <p className="quota-sentence">
+          <Link className="btn-text" href="/">
+            Enter a deal &rarr;
+          </Link>
+        </p>
+      ) : (
+        <>
+          <p className="quota-sentence">{sentence}</p>
+          <h2 className="section-h">This {noun} so far</h2>
+          <Ledger rows={rows} />
+          {attachSentence && <p className="quota-attach">{attachSentence}</p>}
+        </>
       )}
-
-      {deals.length === 0 && (
-        <div className="card"><div className="empty">Nothing booked in {label} yet.<br /><Link href="/" style={{ color: 'var(--green)' }}>Enter a deal</Link> and this fills itself in.</div></div>
-      )}
-    </>
+    </div>
   );
 }

@@ -1,12 +1,33 @@
 import Masthead from '@/components/Masthead';
-import Footnote from '@/components/Footnote';
+import Footer from '@/components/Footer';
 
-export function AccountShell({ current, email, children }: { current: string; email: string; children: React.ReactNode }) {
+export type ShellWidth = 'wide' | 'narrow' | 'table' | 'plan' | 'auth';
+
+const WIDTH: Record<ShellWidth, string> = {
+  wide: '',
+  narrow: 'container-narrow',
+  table: 'container-table',
+  plan: 'container-plan',
+  auth: 'container-auth',
+};
+
+/** The one page shell: masthead, main, footer. Demo and signed-in share it. */
+export function Shell({
+  current,
+  email,
+  width = 'wide',
+  children,
+}: {
+  current: string;
+  email: string | null;
+  width?: ShellWidth;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="app">
+    <>
       <Masthead current={current} email={email} />
-      {children}
-      <Footnote />
-    </div>
+      <main className={`container ${WIDTH[width]}`}>{children}</main>
+      <Footer widthClass={WIDTH[width]} />
+    </>
   );
 }
