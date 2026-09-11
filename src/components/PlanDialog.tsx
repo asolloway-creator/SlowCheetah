@@ -7,7 +7,9 @@ import PlanSentence from '@/components/PlanSentence';
 /**
  * The plan form, over the deal instead of instead of it. Same component,
  * same `onSave` contract as the full `/plan` page — putting your plan in
- * shouldn't cost you the deal you were just looking at.
+ * shouldn't cost you the deal you were just looking at. Compact: shape, then
+ * only the numbers that differ by shape — a full settings form defeats the
+ * point of putting this in the header as the one quick thing to do.
  */
 export default function PlanDialog({
   plan,
@@ -38,7 +40,7 @@ export default function PlanDialog({
         <button type="button" className="dialog-close" aria-label="Close" onClick={onClose}>
           &times;
         </button>
-        <PlanSentence plan={plan} demo onSave={onSave} />
+        <PlanSentence plan={plan} demo onSave={onSave} compact />
       </div>
     </div>
   );

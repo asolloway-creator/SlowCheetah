@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { PRESETS, type AcceleratorStyle, type CommissionStyle, type CompPlan, type Preset, type QuotaBasis } from '@/lib/calc';
 import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
@@ -71,15 +72,24 @@ function TextField({
  * accelerator works. A one-line readout up top says the plan back in plain
  * English so you can check it at a glance; the form below it is what you
  * actually edit.
+ *
+ * `compact`: the inline dialog's version — shape, then only the numbers
+ * that actually differ by shape (quota, base rate, accelerator threshold
+ * and rate). Role name, period, and one-time weight stay at whatever the
+ * chosen preset set them to; a link out to the full form covers anyone who
+ * wants those too. Only makes sense against a real plan (demo/signed-in
+ * with one already set) — never the from-scratch blank-plan path.
  */
 export default function PlanSentence({
   plan,
   demo,
   onSave,
+  compact = false,
 }: {
   plan: CompPlan | null;
   demo: boolean;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
+  compact?: boolean;
 }) {
   const [p, setP] = useState<CompPlan>(plan ?? (demo ? PRESETS[0].plan : BLANK_PLAN));
   const [preset, setPreset] = useState<string | null>(plan ? matchPreset(plan) : demo ? PRESETS[0].id : null);
@@ -146,6 +156,75 @@ export default function PlanSentence({
   const readout = isBlank
     ? 'Pick a shape below, or start filling in the fields — this line fills in as you go.'
     : `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
+
+  const hasAccel = p.accelerator_style !== 'none';
+
+  if (compact) {
+    return (
+      <div className="plan">
+        <h1 className="page-title">Your plan</h1>
+        <p className="plan-intro">Pick the shape closest to yours, then the numbers that matter.</p>
+
+        <PresetTiles selected={preset} onSelect={choose} />
+
+        <p className="plan-readout">{readout}</p>
+
+        <NumField
+          id="qk-quota"
+          label={`Quota per ${noun}`}
+          value={p.quota}
+          prefix={arr ? '$' : undefined}
+          suffix={arr ? undefined : 'units'}
+          integer={!arr}
+          onChange={(n) => set('quota', n)}
+        />
+        <div className="field-grid">
+          <NumField
+            id="qk-rate"
+            label="Base rate"
+            value={p.base_rate}
+            suffix={percent ? '%' : 'months of MRR'}
+            onChange={(n) => set('base_rate', n)}
+          />
+          {hasAccel && (
+            <NumField
+              id="qk-th"
+              label="Kicks in at"
+              value={p.accelerator_threshold}
+              prefix={arr ? '$' : undefined}
+              suffix={arr ? undefined : 'units'}
+              integer={!arr}
+              onChange={(n) => set('accelerator_threshold', n)}
+            />
+          )}
+        </div>
+        {hasAccel && (
+          <NumField
+            id="qk-arate"
+            label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
+            value={p.accelerator_rate}
+            suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
+            onChange={(n) => set('accelerator_rate', n)}
+          />
+        )}
+
+        <div className="plan-save">
+          <p className={`plan-msg${msg.error ? ' is-error' : ''}`} aria-live="polite">
+            {msg.error ?? ''}
+          </p>
+          <button type="button" className="btn btn-primary" disabled={pending} onClick={submit}>
+            {pending ? 'Saving…' : 'Use this plan'}
+          </button>
+        </div>
+        <p className="plan-more">
+          Role, period, or how one-time products weigh in?{' '}
+          <Link className="btn-text" href="/plan">
+            Open the full form &rarr;
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="plan">

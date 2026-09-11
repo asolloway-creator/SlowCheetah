@@ -520,6 +520,7 @@ main { display: block; padding-bottom: var(--s-8); }
 .plan-save { display: flex; justify-content: space-between; align-items: center; gap: var(--s-4); margin-top: var(--s-6); }
 .plan-msg { min-height: var(--lh-ui); }
 .plan-msg.is-error { color: var(--red); }
+.plan-more { margin-top: var(--s-5); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--grey-1); }
 .auth-page { padding-top: var(--s-6); }
 .auth-copy { margin-top: var(--s-4); font-size: var(--fs-body); line-height: var(--lh-body); }
 .auth-form { margin-top: var(--s-6); }
