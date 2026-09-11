@@ -174,7 +174,7 @@ strong { font-weight: 500; }
   transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 .seg > button:hover { color: var(--ink); }
-.seg > button[aria-pressed="true"] { color: var(--ink); background: var(--stage); box-shadow: 0 1px 2px rgba(23, 21, 15, 0.12); }
+.seg > button[aria-pressed="true"] { color: var(--ink); background: var(--stage); box-shadow: 0 1px 2px rgba(23, 21, 15, 0.1), 0 3px 8px -3px rgba(23, 21, 15, 0.22); }
 .seg > button:focus-visible { position: relative; z-index: 1; }
 
 /* ---------- primitives: slider ------------------------------------------- */
@@ -257,6 +257,12 @@ button.bubble:disabled::after { border-top-color: var(--grey-2); }
 .slider-value-input { width: 56px; height: var(--h-seg); padding: 0 var(--s-2); text-align: center; background: var(--paper); border: 1px solid var(--ink); border-radius: var(--r-ctl); }
 
 /* ---------- primitives: ledger, table, tiles, blanks ---------------------- */
+/* A quiet summary card, not another interactive control — background and
+   radius give it a home on the page, but the rows themselves stay flat.
+   Shadows belong on things you press or drag, not on read-only figures. */
+.ledger {
+  background: var(--stage); border-radius: var(--r-ctl); padding: 0 var(--s-4);
+}
 .ledger-row {
   display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-4);
   min-height: var(--h-row); padding: calc((var(--h-row) - var(--lh-ui)) / 2) 0;
