@@ -227,6 +227,33 @@ export function periodToDateFrom(
   };
 }
 
+/**
+ * A plausible "mid-period, closing in on your accelerator" scenario for any
+ * plan — the same story the default demo tells (three-quarters of the way
+ * to quota, one deal away from crossing), generated from whatever numbers a
+ * visitor enters instead of hand-authored once for a single shape. `booked`
+ * is prior history; `starter` is sized to close the remaining gap when it
+ * lands, so the line moves and the accelerator fires the moment their plan
+ * is in — the same moment the pre-seeded demo opens on, not an empty form.
+ */
+export function syntheticOpening(plan: CompPlan): { booked: DealInput; starter: DealInput } {
+  const target = Math.max(1, plan.accelerator_style !== 'none' ? plan.accelerator_threshold : plan.quota);
+  const bookedCredit = target * 0.75;
+  const starterCredit = Math.max(target - bookedCredit, target * 0.05);
+
+  const dealFor = (credit: number): DealInput => {
+    if (plan.quota_basis === 'units') {
+      const units = Math.max(1, Math.round(credit));
+      const size = units * 500;
+      return { oneTime: size, subscription: size, subMode: 'mrr', units, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+    }
+    const mrr = Math.max(1, Math.round(credit / 12));
+    return { oneTime: mrr, subscription: mrr, subMode: 'mrr', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+  };
+
+  return { booked: dealFor(bookedCredit), starter: dealFor(starterCredit) };
+}
+
 // ── Period helpers ───────────────────────────────────────────────────────────
 
 export function startOfPeriod(period: Period, now = new Date()): Date {

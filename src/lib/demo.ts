@@ -5,6 +5,7 @@ import {
   calc,
   periodToDateFrom,
   startOfPeriod,
+  syntheticOpening,
   DEMO_PLAN,
   type CompPlan,
   type DealInput,
@@ -157,9 +158,14 @@ export function useDemoStore() {
     // was computed under the old quota_basis/commission_style, and summing
     // it against the new plan is nonsense (a units count read as ARR
     // dollars, say). The seeded rows are scripted narrative for the old
-    // plan anyway, not real history, so there's nothing worth keeping.
+    // plan anyway, not real history worth keeping — replaced with a
+    // synthetic booked deal so /quota and /history land three-quarters to
+    // the accelerator on the new plan, same as the default demo, instead of
+    // a blank $0 that makes a real plan look like a broken one.
     savePlan: async (plan: CompPlan) => {
-      update((s) => ({ ...s, plan, deals: [], seeded: false }));
+      const { booked } = syntheticOpening(plan);
+      const row = rowFromDeal(plan, booked, { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 }, new Date(Date.now() - 6 * 86400000));
+      update((s) => ({ ...s, plan, deals: [row], seeded: false }));
       return {};
     },
     reset: () => update(() => fresh()),

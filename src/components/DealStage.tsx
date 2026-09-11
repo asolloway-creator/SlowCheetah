@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { DEMO_PLAN, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
+import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
@@ -93,7 +93,10 @@ export default function DealStage({
     const res = await onSavePlan!(p);
     if (!res.error) {
       setPlanOpen(false);
-      setDeal(EMPTY);
+      // A deal sized to close the gap to your own accelerator, not an
+      // empty form — the same "one deal from crossing" moment the sample
+      // opens on, generated from the numbers just entered.
+      setDeal(syntheticOpening(p).starter);
       setDirty(false);
       setMsg({});
     }
