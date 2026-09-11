@@ -457,9 +457,9 @@ main { display: block; padding-bottom: var(--s-8); }
 .after-note { margin-top: var(--s-1); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--grey-1); }
 .money-ledger { margin-top: var(--s-5); }
 
-/* below the stage (demo) */
+/* below the stage (demo): just "Start over" once something's changed — the
+   plan CTA lives in the header now, not down here too. */
 .below { display: flex; align-items: center; gap: var(--s-5); margin-top: var(--s-7); }
-.below p { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--grey-1); }
 
 /* ---------- page sections: the line -------------------------------------- */
 .line { position: relative; }
@@ -570,7 +570,6 @@ main { display: block; padding-bottom: var(--s-8); }
   .deal-more { order: 8; }
   .money-ledger { order: 9; margin-top: var(--s-6); }
   .below { flex-direction: column; align-items: stretch; }
-  .below .btn { width: 100%; }
   .pinned {
     display: block; position: sticky; bottom: 0; z-index: 5; order: 10;
     height: var(--h-pinned); margin: var(--s-5) calc(-1 * var(--stage-pad)) 0;

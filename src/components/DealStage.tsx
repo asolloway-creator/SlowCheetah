@@ -242,17 +242,11 @@ export default function DealStage({
         />
       </section>
 
-      {demo && (
+      {demo && changed && (
         <div className="below">
-          <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
-            Put your plan in
+          <button type="button" className="btn-text" onClick={startOver}>
+            Start over
           </button>
-          <p>Thirty seconds, and it&rsquo;s your paycheck instead of this sample.</p>
-          {changed && (
-            <button type="button" className="btn-text" onClick={startOver}>
-              Start over
-            </button>
-          )}
         </div>
       )}
 
