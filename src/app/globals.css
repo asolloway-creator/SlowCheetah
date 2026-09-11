@@ -116,9 +116,13 @@ strong { font-weight: 500; }
     border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
 }
 .btn:active:not(:disabled) { transform: translateY(1px); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
-.btn-primary:hover:not(:disabled) { background: var(--ink-2); border-color: var(--ink-2); }
-.btn-primary:disabled { background: var(--hairline); border-color: var(--hairline); color: var(--grey-1); }
+.btn-primary {
+  background: var(--accent); border-color: var(--accent); color: var(--paper);
+  box-shadow: 0 1px 2px rgba(23, 21, 15, 0.08), 0 6px 16px -6px rgba(23, 21, 15, 0.35);
+}
+.btn-primary:hover:not(:disabled) { background: var(--ink-2); border-color: var(--ink-2); box-shadow: 0 1px 2px rgba(23, 21, 15, 0.1), 0 8px 20px -6px rgba(23, 21, 15, 0.4); }
+.btn-primary:active:not(:disabled) { box-shadow: 0 1px 2px rgba(23, 21, 15, 0.08); }
+.btn-primary:disabled { background: var(--hairline); border-color: var(--hairline); color: var(--grey-1); box-shadow: none; }
 .btn-secondary { background: transparent; border-color: var(--grey-2); color: var(--ink); }
 .btn-secondary:hover:not(:disabled) { background: var(--paper); border-color: var(--ink); }
 .btn-secondary:disabled { border-color: var(--hairline); color: var(--grey-1); }
@@ -418,25 +422,30 @@ main { display: block; padding-bottom: var(--s-8); }
 /* ---------- page sections: the line -------------------------------------- */
 .line { position: relative; }
 .line-top, .line-bottom { position: relative; height: var(--lh-ui); }
-.line-mid { position: relative; height: 20px; margin: var(--s-3) 0; }
-.line-track { position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--hairline); }
-.line-post { position: absolute; left: var(--x, 0%); top: 0; width: 2px; height: 20px; background: var(--ink); }
+.line-mid { position: relative; height: 28px; margin: var(--s-4) 0; }
+.line-track {
+  position: absolute; left: 0; right: 0; top: 50%; height: 8px; margin-top: -4px; border-radius: var(--r-round);
+  background: var(--hairline); box-shadow: inset 0 1px 2px rgba(23, 21, 15, 0.06);
+}
+.line-post { position: absolute; left: var(--x, 0%); top: 1px; width: 2px; height: 26px; background: var(--grey-2); }
 .line-post-quota { margin-left: -1px; }
 .line-bar {
-  position: absolute; left: 0; top: 50%; width: var(--w); height: 8px; margin-top: -4px; background: var(--ink); border-radius: 0 var(--r-round) var(--r-round) 0;
-  transition: width var(--dur-3) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+  position: absolute; left: 0; top: 50%; width: var(--w); height: 8px; margin-top: -4px; border-radius: var(--r-round);
+  background: linear-gradient(180deg, var(--ink-2), var(--ink));
+  transition: width var(--dur-3) var(--ease-out), background var(--dur-2) var(--ease-out);
 }
-.line.is-accelerated .line-bar { background: var(--green); }
+.line.is-accelerated .line-bar { background: linear-gradient(180deg, #129449, var(--green)); }
 .line-ghost {
-  position: absolute; left: var(--x); top: 50%; width: var(--w); height: 8px; margin-top: -4px; background: var(--red-tint); border-radius: 0 var(--r-round) var(--r-round) 0;
+  position: absolute; left: var(--x); top: 50%; width: var(--w); height: 8px; margin-top: -4px; background: var(--red-tint); border-radius: var(--r-round);
   transition: left var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out);
 }
 .line-ring {
-  position: absolute; left: var(--x); top: 50%; z-index: 1; width: 14px; height: 14px; margin: -7px 0 0 -7px;
-  border-radius: var(--r-round); border: 2px solid var(--ink); background: var(--stage);
+  position: absolute; left: var(--x); top: 50%; z-index: 1; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border-radius: var(--r-round); border: 3px solid var(--ink); background: var(--stage);
+  box-shadow: 0 1px 2px rgba(23, 21, 15, 0.12), 0 4px 10px -3px rgba(23, 21, 15, 0.28);
   transition: left var(--dur-3) var(--ease-out), border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
-.line.is-crossed .line-ring { border-color: var(--green); box-shadow: inset 0 0 0 7px var(--green-tint); }
+.line.is-crossed .line-ring { border-color: var(--green); box-shadow: inset 0 0 0 9px var(--green-tint), 0 1px 2px rgba(23, 21, 15, 0.12), 0 4px 10px -3px rgba(14, 122, 62, 0.35); }
 .line-ring.is-pulsing { animation: ring-pulse var(--dur-3) var(--ease-spring) both; }
 .line-marker, .line-callout, .line-origin, .line-quota-label { position: absolute; top: 0; white-space: nowrap; }
 .line-marker { left: var(--x); color: var(--grey-1); }
