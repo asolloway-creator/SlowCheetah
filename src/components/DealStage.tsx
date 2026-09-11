@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
-import { fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmtCredit, fmtMoney, fmtPctShort, periodNoun, planSentence } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
 import Outcome from '@/components/Outcome';
@@ -140,6 +140,7 @@ export default function DealStage({
           {plan.role_name} · {label}
           {demo ? ` · sample ${noun}` : ''}
         </p>
+        <p className="stage-context">{planSentence(plan)}</p>
 
         <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} />
 
@@ -181,6 +182,10 @@ export default function DealStage({
                     Saved in this browser only ·{' '}
                     <Link className="btn-text" href="/login">
                       Sign in to keep it &rarr;
+                    </Link>
+                    {' · '}
+                    <Link className="btn-text" href="/history">
+                      See it in your deals &rarr;
                     </Link>
                   </p>
                 )}

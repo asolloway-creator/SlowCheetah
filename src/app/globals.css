@@ -371,6 +371,10 @@ main { display: block; padding-bottom: var(--s-8); }
 
 .masthead { border-bottom: var(--hair); }
 .masthead-inner { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: var(--s-5); height: var(--h-masthead); }
+/* No nav column when there's nothing to navigate — the auth widget takes the
+   remaining track and has to be pushed back to the right edge itself. */
+.masthead-inner.is-minimal { grid-template-columns: auto 1fr; }
+.masthead-inner.is-minimal .auth { justify-self: end; }
 .wordmark {
   display: inline-flex; align-items: center; gap: var(--s-2); color: var(--ink); text-decoration: none;
   font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0.04em; border-radius: var(--r-ctl);
@@ -404,6 +408,7 @@ main { display: block; padding-bottom: var(--s-8); }
 /* ---------- page sections: the stage ------------------------------------- */
 .stage { position: relative; padding: var(--stage-pad); background: var(--stage); border-radius: var(--r-stage); box-shadow: var(--shadow-stage); }
 .stage-context { color: var(--grey-1); }
+.stage-context + .stage-context { margin-top: var(--s-1); }
 .stage > .line { margin: var(--s-5) 0 var(--s-6); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }
 .money { border-left: var(--hair); padding-left: var(--s-7); min-width: 0; }
@@ -584,6 +589,7 @@ main { display: block; padding-bottom: var(--s-8); }
 @media (max-width: 599px) {
   :root { --stage-pad: var(--s-4); }
   .masthead-inner { grid-template-columns: 1fr auto; grid-template-rows: var(--h-masthead) 40px; height: auto; }
+  .masthead-inner.is-minimal { grid-template-rows: var(--h-masthead); height: var(--h-masthead); }
   .nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; gap: var(--s-4); height: 40px; }
   .auth-email { display: none; }
   .deal-more { grid-template-columns: 1fr; }

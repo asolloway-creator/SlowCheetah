@@ -8,18 +8,28 @@ const NAV = [
   { href: '/plan', label: 'Your plan' },
 ];
 
+/**
+ * Nav is signed-in only. A first-time visitor has nothing to hunt through —
+ * everything they need has to be on the page they land on. `/plan`, `/quota`
+ * and `/history` still work if reached directly; they're just not advertised
+ * as tabs to go explore. Branches on the same truthy check as the auth
+ * widget below it, so the two halves of the header never disagree about
+ * whether someone's signed in.
+ */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   return (
     <header className="masthead">
-      <div className="container masthead-inner">
+      <div className={`container masthead-inner${email ? '' : ' is-minimal'}`}>
         <Wordmark />
-        <nav className="nav" aria-label="Primary">
-          {NAV.map((t) => (
-            <Link key={t.href} href={t.href} aria-current={t.href === current ? 'page' : undefined}>
-              {t.label}
-            </Link>
-          ))}
-        </nav>
+        {email && (
+          <nav className="nav" aria-label="Primary">
+            {NAV.map((t) => (
+              <Link key={t.href} href={t.href} aria-current={t.href === current ? 'page' : undefined}>
+                {t.label}
+              </Link>
+            ))}
+          </nav>
+        )}
         <div className="auth">
           {email ? (
             <>
