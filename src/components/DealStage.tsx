@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, periodNoun, planSentence } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
@@ -48,10 +49,30 @@ export default function DealStage({
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
   const [planOpen, setPlanOpen] = useState(false);
+  const [planSaved, setPlanSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
   const [open, setOpen] = useState(false);
+
+  // The header's "Put your plan in" works from any page — it links here with
+  // ?plan=1 to open the same inline dialog, instead of needing its own copy
+  // of the plan form on every route. A client-side nav to the same route
+  // (already on `/`) updates searchParams without remounting this
+  // component, so this can't be a one-time initial-state read — it has to
+  // react to the param on every value it takes, including the first.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (demo && searchParams.get('plan') === '1') {
+      // Syncing to an external signal (the URL) from a sibling route with
+      // no other path to this component's state — the case the lint rule's
+      // own guidance calls out as legitimate.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPlanOpen(true);
+      router.replace('/', { scroll: false });
+    }
+  }, [demo, searchParams, router]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o), [plan, deal, o]);
@@ -99,6 +120,7 @@ export default function DealStage({
       setDeal(syntheticOpening(p).starter);
       setDirty(false);
       setMsg({});
+      setPlanSaved(true);
     }
     return res;
   }
@@ -141,6 +163,14 @@ export default function DealStage({
           {demo ? ` · sample ${noun}` : ''}
         </p>
         <p className="stage-context">{planSentence(plan)}</p>
+        {demo && planSaved && (
+          <p className="after-note stage-plan-saved">
+            Your plan is in. Saved in this browser only ·{' '}
+            <Link className="btn-text" href="/login">
+              Sign in to keep it &rarr;
+            </Link>
+          </p>
+        )}
 
         <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} />
 

@@ -409,6 +409,7 @@ main { display: block; padding-bottom: var(--s-8); }
 .stage { position: relative; padding: var(--stage-pad); background: var(--stage); border-radius: var(--r-stage); box-shadow: var(--shadow-stage); }
 .stage-context { color: var(--grey-1); }
 .stage-context + .stage-context { margin-top: var(--s-1); }
+.stage-plan-saved { margin-top: var(--s-2); }
 .stage > .line { margin: var(--s-5) 0 var(--s-6); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }
 .money { border-left: var(--hair); padding-left: var(--s-7); min-width: 0; }

@@ -12,9 +12,14 @@ const NAV = [
  * Nav is signed-in only. A first-time visitor has nothing to hunt through —
  * everything they need has to be on the page they land on. `/plan`, `/quota`
  * and `/history` still work if reached directly; they're just not advertised
- * as tabs to go explore. Branches on the same truthy check as the auth
- * widget below it, so the two halves of the header never disagree about
- * whether someone's signed in.
+ * as tabs to go explore.
+ *
+ * Sign-in doesn't get header real estate either — nothing here requires an
+ * account, it's a "keep this across devices" upsell, and it already has an
+ * earned moment (after booking a deal, after putting a plan in). The one
+ * thing every visitor should do gets the header instead: put your plan in.
+ * `/?plan=1` opens the same inline dialog DealStage renders on `/`, from
+ * any page.
  */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   return (
@@ -39,7 +44,9 @@ export default function Masthead({ current, email }: { current: string; email: s
               </form>
             </>
           ) : (
-            <Link href="/login" className="auth-link">Sign in</Link>
+            <Link href="/?plan=1" className="btn btn-primary">
+              Put your plan in
+            </Link>
           )}
         </div>
       </div>
