@@ -305,4 +305,8 @@ export const PRESETS: Preset[] = [
   },
 ];
 
-export const DEMO_PLAN: CompPlan = PRESETS[0].plan;
+// The demo's front door: a monthly unit quota with a forward rate-switch,
+// not the quarterly ARR retroactive-bump shape — closer to a real,
+// structurally complex comp plan (weighted revenue types, a separate
+// quota metric) than a single-number plan with one surprising mechanic.
+export const DEMO_PLAN: CompPlan = PRESETS.find((p) => p.id === 'units-switch')!.plan;

@@ -40,7 +40,7 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
   };
 }
 
-/** A mid-period rep: ~87% to quota, a couple of discounts. */
+/** A mid-month rep: 6 of 8 units to the accelerator, a couple of discounts. */
 function seedDeals(plan: CompPlan): DealRow[] {
   const start = startOfPeriod(plan.period).getTime();
   const now = Date.now();
@@ -52,14 +52,11 @@ function seedDeals(plan: CompPlan): DealRow[] {
     oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
   });
   const script: [DealInput, number][] = [
-    [D({ units: 2, subscription: 1000, oneTime: 1500 }), 0.08],
-    [D({ units: 1, subscription: 350, subscriptionDiscountPct: 10, oneTime: 500 }), 0.2],
-    // $3,000 one-time + $1,500 implementation, folded into one $4,500 line —
-    // 13.3% blends to the same $3,900 net as the old 20%-off-$3,000-only split.
-    [D({ units: 6, subscription: 2100, oneTime: 4500, oneTimeDiscountPct: 13.3 }), 0.35],
-    [D({ units: 3, subscription: 1500, oneTime: 2000 }), 0.55],
-    [D({ units: 2, subscription: 700, oneTime: 750 }), 0.72],
-    [D({ units: 5, subscription: 1750, subscriptionDiscountPct: 5, oneTime: 1750 }), 0.9],
+    [D({ units: 1, subscription: 500, oneTime: 800 }), 0.1],
+    [D({ units: 1, subscription: 650, subscriptionDiscountPct: 10, oneTime: 600 }), 0.3],
+    [D({ units: 2, subscription: 900, oneTime: 1200 }), 0.5],
+    [D({ units: 1, subscription: 550, oneTime: 700 }), 0.7],
+    [D({ units: 1, subscription: 475, oneTime: 650, oneTimeDiscountPct: 15 }), 0.9],
   ];
   const rows: DealRow[] = [];
   for (const [deal, f] of script) {

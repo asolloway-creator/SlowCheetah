@@ -117,7 +117,7 @@ export default function DealStage({
       <section className="stage" aria-labelledby="stage-context">
         <p id="stage-context" className="stage-context">
           {plan.role_name} · {label}
-          {demo ? ' · sample quarter' : ''}
+          {demo ? ` · sample ${noun}` : ''}
         </p>
 
         <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} />

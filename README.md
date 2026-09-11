@@ -196,3 +196,16 @@ just being an uncovered edge case.
   judged process. Warm paper, Inter with tabular figures, one hue reserved for
   money leaving, the quarter drawn as a line, and an opening state engineered
   so a 5% discount is what holds the rep under their accelerator.
+- v4 (2026-09-11): demo's front door moved from the quarterly ARR retroactive
+  plan to the monthly unit rate-switch plan. Reasoning: the retroactive plan
+  is structurally thin (one metric, no weighting) despite being conceptually
+  surprising; the rate-switch plan is closer to a real, structurally complex
+  comp plan (revenue weighted by type, a separate quota metric) and a better
+  demonstration of "decode a complex plan" for someone evaluating this for
+  their org, not just a rep looking for a personal surprise. New opening
+  state: 6 of 8 monthly units booked, a 2-unit deal that crosses the
+  threshold on its own, discounted 20% on one-time products specifically —
+  the discount looks steep to the customer but barely touches commission,
+  because one-time revenue counts at only 40% weight here. That gap between
+  sticker cost and commission cost only exists because the plan weights
+  revenue types differently, which the old single-metric plan couldn't show.

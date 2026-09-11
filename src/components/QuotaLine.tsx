@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { CalcResult, CompPlan, PeriodToDate } from '@/lib/calc';
+import { periodNoun } from '@/lib/format';
 import { dealLine, quarterLine, type LineModel } from '@/components/opening';
 
 type Props =
@@ -66,7 +67,7 @@ export default function QuotaLine(props: Props) {
     <figure
       ref={figRef}
       className={cls}
-      aria-label={props.mode === 'deal' ? 'Where this deal lands on your quarter' : 'Where you stand this period'}
+      aria-label={props.mode === 'deal' ? `Where this deal lands on your ${periodNoun(props.plan)}` : 'Where you stand this period'}
     >
       <div className="line-top">
         <span className={`line-marker is-${align}`} style={vars({ '--x': pct(markX) })}>

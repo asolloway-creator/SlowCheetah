@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { fmtDate, fmtMoney, fmtPctShort } from '@/lib/format';
+import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
 const dealValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + d.arr;
 
@@ -126,7 +126,7 @@ export default function HistoryView({
         <p className="history-foot">
           Sample data lives in this browser.{' '}
           <button type="button" className="btn-text" onClick={onReset}>
-            Reset the sample quarter
+            Reset the sample {periodNoun(plan)}
           </button>
         </p>
       )}

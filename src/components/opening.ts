@@ -3,11 +3,10 @@
  * the stage, the quota page and the OG image. No React in here.
  *
  * The one seam to know about: `calc().lost` compares discounted commission
- * with full-price commission at the *discounted* deal's accelerator state
- * ($110 in the opening state). The stage measures against the deal as it
- * would actually pay, via a full-price twin: `atStake` ($4,298.75) and
- * `lostOnDeal` ($660). Booked rows keep the engine's per-deal figure.
- * Do not "fix" this in calc.ts.
+ * with full-price commission at the *discounted* deal's accelerator state.
+ * The stage measures against the deal as it would actually pay, via a
+ * full-price twin: `atStake` and `lostOnDeal`. Booked rows keep the
+ * engine's per-deal figure. Do not "fix" this in calc.ts.
  */
 
 import {
@@ -25,17 +24,28 @@ export const EMPTY: DealInput = {
   oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
 };
 
-/** The seeded deal: $3,000 one-time, $1,100 MRR × 3 units, 5% off the subscription. */
+/**
+ * The seeded deal: 2 units, $800 MRR, $1,500 one-time (hardware/setup) at
+ * 20% off. Landing this deal is what pushes the rep from 6 to 8 units —
+ * exactly the monthly accelerator threshold — so it crosses on its own,
+ * at the accelerated rate, the moment it's booked. The 20% is deliberately
+ * on the one-time side, not the subscription: one-time products count at
+ * only 40% toward commission here, so a discount that looks steep to the
+ * customer barely touches the rep's paycheck. That gap — a discount's
+ * sticker cost vs. what it actually costs in commission — is the thing
+ * worth noticing, and it only exists because the plan weights revenue
+ * types differently. A flat single-metric plan has no such gap to find.
+ */
 export const SAMPLE: DealInput = {
-  oneTime: 3000, subscription: 1100, subMode: 'mrr', units: 3,
-  oneTimeDiscountPct: 0, subscriptionDiscountPct: 5,
+  oneTime: 1500, subscription: 800, subMode: 'mrr', units: 2,
+  oneTimeDiscountPct: 20, subscriptionDiscountPct: 0,
 };
 
 /**
- * Mirror of demo.ts's seeded quarter, used only for the pre-hydration frame
+ * Mirror of demo.ts's seeded month, used only for the pre-hydration frame
  * and the OG image. A dev-mode check compares it to the store after hydration.
  */
-export const OPENING_PTD: PeriodToDate = { creditBooked: 87330, commissionBooked: 14555, earnedBooked: 14555 };
+export const OPENING_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 2636.27, earnedBooked: 2636.27 };
 
 export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 
@@ -151,11 +161,19 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
   const accelRate = fmtRateShort(plan, plan.accelerator_rate);
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
   const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0;
+  const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0;
+  const weighted = plan.commission_style === 'percent' && plan.one_time_weight < 100;
   const residual =
     o.atStake > 0
       ? onlySub
         ? ` The ${pct} discount still costs you ${fmtMoney(o.atStake)} on this deal.`
-        : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
+        : onlyOneTime && weighted
+          ? // The gap between what a discount looks like to the customer and
+            // what it actually costs in commission only exists because this
+            // plan weights revenue types differently — worth naming, not
+            // just totaling.
+            ` The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)} — they count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
+          : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : '';
 
   if (o.state === 'empty') {
