@@ -349,7 +349,17 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult): Line
   const threshold = hasAccel ? plan.accelerator_threshold : plan.quota;
   const origin = ptd.creditBooked;
   const toMark = Math.max(threshold, plan.quota) - origin;
-  const span = Math.max(toMark * 1.75, r.creditFull * 1.15, plan.quota * 0.1, 1);
+  // A deal that could plausibly close the gap gets the wide 1.75x scale —
+  // that's the room "crossed by $X" needs past the ring, and it's what the
+  // opening state is hand-tuned against (ring 57.1%, bar 56.6%, ghost
+  // 59.5%). A deal too small to ever reach the threshold has no overshoot
+  // to make room for; scaling to its own size instead of the full gap kept
+  // stranding it in the first third of the track with the ring and a dead
+  // gap floating past it. Tie the scale to the gap itself there.
+  const canReach = r.creditFull >= toMark;
+  const span = canReach
+    ? Math.max(toMark * 1.75, r.creditFull * 1.15, plan.quota * 0.1, 1)
+    : Math.max(toMark * 1.25, plan.quota * 0.1, 1);
   const x = (v: number) => clamp01((v - origin) / span);
 
   const barW = x(r.creditAfter);
