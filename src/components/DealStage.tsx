@@ -11,6 +11,7 @@ import DiscountSlider from '@/components/DiscountSlider';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
 import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
+import PlanDialog from '@/components/PlanDialog';
 import {
   EMPTY,
   OPENING_PTD,
@@ -32,6 +33,7 @@ export default function DealStage({
   ptd,
   demo,
   onSave,
+  onSavePlan,
   onStartOver,
   initialDeal,
 }: {
@@ -39,10 +41,13 @@ export default function DealStage({
   ptd: PeriodToDate;
   demo: boolean;
   onSave: (deal: DealInput) => Promise<{ error?: string }>;
+  /** Demo only: swap in the visitor's own plan without leaving this page. */
+  onSavePlan?: (plan: CompPlan) => Promise<{ error?: string }>;
   onStartOver?: () => void;
   initialDeal?: DealInput;
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
+  const [planOpen, setPlanOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
@@ -80,6 +85,19 @@ export default function DealStage({
     setDeal(SAMPLE);
     setDirty(false);
     setMsg({});
+  }
+
+  // Swapping in a real plan leaves the sample deal's numbers behind too —
+  // they were sized for the sample plan's quota, not this one.
+  async function savePlan(p: CompPlan) {
+    const res = await onSavePlan!(p);
+    if (!res.error) {
+      setPlanOpen(false);
+      setDeal(EMPTY);
+      setDirty(false);
+      setMsg({});
+    }
+    return res;
   }
 
   const changed =
@@ -188,16 +206,20 @@ export default function DealStage({
 
       {demo && (
         <div className="below">
-          <Link href="/plan" className="btn btn-primary">
+          <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
             Put your plan in
-          </Link>
-          <p>Two minutes, and it&rsquo;s your paycheck instead of this sample.</p>
+          </button>
+          <p>Thirty seconds, and it&rsquo;s your paycheck instead of this sample.</p>
           {changed && (
             <button type="button" className="btn-text" onClick={startOver}>
               Start over
             </button>
           )}
         </div>
+      )}
+
+      {demo && planOpen && onSavePlan && (
+        <PlanDialog plan={plan} onSave={savePlan} onClose={() => setPlanOpen(false)} />
       )}
     </>
   );

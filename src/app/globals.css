@@ -326,6 +326,35 @@ table.deals { width: 100%; border-collapse: collapse; }
 .import-banner-title { font-weight: 500; }
 .import-banner-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .import-banner-actions { display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-4); }
+
+/* Putting your plan in, over the deal instead of away from it — same form
+   as /plan, in a sheet so the deal underneath is never actually left. */
+.dialog-scrim {
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center;
+  padding: var(--s-7) var(--gutter); overflow-y: auto;
+  background: rgba(23, 21, 15, 0.32); backdrop-filter: blur(2px);
+  animation: dialog-scrim-in var(--dur-2) var(--ease-out) both;
+}
+.dialog-panel {
+  position: relative; width: 100%; max-width: calc(var(--container-plan) + 2 * var(--s-7));
+  padding: var(--stage-pad); background: var(--stage); border-radius: var(--r-stage); box-shadow: var(--shadow-stage);
+  animation: dialog-panel-in var(--dur-3) var(--ease-spring) both;
+}
+.dialog-close {
+  position: absolute; top: var(--s-5); right: var(--s-5); width: 32px; height: 32px; display: flex; align-items: center;
+  justify-content: center; font-size: 20px; line-height: 1; color: var(--grey-1); background: none; border: none;
+  border-radius: var(--r-round); cursor: pointer;
+}
+.dialog-close:hover { color: var(--ink); background: var(--paper); }
+@keyframes dialog-scrim-in { from { opacity: 0; } }
+@keyframes dialog-panel-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) {
+  .dialog-scrim, .dialog-panel { animation: none; }
+}
+@media (max-width: 599px) {
+  .dialog-scrim { padding: var(--s-4); align-items: stretch; }
+  .dialog-panel { margin: auto 0; }
+}
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--s-4); }
 .field-grid > .field { margin-bottom: var(--s-4); }
 @media (max-width: 599px) {

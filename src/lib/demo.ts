@@ -153,8 +153,13 @@ export function useDemoStore() {
     deleteDeal: async (id: string) => {
       update((s) => ({ ...s, deals: s.deals.filter((d) => d.id !== id) }));
     },
+    // A different plan invalidates every existing row's quota_credit — it
+    // was computed under the old quota_basis/commission_style, and summing
+    // it against the new plan is nonsense (a units count read as ARR
+    // dollars, say). The seeded rows are scripted narrative for the old
+    // plan anyway, not real history, so there's nothing worth keeping.
     savePlan: async (plan: CompPlan) => {
-      update((s) => ({ ...s, plan }));
+      update((s) => ({ ...s, plan, deals: [], seeded: false }));
       return {};
     },
     reset: () => update(() => fresh()),

@@ -35,6 +35,7 @@ export function DemoDeal() {
         ptd={d.ready ? d.ptd : OPENING_PTD}
         demo
         onSave={d.saveDeal}
+        onSavePlan={d.savePlan}
         onStartOver={d.reset}
         initialDeal={SAMPLE}
       />
