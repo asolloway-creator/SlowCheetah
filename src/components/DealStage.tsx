@@ -89,13 +89,15 @@ export default function DealStage({
     JSON.stringify(ptd) !== JSON.stringify(OPENING_PTD) ||
     JSON.stringify(plan) !== JSON.stringify(DEMO_PLAN);
 
-  const { r } = o;
+  const { r, rFull } = o;
   const retroOn = plan.accelerator_style === 'retro_bump' && r.isAccelerated;
   const rows: LedgerRow[] = [
     {
       label: 'Commission on this deal',
       value: <TweenedMoney value={r.commissionEffective} />,
-      suffix: `· ${effectiveRateLabel(plan, r)}${retroOn ? ', accelerated' : ''}`,
+      suffix: `· ${effectiveRateLabel(plan, r)}${retroOn ? ', accelerated' : ''}${
+        rFull.commissionEffective !== r.commissionEffective ? ` · ${fmtMoney(rFull.commissionEffective)} at full price` : ''
+      }`,
     },
     plan.commission_style === 'percent'
       ? {
