@@ -34,8 +34,12 @@ export default function DiscountSlider({
   caption?: string;
   disabled?: boolean;
 }) {
-  const max = Math.max(25, Math.ceil(value / 25) * 25);
-  const pctOfTrack = (value / max) * 100;
+  // Fixed 0–100 scale — the track's max never moves, so a given thumb
+  // position always means the same percentage. It used to rescale in steps
+  // of 25 based on the current value, which meant "all the way right" could
+  // silently mean 25% one moment and 100% the next.
+  const MAX = 100;
+  const pctOfTrack = value;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const cancelled = useRef(false);
@@ -86,7 +90,7 @@ export default function DiscountSlider({
       e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    onChange(Math.max(0, Math.min(max, round2(value + dir * (e.shiftKey ? 5 : 0.5)))));
+    onChange(Math.max(0, Math.min(MAX, round2(value + dir * (e.shiftKey ? 5 : 0.5)))));
   }
 
   const rowStyle = { '--pct': String(pctOfTrack) } as CSSProperties;
@@ -99,7 +103,7 @@ export default function DiscountSlider({
       id={id}
       className="slider-input"
       min={0}
-      max={max}
+      max={MAX}
       step={0.5}
       value={value}
       disabled={disabled}
