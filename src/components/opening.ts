@@ -94,14 +94,23 @@ export function effectiveRateLabel(plan: CompPlan, r: CalcResult): string {
 
 export type Tone = 'red' | 'green' | 'ink';
 
+export type Secondary = { label: string; value: number; tone: Tone; signed: boolean };
+
 export type OutcomeCopy = {
+  /** Always "Commission on this deal" once a deal exists — the headline
+   *  figure is never swapped for a derived number, so the label never has
+   *  to change to keep matching it. */
   name: string;
-  /** Colour of the h2: green in every held state, ink otherwise. */
+  /** Colour of the h2: green in every accelerated state, ink otherwise. */
   nameTone: 'green' | 'ink';
   figure: number | null;
   figureTone: Tone;
   signed: boolean;
   caption: string | null;
+  /** The "Hold the Line" moment: what a discount is costing you, or what
+   *  crossing the accelerator just unlocked. Shown next to the commission
+   *  figure, not instead of it. */
+  secondary: Secondary | null;
   sentence: string;
   /** Plain text for the live region and the pinned bar. */
   figureText: string;
@@ -123,48 +132,61 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
         : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : '';
 
+  if (o.state === 'empty') {
+    return {
+      name: 'Hold the line', nameTone: 'ink', figure: null, figureTone: 'ink', signed: false, caption: null,
+      secondary: null, sentence: 'Enter what you’re selling and this fills itself in.', figureText: '',
+    };
+  }
+
+  // Every other state shares the same primary block — what this deal pays,
+  // right now — so the label and caption never have to be re-derived per
+  // state, only the tone (accelerated → green) and the secondary callout.
+  const accelerated = r.isAccelerated;
+  const base = {
+    name: 'Commission on this deal',
+    nameTone: (accelerated ? 'green' : 'ink') as 'green' | 'ink',
+    figure: r.commissionEffective,
+    figureTone: (accelerated ? 'green' : 'ink') as Tone,
+    signed: false,
+    caption: `at ${effectiveRateLabel(plan, r)}${accelerated ? ', accelerated' : ''}`,
+    figureText: fmtMoney(r.commissionEffective),
+  };
+
   switch (o.state) {
-    case 'empty':
-      return {
-        name: 'Hold the line', nameTone: 'ink', figure: null, figureTone: 'ink', signed: false, caption: null,
-        sentence: 'Enter what you’re selling and this fills itself in.', figureText: '',
-      };
     case 'blocked':
       return {
-        name: 'Left on the table', nameTone: 'ink', figure: o.atStake, figureTone: 'red', signed: false, caption: null,
+        ...base,
+        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
         sentence: retro
           ? `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and unlocks +${bump} on your whole ${noun} — worth ${fmtMoney(r.crossingWorth)} on top of the ${fmtMoney(o.lostOnDeal)} it already costs you.`
           : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`,
-        figureText: fmtMoney(o.atStake),
       };
     case 'crossed':
       return retro
         ? {
-            name: 'Line held.', nameTone: 'green', figure: r.retroBump, figureTone: 'green', signed: true,
-            caption: 'unlocked on deals you already closed',
-            sentence: `This deal crosses ${th} and every deal you’ve closed this ${noun} pays ${bump} more. This one pays ${fmtMoney(r.commissionEffective)}.${residual}`,
-            figureText: fmtSigned(r.retroBump),
+            ...base,
+            secondary: { label: 'Unlocked on deals you already closed', value: r.retroBump, tone: 'green', signed: true },
+            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}`,
           }
         : {
-            name: 'Line held.', nameTone: 'green', figure: r.commissionEffective, figureTone: 'green', signed: false,
-            caption: `at ${effectiveRateLabel(plan, r)}, accelerated`,
+            ...base,
+            secondary: null,
             sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}`,
-            figureText: fmtMoney(r.commissionEffective),
           };
     case 'loss':
       return {
-        name: 'Left on the table', nameTone: 'ink', figure: o.atStake, figureTone: 'red', signed: false, caption: null,
+        ...base,
+        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
         sentence: `${fmtMoney(o.atStake)} comes out of your paycheck on this deal. The customer saves ${fmtMoney(r.customerSavesAnnual)} a year — you’re paying for part of it.`,
-        figureText: fmtMoney(o.atStake),
       };
     case 'past':
       return {
-        name: 'Line held.', nameTone: 'green', figure: r.commissionEffective, figureTone: 'ink', signed: false,
-        caption: `accelerated · ${effectiveRateLabel(plan, r)}`,
+        ...base,
+        secondary: null,
         sentence: retro
           ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${bump} more.`
           : `You’re past your accelerator. Every deal this ${noun}, including this one, earns ${accelRate}.`,
-        figureText: fmtMoney(r.commissionEffective),
       };
     case 'held': {
       const opener = r.hasDiscount
@@ -178,11 +200,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
           : retro
             ? `${opener} ${lands} — ${toGo} more unlocks ${fmtSigned(r.crossingWorth)} on deals you’ve already closed.`
             : `${opener} ${lands} — ${toGo} more and every deal after that earns ${accelRate}.`;
-      return {
-        name: 'Line held.', nameTone: 'green', figure: r.commissionEffective, figureTone: 'ink', signed: false,
-        caption: `is what this deal pays you · ${effectiveRateLabel(plan, r)}`,
-        sentence, figureText: fmtMoney(r.commissionEffective),
-      };
+      return { ...base, secondary: null, sentence };
     }
   }
 }

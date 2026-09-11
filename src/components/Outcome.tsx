@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import TweenedMoney from '@/components/TweenedMoney';
+import { fmtMoney, fmtSigned } from '@/lib/format';
 import type { OutcomeCopy, OutcomeState } from '@/components/opening';
 
 /**
@@ -22,10 +23,13 @@ export default function Outcome({
   useEffect(() => {
     const t = setTimeout(() => {
       const name = copy.name.replace(/\.$/, '');
-      setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}`);
+      const secondary = copy.secondary
+        ? ` ${copy.secondary.label}: ${copy.secondary.signed ? fmtSigned(copy.secondary.value) : fmtMoney(copy.secondary.value)}.`
+        : '';
+      setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${secondary}`);
     }, 300);
     return () => clearTimeout(t);
-  }, [copy.name, copy.figureText, copy.sentence]);
+  }, [copy.name, copy.figureText, copy.sentence, copy.secondary]);
 
   return (
     <div className="outcome">
@@ -42,6 +46,14 @@ export default function Outcome({
               {copy.caption}
             </span>
           )}
+        </p>
+      )}
+      {copy.secondary && (
+        <p key={`${state}-secondary`} className="outcome-secondary fade-up" aria-hidden="true">
+          <span className="outcome-secondary-label">{copy.secondary.label}</span>
+          <span className={`outcome-secondary-figure is-${copy.secondary.tone}`}>
+            <TweenedMoney value={copy.secondary.value} signed={copy.secondary.signed} />
+          </span>
         </p>
       )}
       {children}
