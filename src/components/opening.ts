@@ -70,7 +70,23 @@ export function outcome(plan: CompPlan, deal: DealInput, ptd: PeriodToDate) {
             ? 'past'
             : 'held';
 
-  return { r, rFull, atStake, lostOnDeal, state };
+  // Room to raise: the steepest subscription discount that still crosses
+  // the accelerator. Only meaningful for ARR-quota plans — a discount
+  // shrinks the ARR this deal contributes toward the threshold. Units-basis
+  // plans don't have this: a unit is a unit regardless of price, so
+  // discount never changes whether you cross.
+  let safeDiscountPct: number | null = null;
+  if (plan.quota_basis === 'arr' && plan.accelerator_style !== 'none' && r.subMrrList > 0) {
+    const roomDollars = plan.accelerator_threshold - ptd.creditBooked;
+    const listAnnual = r.subMrrList * 12;
+    // Only meaningful if full price would actually cross — otherwise no
+    // discount level gets you there and "room" is a nonsense question.
+    if (listAnnual >= roomDollars) {
+      safeDiscountPct = Math.min(100, Math.max(0, round2(100 * (1 - roomDollars / listAnnual))));
+    }
+  }
+
+  return { r, rFull, atStake, lostOnDeal, state, safeDiscountPct };
 }
 
 export type Outcome = ReturnType<typeof outcome>;
@@ -94,7 +110,14 @@ export function effectiveRateLabel(plan: CompPlan, r: CalcResult): string {
 
 export type Tone = 'red' | 'green' | 'ink';
 
-export type Secondary = { label: string; value: number; tone: Tone; signed: boolean };
+export type Secondary = {
+  label: string;
+  value: number;
+  tone: Tone;
+  signed: boolean;
+  /** Defaults to money. Room-to-raise is a percent, not a dollar figure. */
+  format?: (n: number) => string;
+};
 
 export type OutcomeCopy = {
   /** Always "Commission on this deal" once a deal exists — the headline
@@ -153,26 +176,37 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
     figureText: fmtMoney(r.commissionEffective),
   };
 
+  // The one lever a rep can actually act on: how far the discount could go
+  // and still cross. Only computed for ARR-quota plans (see outcome()).
+  // Two tones for the same number: a warning once you're already over the
+  // line (blocked), reassurance about the room you still have once you're
+  // not (crossed) — never "held", where by construction this deal's price
+  // was never going to decide whether the accelerator fires either way.
+  const safePct = o.safeDiscountPct !== null ? fmtPctShort(o.safeDiscountPct) : null;
+  const safeClauseBlocked = safePct !== null ? ` Keep it under ${safePct} to still cross.` : '';
+  const safeClauseCrossed = safePct !== null ? ` You have room to discount up to ${safePct} and still cross.` : '';
+
   switch (o.state) {
     case 'blocked':
       return {
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
-        sentence: retro
+        sentence: (retro
           ? `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and unlocks +${bump} on your whole ${noun} — worth ${fmtMoney(r.crossingWorth)} on top of the ${fmtMoney(o.lostOnDeal)} it already costs you.`
-          : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`,
+          : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`
+        ) + safeClauseBlocked,
       };
     case 'crossed':
       return retro
         ? {
             ...base,
             secondary: { label: 'Unlocked on deals you already closed', value: r.retroBump, tone: 'green', signed: true },
-            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}`,
+            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}${safeClauseCrossed}`,
           }
         : {
             ...base,
             secondary: null,
-            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}`,
+            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}${safeClauseCrossed}`,
           };
     case 'loss':
       return {
@@ -194,6 +228,10 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
         : 'Full price, full credit.';
       const lands = `This lands the ${noun} at ${fmtCredit(plan, r.creditAfter)}`;
       const toGo = fmtCredit(plan, Math.max(0, plan.accelerator_threshold - r.creditAfter));
+      // No safe-discount clause here: "held" means this deal's price was
+      // never going to decide whether the accelerator fires (see
+      // outcome()) — safeDiscountPct is always null in this state, by
+      // construction, so there's nothing actionable to add.
       const sentence =
         plan.accelerator_style === 'none'
           ? `${opener} ${lands} of ${fmtCredit(plan, plan.quota)}.`

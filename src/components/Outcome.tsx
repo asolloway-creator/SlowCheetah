@@ -24,7 +24,9 @@ export default function Outcome({
     const t = setTimeout(() => {
       const name = copy.name.replace(/\.$/, '');
       const secondary = copy.secondary
-        ? ` ${copy.secondary.label}: ${copy.secondary.signed ? fmtSigned(copy.secondary.value) : fmtMoney(copy.secondary.value)}.`
+        ? ` ${copy.secondary.label}: ${
+            copy.secondary.signed ? fmtSigned(copy.secondary.value) : (copy.secondary.format ?? fmtMoney)(copy.secondary.value)
+          }.`
         : '';
       setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${secondary}`);
     }, 300);
@@ -52,7 +54,7 @@ export default function Outcome({
         <p key={`${state}-secondary`} className="outcome-secondary fade-up" aria-hidden="true">
           <span className="outcome-secondary-label">{copy.secondary.label}</span>
           <span className={`outcome-secondary-figure is-${copy.secondary.tone}`}>
-            <TweenedMoney value={copy.secondary.value} signed={copy.secondary.signed} />
+            <TweenedMoney value={copy.secondary.value} signed={copy.secondary.signed} format={copy.secondary.format} />
           </span>
         </p>
       )}
