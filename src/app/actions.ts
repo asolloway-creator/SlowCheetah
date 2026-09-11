@@ -67,20 +67,24 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     quota_basis: input.quota_basis === 'units' ? 'units' : 'arr',
     quota: n(input.quota),
     commission_style: input.commission_style === 'percent' ? 'percent' : 'months_of_mrr',
-    base_rate: n(input.base_rate),
+    // Rates are always 0-100 regardless of commission_style — a percent
+    // rate obviously can't exceed 100% of deal value, and a months-of-MRR
+    // rate past 100 (8+ years of commission on one deal) is never a real
+    // plan, only a typo. Same ceiling as one_time_weight below.
+    base_rate: clampPct(Number(input.base_rate)),
     accelerator_style:
       input.accelerator_style === 'rate_switch' || input.accelerator_style === 'retro_bump'
         ? input.accelerator_style
         : 'none',
+    // Threshold shares quota's basis ($ or units) and can legitimately be
+    // large, so it's floored at 0 but not capped.
     accelerator_threshold: n(input.accelerator_threshold),
-    accelerator_rate: n(input.accelerator_rate),
+    accelerator_rate: clampPct(Number(input.accelerator_rate)),
     one_time_weight: clampPct(Number(input.one_time_weight)),
   };
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };
-  for (const k of ['base_rate', 'accelerator_threshold', 'accelerator_rate'] as const) {
-    if (!Number.isFinite(plan[k])) return { error: `${k.replaceAll('_', ' ')} must be a number.` };
-  }
+  if (!Number.isFinite(plan.accelerator_threshold)) return { error: 'Accelerator threshold must be a number.' };
 
   const { error } = await supabase
     .from('comp_plans')
