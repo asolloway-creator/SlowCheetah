@@ -194,12 +194,16 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
 
   switch (o.state) {
     case 'blocked':
+      // The threshold, the rate, and the dollar breakdown are all already
+      // visible as labeled figures elsewhere on the page (the accelerator
+      // line, this secondary figure, its caption) — the sentence only needs
+      // to name the mechanism, not re-derive numbers a second time.
       return {
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
         sentence: retro
-          ? `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and unlocks +${bump} on your whole ${noun} — worth ${fmtMoney(r.crossingWorth)} on top of the ${fmtMoney(o.lostOnDeal)} it already costs you.`
-          : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`,
+          ? `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal you've already closed this ${noun}.`
+          : `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal after this one.`,
       };
     case 'crossed':
       return retro
@@ -229,7 +233,9 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
       return {
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
-        sentence: `${fmtMoney(o.atStake)} comes out of your paycheck on this deal. The customer saves ${fmtMoney(r.customerSavesAnnual)} a year — you’re paying for part of it.`,
+        // atStake is already the secondary figure above — no need to say
+        // the dollar amount twice.
+        sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year — you’re paying for part of it.`,
       };
     case 'past':
       return {

@@ -187,34 +187,17 @@ export default function DealStage({
       </section>
 
       {demo && (
-        <>
-          <div className="below">
-            <Link href="/plan" className="btn btn-primary">
-              Put your plan in
-            </Link>
-            <p>Two minutes: pick the shape closest to yours, put in your numbers, and every deal recalculates.</p>
-          </div>
-
-          <section className="about" aria-labelledby="about-h">
-            <h2 id="about-h">What you&rsquo;re looking at</h2>
-            <p>
-              A sample quarter. This rep is an Account Executive at $87,330 of a $100,000 new-ARR quota, paid two
-              months of MRR on every deal, with a 25% bump on the whole quarter once it crosses $100,000. Six deals
-              are already booked; two of them were discounted.
-            </p>
-            <p>
-              Every number on this page comes from that plan and the deal above. Change either and everything
-              recalculates. Put your own plan in and it&rsquo;s your paycheck instead.
-            </p>
-            {changed && (
-              <p>
-                <button type="button" className="btn-text" onClick={startOver}>
-                  Start over with the sample deal
-                </button>
-              </p>
-            )}
-          </section>
-        </>
+        <div className="below">
+          <Link href="/plan" className="btn btn-primary">
+            Put your plan in
+          </Link>
+          <p>Two minutes, and it&rsquo;s your paycheck instead of this sample.</p>
+          {changed && (
+            <button type="button" className="btn-text" onClick={startOver}>
+              Start over
+            </button>
+          )}
+        </div>
       )}
     </>
   );
