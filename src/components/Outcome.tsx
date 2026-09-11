@@ -26,7 +26,7 @@ export default function Outcome({
       const secondary = copy.secondary
         ? ` ${copy.secondary.label}: ${
             copy.secondary.signed ? fmtSigned(copy.secondary.value) : (copy.secondary.format ?? fmtMoney)(copy.secondary.value)
-          }.`
+          }${copy.secondary.caption ? ` — ${copy.secondary.caption}` : ''}.`
         : '';
       setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${secondary}`);
     }, 300);
@@ -56,6 +56,7 @@ export default function Outcome({
           <span className={`outcome-secondary-figure is-${copy.secondary.tone}`}>
             <TweenedMoney value={copy.secondary.value} signed={copy.secondary.signed} format={copy.secondary.format} />
           </span>
+          {copy.secondary.caption && <span className="outcome-secondary-caption">{copy.secondary.caption}</span>}
         </p>
       )}
       {children}

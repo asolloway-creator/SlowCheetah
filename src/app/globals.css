@@ -395,10 +395,14 @@ main { display: block; padding-bottom: var(--s-8); }
 .outcome-secondary { margin-top: var(--s-5); padding-top: var(--s-4); border-top: var(--hair); }
 .outcome-secondary-label { display: block; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--grey-1); }
 .outcome-secondary-figure {
-  display: block; margin-top: var(--s-1); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 600; letter-spacing: -0.015em;
+  display: block; margin-top: var(--s-1); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 600; letter-spacing: -0.015em; color: var(--ink);
 }
 .outcome-secondary-figure.is-red { color: var(--red); }
 .outcome-secondary-figure.is-green { color: var(--green); }
+/* Room to Raise's home — was previously tacked onto the end of the
+   sentence below, where it read as one more clause in a long paragraph
+   and was easy to scroll past without noticing. */
+.outcome-secondary-caption { display: block; margin-top: var(--s-2); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--grey-1); }
 .outcome > .slider { margin-top: var(--s-4); }
 .outcome-sentence { margin-top: var(--s-4); font-size: var(--fs-body); line-height: var(--lh-body); }
 .book-row { margin-top: var(--s-4); }

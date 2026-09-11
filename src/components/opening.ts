@@ -117,6 +117,9 @@ export type Secondary = {
   signed: boolean;
   /** Defaults to money. Room-to-raise is a percent, not a dollar figure. */
   format?: (n: number) => string;
+  /** Room to Raise lives here, not buried in the sentence — a small line
+   *  under the figure, same idiom as the primary figure's own caption. */
+  caption?: string;
 };
 
 export type OutcomeCopy = {
@@ -178,35 +181,49 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
 
   // The one lever a rep can actually act on: how far the discount could go
   // and still cross. Only computed for ARR-quota plans (see outcome()).
-  // Two tones for the same number: a warning once you're already over the
-  // line (blocked), reassurance about the room you still have once you're
-  // not (crossed) — never "held", where by construction this deal's price
-  // was never going to decide whether the accelerator fires either way.
+  // Lives as a caption UNDER the secondary figure — not appended to the
+  // sentence, where it previously read as one more clause in an already
+  // long paragraph and was easy to miss entirely. Two tones for the same
+  // number: a warning once you're already over the line (blocked),
+  // reassurance about the room you still have once you're not (crossed) —
+  // never "held", where by construction this deal's price was never going
+  // to decide whether the accelerator fires either way.
   const safePct = o.safeDiscountPct !== null ? fmtPctShort(o.safeDiscountPct) : null;
-  const safeClauseBlocked = safePct !== null ? ` Keep it under ${safePct} to still cross.` : '';
-  const safeClauseCrossed = safePct !== null ? ` You have room to discount up to ${safePct} and still cross.` : '';
+  const safeCaptionBlocked = safePct !== null ? `keep it under ${safePct} to still cross` : undefined;
+  const safeCaptionCrossed = safePct !== null ? `room to discount up to ${safePct} and still cross` : undefined;
 
   switch (o.state) {
     case 'blocked':
       return {
         ...base,
-        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
-        sentence: (retro
+        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
+        sentence: retro
           ? `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and unlocks +${bump} on your whole ${noun} — worth ${fmtMoney(r.crossingWorth)} on top of the ${fmtMoney(o.lostOnDeal)} it already costs you.`
-          : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`
-        ) + safeClauseBlocked,
+          : `This ${pct} discount keeps you under your accelerator. At full price this deal crosses ${th} and every deal after it earns ${accelRate}.`,
       };
     case 'crossed':
       return retro
         ? {
             ...base,
-            secondary: { label: 'Unlocked on deals you already closed', value: r.retroBump, tone: 'green', signed: true },
-            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}${safeClauseCrossed}`,
+            secondary: {
+              label: 'Unlocked on deals you already closed',
+              value: r.retroBump,
+              tone: 'green',
+              signed: true,
+              caption: safeCaptionCrossed,
+            },
+            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}`,
           }
         : {
             ...base,
-            secondary: null,
-            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}${safeClauseCrossed}`,
+            // No dollar figure to pair with a caption here (no retro bump
+            // to report), so room-to-raise gets its own small secondary —
+            // the percent itself is the figure, not a caption under one.
+            secondary:
+              o.safeDiscountPct !== null
+                ? { label: 'Room to discount and still cross', value: o.safeDiscountPct, tone: 'ink', signed: false, format: fmtPctShort }
+                : null,
+            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}`,
           };
     case 'loss':
       return {
