@@ -13,7 +13,7 @@ import Ledger, { type LedgerRow } from '@/components/Ledger';
 import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
-import KickerAlert from '@/components/KickerAlert';
+import KickerOutcome from '@/components/KickerOutcome';
 import KickerStatus from '@/components/KickerStatus';
 import {
   EMPTY,
@@ -21,7 +21,7 @@ import {
   SAMPLE,
   costOf,
   crossEffect,
-  crossEffectCopy,
+  kickerOutcomeCopy,
   isEmpty,
   outcome,
   outcomeCopy,
@@ -84,13 +84,13 @@ export default function DealStage({
   }, [demo, searchParams, router]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
-  const copy = useMemo(() => outcomeCopy(plan, deal, o), [plan, deal, o]);
+  const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
   // Independent of the accelerator's own outcome/copy above — this deal can
   // cross the accelerator and cost a quarterly kicker tier at the same
   // time. null whenever the plan has no quarterly_kicker or qtd wasn't
   // fetched (callers only fetch it when a kicker is actually configured).
   const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
-  const xCopy = useMemo(() => crossEffectCopy(plan, xEffect, o.r.commissionEffective), [plan, xEffect, o.r.commissionEffective]);
+  const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect, o.r.commissionEffective), [plan, xEffect, o.r.commissionEffective]);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
@@ -208,7 +208,7 @@ export default function DealStage({
             </Outcome>
 
             <KickerStatus plan={plan} qtd={qtd ?? null} />
-            <KickerAlert copy={xCopy} />
+            <KickerOutcome copy={xCopy} />
 
             <div className="book-row">
               <button

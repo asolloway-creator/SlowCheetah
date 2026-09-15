@@ -4,10 +4,13 @@ import { tierName } from '@/components/opening';
 
 /**
  * Where the quarter actually stands, from deals already booked — the
- * grounding KickerAlert needs so "below 105%" doesn't read as a number the
- * demo invented. Static: built from qtd alone, not the in-progress deal, so
- * it doesn't move as the discount slider does — that's KickerAlert's job.
- * Renders nothing under the same condition as KickerAlert.
+ * grounding KickerOutcome needs so "below 105%" doesn't read as a number
+ * the demo invented. Static: built from qtd alone, not the in-progress
+ * deal, so it doesn't move as the discount slider does — that live verdict
+ * is KickerOutcome's job, directly below this. "Already booked" is
+ * deliberate wording: makes clear this is pre-deal context, not a second
+ * live figure competing with the one under it.
+ * Renders nothing under the same condition as KickerOutcome.
  */
 export default function KickerStatus({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate | null }) {
   const kicker = plan.quarterly_kicker;
@@ -18,7 +21,7 @@ export default function KickerStatus({ plan, qtd }: { plan: CompPlan; qtd: Quart
   const tierNum = (t: { attainmentPct: number }) => sorted.findIndex((x) => x.attainmentPct === t.attainmentPct) + 1;
   return (
     <p className="kicker-status">
-      Quarterly SaaS: {fmtMoney(qtd.saasArrBooked)} of {fmtMoney(kicker.target)} ({fmtPctShort(s.attainmentPct)})
+      Already booked this quarter: {fmtMoney(qtd.saasArrBooked)} of {fmtMoney(kicker.target)} ({fmtPctShort(s.attainmentPct)})
       {s.tier
         ? ` · ${tierName(tierNum(s.tier))} locked in — +${fmtPctShort(s.tier.kickerPct)} on the quarter`
         : s.nextTier

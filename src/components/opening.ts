@@ -147,16 +147,22 @@ export function effectiveRateLabel(plan: CompPlan, r: CalcResult): string {
 export type CrossEffect = {
   tierAtFull: QuarterlyKickerTier | null;
   tierAtActual: QuarterlyKickerTier | null;
+  /** The tier reached from booked deals alone, before this deal — lets the
+   *  copy layer tell "this deal is what unlocks it" apart from "it was
+   *  already secured regardless of this deal." */
+  tierAtBooked: QuarterlyKickerTier | null;
   costsATier: boolean;
-  /** The lost kicker %, applied to the whole quarter's SaaS commission —
-   *  the "bigger number" a discount that looks fine elsewhere quietly costs. */
+  /** costsATier: the lost kicker %, applied to the whole quarter's SaaS
+   *  commission. Otherwise, when tierAtActual is held: what that tier is
+   *  actually worth right now — the "what you're getting" figure for the
+   *  positive case. Zero when neither applies. */
   value: number;
 };
 
 /**
  * Discounting can only ever cost a tier, never gain one — ARR credit is
  * monotonically non-increasing in discount, so tierAtActual can never
- * outrank tierAtFull. That's why this is a boolean, not a 3-way
+ * outrank tierAtFull. That's why costsATier is a boolean, not a 3-way
  * gained/lost/unchanged result: the "gained" branch is unreachable from
  * any real input.
  */
@@ -166,11 +172,17 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
   const { r, rFull } = o;
   const tierAtActual = kickerTierAt(kicker, qtd.saasArrBooked + r.subAnnual);
   const tierAtFull = kickerTierAt(kicker, qtd.saasArrBooked + rFull.subAnnual);
+  const tierAtBooked = kickerTierAt(kicker, qtd.saasArrBooked);
   const fullPct = tierAtFull?.kickerPct ?? 0;
   const actualPct = tierAtActual?.kickerPct ?? 0;
-  if (fullPct <= actualPct) return { tierAtFull, tierAtActual, costsATier: false, value: 0 };
+  const costsATier = fullPct > actualPct;
   const saasBase = qtd.saasCommissionBooked + r.saasCommissionEffective;
-  return { tierAtFull, tierAtActual, costsATier: true, value: round2((saasBase * (fullPct - actualPct)) / 100) };
+  const value = costsATier
+    ? round2((saasBase * (fullPct - actualPct)) / 100)
+    : tierAtActual
+      ? round2((saasBase * actualPct) / 100)
+      : 0;
+  return { tierAtFull, tierAtActual, tierAtBooked, costsATier, value };
 }
 
 /** "Tier 1"/"Tier 2" is engine language — nobody talks about their comp
@@ -178,25 +190,54 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
  *  deal page and the /plan form so they never disagree with each other. */
 export const tierName = (num: number) => (num === 1 ? 'Quarterly Bonus' : 'Quarterly Bonus (Stretch)');
 
-export type CrossEffectCopy = { label: string; value: number; sentence: string };
+export type KickerOutcomeCopy = { tone: 'green' | 'red'; label: string; value: number; sentence: string };
 
-/** Silent (null) unless this specific deal costs a tier — never a
- *  permanently-visible box, same "give it its own home only when it
- *  matters" precedent as Secondary.caption below. `dealCommission` is this
- *  deal's own commission (r.commissionEffective) — named in the sentence
- *  when the kicker loss outweighs it, which is the whole point: a
- *  discount that looks fine on this deal can cost far more elsewhere. */
-export function crossEffectCopy(plan: CompPlan, x: CrossEffect | null, dealCommission: number): CrossEffectCopy | null {
-  if (!x?.costsATier || !plan.quarterly_kicker) return null;
+/**
+ * Silent (null) unless this deal actually moves the needle — never a
+ * permanently-visible box, same "give it its own home only when it
+ * matters" precedent as Secondary.caption below. Red and green share one
+ * home because they're the same event (a deal's effect on the quarterly
+ * bonus), not two features — mirrors how the accelerator line itself
+ * always shows exactly one of "crossed" / "short" / "blocked", never
+ * silence once a deal exists.
+ *
+ * `dealCommission` is this deal's own commission (r.commissionEffective) —
+ * named in the red sentence when the kicker loss outweighs it, which is
+ * the whole point: a discount that looks fine on this deal can cost far
+ * more elsewhere.
+ */
+export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null, dealCommission: number): KickerOutcomeCopy | null {
+  if (!x || !plan.quarterly_kicker) return null;
   const sorted = [...plan.quarterly_kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
-  const tierNum = sorted.findIndex((t) => t.attainmentPct === x.tierAtFull!.attainmentPct) + 1;
-  const name = tierName(tierNum);
-  const worseThanDeal = x.value > dealCommission;
-  return {
-    label: `This deal costs you your ${name}`,
-    value: x.value,
-    sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission${worseThanDeal ? `, more than this deal's own commission (${fmtMoney(dealCommission)})` : ''}.`,
-  };
+  const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((s) => s.attainmentPct === t.attainmentPct) + 1;
+
+  if (x.costsATier) {
+    const name = tierName(numOf(x.tierAtFull!));
+    const worseThanDeal = x.value > dealCommission;
+    return {
+      tone: 'red',
+      label: `This deal costs you your ${name}`,
+      value: x.value,
+      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission${worseThanDeal ? `, more than this deal's own commission (${fmtMoney(dealCommission)})` : ''}.`,
+    };
+  }
+
+  if (x.tierAtActual) {
+    const name = tierName(numOf(x.tierAtActual));
+    // Only credit the deal for a tier it actually decided — if booked
+    // deals alone already cleared it, this deal isn't why it's there.
+    const causedByDeal = !x.tierAtBooked || x.tierAtBooked.attainmentPct < x.tierAtActual.attainmentPct;
+    return {
+      tone: 'green',
+      label: causedByDeal ? `This deal unlocks your ${name}` : `Your ${name} stays locked in`,
+      value: x.value,
+      sentence: causedByDeal
+        ? `Crossing ${fmtPctShort(x.tierAtActual.attainmentPct)} quarterly SaaS attainment locks it in — applies to the whole quarter's SaaS commission.`
+        : `Already past ${fmtPctShort(x.tierAtActual.attainmentPct)} quarterly SaaS attainment regardless of this deal.`,
+    };
+  }
+
+  return null;
 }
 
 // ── Copy ────────────────────────────────────────────────────────────────────
@@ -235,7 +276,7 @@ export type OutcomeCopy = {
   figureText: string;
 };
 
-export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): OutcomeCopy {
+export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: PeriodToDate): OutcomeCopy {
   const { r } = o;
   const noun = periodNoun(plan);
   const retro = plan.accelerator_style === 'retro_bump';
@@ -245,6 +286,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
   const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0;
   const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0;
+  const bothDiscounted = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct > 0;
   const weighted = plan.commission_style === 'percent' && plan.one_time_weight < 100;
   const residual =
     o.atStake > 0
@@ -256,7 +298,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
             // plan weights revenue types differently — worth naming, not
             // just totaling.
             ` The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)} — they count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
-          : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
+          : bothDiscounted && weighted
+            ? // Both levers active: the one-time-weighting insight is still
+              // true and still worth naming, not just swallowed into one
+              // generic total the moment a second discount joins it.
+              ` Your discounts cost you ${fmtMoney(o.atStake)} on this deal — the one-time products alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : '';
 
   if (o.state === 'empty') {
@@ -376,7 +423,11 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
 export function sliderCaption(deal: DealInput, r: CalcResult): string {
   const d = deal.subscriptionDiscountPct;
   if (d <= 0) return 'Full price';
-  return `${fmtPctShort(d)} off = ${fmtMoney((r.subMrrList * d) / 100)} a month off · the customer saves ${fmtMoney((r.subAnnualList * d) / 100)} a year`;
+  // "on the subscription alone" — the Ledger's Customer saves row totals
+  // this together with the one-time discount, so without the qualifier
+  // the two figures read as disagreeing rather than answering different
+  // questions.
+  return `${fmtPctShort(d)} off = ${fmtMoney((r.subMrrList * d) / 100)} a month off · saves the customer ${fmtMoney((r.subAnnualList * d) / 100)} a year on the subscription alone`;
 }
 
 /** One line under the one-time products field. */

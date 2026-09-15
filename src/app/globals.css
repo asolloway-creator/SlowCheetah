@@ -334,16 +334,23 @@ table.deals { width: 100%; border-collapse: collapse; }
    same border-top idiom .outcome-secondary already uses for that split. */
 .kicker-status { margin-top: var(--s-5); padding-top: var(--s-4); border-top: var(--hair); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 
-/* Crosses the plan's own accelerator fine, costs a quarterly bonus tier
-   instead — a warning, not a passive readout, so it gets the red treatment
-   .import-banner's ink border doesn't. Label/figure/sentence deliberately
-   matches .outcome-secondary-*'s size and weight (the page's other "money
-   leaving" moment) so this reads as the same kind of event, not a smaller,
+/* This deal's effect on the quarterly bonus — green when it keeps or
+   unlocks it, red when it costs it. One card, two tones, same red/green
+   idiom .outcome-figure.is-red/.is-green already uses elsewhere, not new
+   visual language. Label/figure/sentence deliberately matches
+   .outcome-secondary-*'s size and weight (the page's other "money moving"
+   moment) so this reads as the same kind of event, not a smaller,
    competing one. */
-.kicker-alert { margin-top: var(--s-5); padding: var(--s-5); background: var(--red-tint); border: 1px solid var(--red); border-radius: var(--r-ctl); }
-.kicker-alert-label { display: block; font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 500; color: var(--red); }
-.kicker-alert-figure { display: block; margin-top: var(--s-1); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 600; letter-spacing: -0.015em; color: var(--red); }
-.kicker-alert-sentence { display: block; margin-top: var(--s-2); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
+.kicker-outcome { margin-top: var(--s-5); padding: var(--s-5); border-radius: var(--r-ctl); }
+.kicker-outcome.is-red { background: var(--red-tint); border: 1px solid var(--red); }
+.kicker-outcome.is-green { background: var(--green-tint); border: 1px solid var(--green); }
+.kicker-outcome-label { display: block; font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 500; }
+.kicker-outcome-label.is-red { color: var(--red); }
+.kicker-outcome-label.is-green { color: var(--green); }
+.kicker-outcome-figure { display: block; margin-top: var(--s-1); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 600; letter-spacing: -0.015em; }
+.kicker-outcome-figure.is-red { color: var(--red); }
+.kicker-outcome-figure.is-green { color: var(--green); }
+.kicker-outcome-sentence { display: block; margin-top: var(--s-2); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
 
 /* Putting your plan in, over the deal instead of away from it — same form
    as /plan, in a sheet so the deal underneath is never actually left. */
