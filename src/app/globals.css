@@ -44,7 +44,7 @@
   --h-ctl: 44px;
   --h-seg: 32px;
   --h-row: 32px;
-  --h-masthead: 64px;
+  --h-masthead: 80px;
   --h-pinned: 56px;
   --h-thumb: 28px;
 
@@ -376,13 +376,17 @@ main { display: block; padding-bottom: var(--s-8); }
 .masthead-inner.is-minimal { grid-template-columns: auto 1fr; }
 .masthead-inner.is-minimal .auth { justify-self: end; }
 .wordmark {
-  display: inline-flex; align-items: baseline; gap: var(--s-3); color: var(--ink); text-decoration: none;
-  font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0.04em; border-radius: var(--r-ctl);
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; color: var(--ink); text-decoration: none;
+  border-radius: var(--r-ctl);
+}
+.wordmark-mark {
+  font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 700; letter-spacing: 0.03em;
 }
 .wordmark-full {
-  font-style: italic; font-weight: 400; font-size: var(--fs-small); line-height: var(--lh-small);
+  font-style: italic; font-weight: 400; font-size: var(--fs-ui); line-height: var(--lh-ui);
   letter-spacing: normal; color: var(--grey-1); white-space: nowrap;
 }
+.wordmark-full-accent { font-style: normal; font-weight: 700; color: var(--ink); }
 .nav { display: flex; justify-content: flex-end; gap: var(--s-5); height: 100%; }
 .nav a {
   position: relative; display: inline-flex; align-items: center; height: 100%; color: var(--grey-1); font-weight: 500; text-decoration: none;
@@ -597,7 +601,6 @@ main { display: block; padding-bottom: var(--s-8); }
   .masthead-inner.is-minimal { grid-template-rows: var(--h-masthead); height: var(--h-masthead); }
   .nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; gap: var(--s-4); height: 40px; }
   .auth-email { display: none; }
-  .wordmark-full { display: none; }
   .deal-more { grid-template-columns: 1fr; }
   .line-top, .line-bottom { height: calc(2 * var(--lh-small)); font-size: var(--fs-small); line-height: var(--lh-small); }
   .line-marker { left: auto; right: 0; white-space: normal; max-width: 70%; text-align: right; }
