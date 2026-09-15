@@ -8,7 +8,7 @@ import DealStage from '@/components/DealStage';
 import QuotaView from '@/components/QuotaView';
 import HistoryView from '@/components/HistoryView';
 import PlanSentence from '@/components/PlanSentence';
-import { OPENING_PTD, SAMPLE } from '@/components/opening';
+import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 
 /**
  * Demo mode: the whole app against the visitor's browser. The stage renders
@@ -25,7 +25,10 @@ export function DemoDeal() {
     if (fresh && JSON.stringify(d.ptd) !== JSON.stringify(OPENING_PTD)) {
       console.warn('IOI: OPENING_PTD no longer mirrors the seeded period in demo.ts', d.ptd);
     }
-  }, [d.ready, d.deals.length, d.plan, d.ptd]);
+    if (fresh && JSON.stringify(d.qtd) !== JSON.stringify(OPENING_QTD)) {
+      console.warn('IOI: OPENING_QTD no longer mirrors the seeded quarter in demo.ts', d.qtd);
+    }
+  }, [d.ready, d.deals.length, d.plan, d.ptd, d.qtd]);
 
   return (
     <Shell current="/" email={null}>

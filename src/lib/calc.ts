@@ -436,4 +436,20 @@ export const PRESETS: Preset[] = [
 // not the quarterly ARR retroactive-bump shape — closer to a real,
 // structurally complex comp plan (weighted revenue types, a separate
 // quota metric) than a single-number plan with one surprising mechanic.
-export const DEMO_PLAN: CompPlan = PRESETS.find((p) => p.id === 'units-switch')!.plan;
+//
+// Carries its own quarterly_kicker — the preset itself stays null, this is
+// the one demo instance that shows the cross-effect: a subscription
+// discount that costs nothing on the monthly accelerator (crossesAccelerator
+// is driven by units here, not $) can still drop quarterly SaaS attainment
+// below a tier. Sized against the seeded deals in demo.ts / OPENING_QTD in
+// opening.ts — see that file if these numbers ever need to move.
+export const DEMO_PLAN: CompPlan = {
+  ...PRESETS.find((p) => p.id === 'units-switch')!.plan,
+  quarterly_kicker: {
+    target: 43800,
+    tiers: [
+      { attainmentPct: 100, kickerPct: 3 },
+      { attainmentPct: 130, kickerPct: 5 },
+    ],
+  },
+};

@@ -50,6 +50,14 @@ export const SAMPLE: DealInput = {
  */
 export const OPENING_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 2636.27, earnedBooked: 2636.27 };
 
+/**
+ * Same seeded month, summed against the calendar quarter instead of the
+ * plan's period — what DEMO_PLAN's quarterly_kicker measures against. All 5
+ * seeded deals land in the current month, so this is the same 5 rows as
+ * OPENING_PTD, just totaled differently. Same drift check applies.
+ */
+export const OPENING_QTD: QuarterToDate = { saasArrBooked: 36120, saasCommissionBooked: 2528.4 };
+
 export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 
 export const atFullPrice = (d: DealInput): DealInput => ({
