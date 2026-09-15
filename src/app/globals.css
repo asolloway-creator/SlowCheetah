@@ -376,8 +376,12 @@ main { display: block; padding-bottom: var(--s-8); }
 .masthead-inner.is-minimal { grid-template-columns: auto 1fr; }
 .masthead-inner.is-minimal .auth { justify-self: end; }
 .wordmark {
-  display: inline-flex; align-items: center; gap: var(--s-2); color: var(--ink); text-decoration: none;
+  display: inline-flex; align-items: baseline; gap: var(--s-3); color: var(--ink); text-decoration: none;
   font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0.04em; border-radius: var(--r-ctl);
+}
+.wordmark-full {
+  font-style: italic; font-weight: 400; font-size: var(--fs-small); line-height: var(--lh-small);
+  letter-spacing: normal; color: var(--grey-1); white-space: nowrap;
 }
 .nav { display: flex; justify-content: flex-end; gap: var(--s-5); height: 100%; }
 .nav a {
@@ -593,6 +597,7 @@ main { display: block; padding-bottom: var(--s-8); }
   .masthead-inner.is-minimal { grid-template-rows: var(--h-masthead); height: var(--h-masthead); }
   .nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; gap: var(--s-4); height: 40px; }
   .auth-email { display: none; }
+  .wordmark-full { display: none; }
   .deal-more { grid-template-columns: 1fr; }
   .line-top, .line-bottom { height: calc(2 * var(--lh-small)); font-size: var(--fs-small); line-height: var(--lh-small); }
   .line-marker { left: auto; right: 0; white-space: normal; max-width: 70%; text-align: right; }
