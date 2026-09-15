@@ -126,7 +126,7 @@ export default function DiscountSlider({
       </label>
       <input
         id={editId}
-        className={size === 'lg' ? 'bubble bubble-input' : 'slider-value-input'}
+        className={size === 'lg' ? 'bubble bubble-input' : 'bubble bubble-sm bubble-input-sm'}
         type="text"
         inputMode="decimal"
         autoFocus
@@ -151,18 +151,18 @@ export default function DiscountSlider({
           {label}
         </label>
         <div className="slider-row" style={rowStyle}>
+          {editing ? (
+            editor
+          ) : (
+            <button type="button" className="bubble bubble-sm" onClick={startEdit} disabled={disabled}>
+              {shown}
+              <span className="sr-only"> off — type a value</span>
+            </button>
+          )}
           <span className="slider-track" />
           <span className="slider-fill" />
           {range}
         </div>
-        {editing ? (
-          editor
-        ) : (
-          <button type="button" className="btn-text slider-value" onClick={startEdit} disabled={disabled}>
-            {shown}
-            <span className="sr-only"> off — type a value</span>
-          </button>
-        )}
       </div>
     );
   }

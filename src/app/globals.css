@@ -244,18 +244,22 @@ button.bubble:hover:not(:disabled)::after { border-top-color: var(--ink-2); }
 button.bubble:disabled { background: var(--grey-2); }
 button.bubble:disabled::after { border-top-color: var(--grey-2); }
 .bubble-input { width: 56px; text-align: center; background: var(--stage); color: var(--ink); border: 1px solid var(--ink); }
+.bubble-input-sm { width: 40px; text-align: center; background: var(--stage); color: var(--ink); border: 1px solid var(--ink); }
 
-/* compact slider */
-.slider-sm { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--s-3); margin-top: var(--s-2); }
-.slider-sm .slider-row { height: 20px; --centre: calc(var(--pct) * 1% + 10px - var(--pct) * 0.2px); }
+/* compact slider — value used to sit in a fixed column to the right,
+   updating its text but never moving, unlike the promoted slider's bubble
+   which tracks the thumb. That stillness read as "not responding" even
+   though the number was correct. Now uses the same tracking bubble, just
+   smaller, so both sliders give the same live feedback while dragging. */
+.slider-sm { margin-top: calc(var(--s-4) + var(--s-1)); }
+.slider-sm .slider-row { position: relative; height: 20px; --centre: calc(var(--pct) * 1% + 10px - var(--pct) * 0.2px); }
 .slider-sm .slider-track, .slider-sm .slider-fill { height: 4px; margin-top: -2px; }
 .slider-sm .slider-input::-webkit-slider-runnable-track { height: 20px; }
+.bubble-sm { height: 20px; padding: 0 var(--s-1); font-size: 11px; line-height: 20px; }
+.bubble-sm::after { border-left-width: 4px; border-right-width: 4px; border-top-width: 5px; margin-left: -4px; }
 .slider-sm .slider-input::-webkit-slider-thumb { width: 20px; height: 20px; }
 .slider-sm .slider-input::-moz-range-track { height: 20px; }
 .slider-sm .slider-input::-moz-range-thumb { width: 20px; height: 20px; }
-.slider-value { min-width: 3.5ch; text-align: right; }
-.slider-value-input { width: 56px; height: var(--h-seg); padding: 0 var(--s-2); text-align: center; background: var(--paper); border: 1px solid var(--ink); border-radius: var(--r-ctl); }
-
 /* ---------- primitives: ledger, table, tiles, blanks ---------------------- */
 /* A quiet summary card, not another interactive control — background and
    radius give it a home on the page, but the rows themselves stay flat.
@@ -441,6 +445,10 @@ main { display: block; padding-bottom: var(--s-8); }
 .stage { position: relative; padding: var(--stage-pad); background: var(--stage); border-radius: var(--r-stage); box-shadow: var(--shadow-stage); }
 .stage-context { color: var(--grey-1); }
 .stage-context + .stage-context { margin-top: var(--s-1); }
+/* Full ink, not the muted grey the context lines above use — this is the
+   one thing every first-time visitor needs to actually register (none of
+   this is their data), not another quiet caption to read past. */
+.stage-sample-note { margin-top: var(--s-3); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
 .stage-plan-saved { margin-top: var(--s-2); }
 .stage > .line { margin: var(--s-5) 0 var(--s-6); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }

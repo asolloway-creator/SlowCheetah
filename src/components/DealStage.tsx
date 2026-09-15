@@ -177,9 +177,20 @@ export default function DealStage({
       <section className="stage" aria-labelledby="stage-context">
         <p id="stage-context" className="stage-context">
           {plan.role_name} · {label}
-          {demo ? ` · sample ${noun}` : ''}
         </p>
         <p className="stage-context">{planSentence(plan)}</p>
+        {demo && !planSaved && (
+          // "sample {noun}" used to be a quiet qualifier buried in the line
+          // above — easy to read past without registering that none of this
+          // is the visitor's own data. Its own line, own color, and the
+          // actual next step named, not just implied by the header button.
+          <p className="stage-sample-note">
+            This is a sample {noun} — try the numbers below, then{' '}
+            <Link className="btn-text" href="/?plan=1">
+              put in your plan &rarr;
+            </Link>
+          </p>
+        )}
         {demo && planSaved && (
           <p className="after-note stage-plan-saved">
             Your plan is in. Saved in this browser only ·{' '}
