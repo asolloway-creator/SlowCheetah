@@ -90,7 +90,7 @@ export default function DealStage({
   // time. null whenever the plan has no quarterly_kicker or qtd wasn't
   // fetched (callers only fetch it when a kicker is actually configured).
   const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
-  const xCopy = useMemo(() => crossEffectCopy(plan, xEffect), [plan, xEffect]);
+  const xCopy = useMemo(() => crossEffectCopy(plan, xEffect, o.r.commissionEffective), [plan, xEffect, o.r.commissionEffective]);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
@@ -147,20 +147,20 @@ export default function DealStage({
     JSON.stringify(plan) !== JSON.stringify(DEMO_PLAN);
 
   const { r } = o;
-  // Commission on this deal is the outcome figure now (Outcome.tsx) — not
-  // repeated here, so the ledger doesn't say the same number twice.
+  // Commission on this deal is the outcome figure now (Outcome.tsx), and its
+  // commissionable base now lives in that figure's own caption (opening.ts)
+  // — not repeated here, so the ledger doesn't say either number twice.
+  // months_of_mrr plans have no such base to fold in, so New ARR stays.
   const rows: LedgerRow[] = [
-    plan.commission_style === 'percent'
-      ? {
-          label: 'Commissionable value',
-          value: <TweenedMoney value={r.commissionable} />,
-          suffix: r.commissionableFull !== r.commissionable ? `· ${fmtMoney(r.commissionableFull)} at list` : undefined,
-        }
-      : {
-          label: 'New ARR',
-          value: <TweenedMoney value={r.subAnnual} />,
-          suffix: r.subAnnualList !== r.subAnnual ? `· ${fmtMoney(r.subAnnualList)} at list` : undefined,
-        },
+    ...(plan.commission_style === 'months_of_mrr'
+      ? [
+          {
+            label: 'New ARR',
+            value: <TweenedMoney value={r.subAnnual} />,
+            suffix: r.subAnnualList !== r.subAnnual ? `· ${fmtMoney(r.subAnnualList)} at list` : undefined,
+          },
+        ]
+      : []),
     {
       label: `Lands the ${noun} at`,
       value: plan.quota_basis === 'units' ? fmtCredit(plan, r.creditAfter) : <TweenedMoney value={r.creditAfter} />,

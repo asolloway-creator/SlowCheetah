@@ -413,14 +413,14 @@ export default function PlanSentence({
           <div className="field-grid">
             <NumField
               id="kk-t1-pct"
-              label="Tier 1 attainment"
+              label="Quarterly Bonus attainment"
               value={kicker.tiers[0].attainmentPct}
               suffix="%"
               onChange={(n) => setKickerTier(0, 'attainmentPct', n)}
             />
             <NumField
               id="kk-t1-kick"
-              label="Tier 1 kicker"
+              label="Quarterly Bonus kicker"
               value={kicker.tiers[0].kickerPct}
               suffix="%"
               onChange={(n) => setKickerTier(0, 'kickerPct', n)}
@@ -429,14 +429,14 @@ export default function PlanSentence({
           <div className="field-grid">
             <NumField
               id="kk-t2-pct"
-              label="Tier 2 attainment"
+              label="Quarterly Bonus (Stretch) attainment"
               value={kicker.tiers[1].attainmentPct}
               suffix="%"
               onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
             />
             <NumField
               id="kk-t2-kick"
-              label="Tier 2 kicker"
+              label="Quarterly Bonus (Stretch) kicker"
               value={kicker.tiers[1].kickerPct}
               suffix="%"
               onChange={(n) => setKickerTier(1, 'kickerPct', n)}

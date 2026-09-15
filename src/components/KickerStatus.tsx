@@ -1,5 +1,6 @@
 import { quarterlyKickerSummary, type CompPlan, type QuarterToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort } from '@/lib/format';
+import { tierName } from '@/components/opening';
 
 /**
  * Where the quarter actually stands, from deals already booked — the
@@ -19,9 +20,9 @@ export default function KickerStatus({ plan, qtd }: { plan: CompPlan; qtd: Quart
     <p className="kicker-status">
       Quarterly SaaS: {fmtMoney(qtd.saasArrBooked)} of {fmtMoney(kicker.target)} ({fmtPctShort(s.attainmentPct)})
       {s.tier
-        ? ` · Tier ${tierNum(s.tier)} locked in — +${fmtPctShort(s.tier.kickerPct)} on the quarter`
+        ? ` · ${tierName(tierNum(s.tier))} locked in — +${fmtPctShort(s.tier.kickerPct)} on the quarter`
         : s.nextTier
-          ? ` · ${fmtMoney(s.toNextTierArr)} to Tier ${tierNum(s.nextTier)} (${fmtPctShort(s.nextTier.attainmentPct)})`
+          ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(tierNum(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
           : ''}
     </p>
   );

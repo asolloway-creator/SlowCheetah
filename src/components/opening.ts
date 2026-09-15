@@ -173,19 +173,29 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
   return { tierAtFull, tierAtActual, costsATier: true, value: round2((saasBase * (fullPct - actualPct)) / 100) };
 }
 
-export type CrossEffectCopy = { label: string; sentence: string; value: number };
+/** "Tier 1"/"Tier 2" is engine language — nobody talks about their comp
+ *  plan that way. One name for each of the two fixed tiers, shared by the
+ *  deal page and the /plan form so they never disagree with each other. */
+export const tierName = (num: number) => (num === 1 ? 'Quarterly Bonus' : 'Quarterly Bonus (Stretch)');
+
+export type CrossEffectCopy = { label: string; value: number; sentence: string };
 
 /** Silent (null) unless this specific deal costs a tier — never a
  *  permanently-visible box, same "give it its own home only when it
- *  matters" precedent as Secondary.caption below. */
-export function crossEffectCopy(plan: CompPlan, x: CrossEffect | null): CrossEffectCopy | null {
+ *  matters" precedent as Secondary.caption below. `dealCommission` is this
+ *  deal's own commission (r.commissionEffective) — named in the sentence
+ *  when the kicker loss outweighs it, which is the whole point: a
+ *  discount that looks fine on this deal can cost far more elsewhere. */
+export function crossEffectCopy(plan: CompPlan, x: CrossEffect | null, dealCommission: number): CrossEffectCopy | null {
   if (!x?.costsATier || !plan.quarterly_kicker) return null;
   const sorted = [...plan.quarterly_kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
   const tierNum = sorted.findIndex((t) => t.attainmentPct === x.tierAtFull!.attainmentPct) + 1;
+  const name = tierName(tierNum);
+  const worseThanDeal = x.value > dealCommission;
   return {
-    label: `Costs you Tier ${tierNum}`,
-    sentence: `This discount drops quarterly SaaS attainment below ${fmtPctShort(x.tierAtFull!.attainmentPct)}. Crossing it stays worth ${fmtMoney(x.value)} across the whole quarter's SaaS commission.`,
+    label: `This deal costs you your ${name}`,
     value: x.value,
+    sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission${worseThanDeal ? `, more than this deal's own commission (${fmtMoney(dealCommission)})` : ''}.`,
   };
 }
 
@@ -260,13 +270,18 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome): Outcom
   // right now — so the label and caption never have to be re-derived per
   // state, only the tone (accelerated → green) and the secondary callout.
   const accelerated = r.isAccelerated;
+  // The commission figure is a rate applied to a base — that multiplication
+  // was previously invisible, living only in a same-named Ledger row far
+  // below with nothing connecting the two. Naming the base right here, at
+  // the point it matters, replaces that row instead of duplicating it.
+  const rateLabel = `${effectiveRateLabel(plan, r)}${accelerated ? ', accelerated' : ''}`;
   const base = {
     name: 'Commission on this deal',
     nameTone: (accelerated ? 'green' : 'ink') as 'green' | 'ink',
     figure: r.commissionEffective,
     figureTone: (accelerated ? 'green' : 'ink') as Tone,
     signed: false,
-    caption: `at ${effectiveRateLabel(plan, r)}${accelerated ? ', accelerated' : ''}`,
+    caption: plan.commission_style === 'percent' ? `${fmtMoney(r.commissionable)} commissionable · ${rateLabel}` : `at ${rateLabel}`,
     figureText: fmtMoney(r.commissionEffective),
   };
 

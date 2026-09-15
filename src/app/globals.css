@@ -329,16 +329,21 @@ table.deals { width: 100%; border-collapse: collapse; }
 
 /* Where the quarter actually stands, from deals already booked — a plain
    fact, not a warning, so it's muted text like .stage-context rather than
-   a bordered card. Sits above .kicker-alert so the alarm below it always
-   has a grounded number to react against. */
-.kicker-status { margin-top: var(--s-5); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
+   a bordered card. The hairline above marks the seam: everything before it
+   is this deal's own commission, everything after is the whole quarter's —
+   same border-top idiom .outcome-secondary already uses for that split. */
+.kicker-status { margin-top: var(--s-5); padding-top: var(--s-4); border-top: var(--hair); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 
-/* Crosses the plan's own accelerator fine, costs a quarterly kicker tier
+/* Crosses the plan's own accelerator fine, costs a quarterly bonus tier
    instead — a warning, not a passive readout, so it gets the red treatment
-   .import-banner's ink border doesn't. */
+   .import-banner's ink border doesn't. Label/figure/sentence deliberately
+   matches .outcome-secondary-*'s size and weight (the page's other "money
+   leaving" moment) so this reads as the same kind of event, not a smaller,
+   competing one. */
 .kicker-alert { margin-top: var(--s-5); padding: var(--s-5); background: var(--red-tint); border: 1px solid var(--red); border-radius: var(--r-ctl); }
-.kicker-alert-label { font-weight: 500; color: var(--red); }
-.kicker-alert-sentence { margin-top: var(--s-1); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
+.kicker-alert-label { display: block; font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 500; color: var(--red); }
+.kicker-alert-figure { display: block; margin-top: var(--s-1); font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 600; letter-spacing: -0.015em; color: var(--red); }
+.kicker-alert-sentence { display: block; margin-top: var(--s-2); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
 
 /* Putting your plan in, over the deal instead of away from it — same form
    as /plan, in a sheet so the deal underneath is never actually left. */
