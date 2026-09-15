@@ -327,6 +327,13 @@ table.deals { width: 100%; border-collapse: collapse; }
 .import-banner-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .import-banner-actions { display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-4); }
 
+/* Crosses the plan's own accelerator fine, costs a quarterly kicker tier
+   instead — a warning, not a passive readout, so it gets the red treatment
+   .import-banner's ink border doesn't. */
+.kicker-alert { margin-top: var(--s-5); padding: var(--s-5); background: var(--red-tint); border: 1px solid var(--red); border-radius: var(--r-ctl); }
+.kicker-alert-label { font-weight: 500; color: var(--red); }
+.kicker-alert-sentence { margin-top: var(--s-1); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
+
 /* Putting your plan in, over the deal instead of away from it — same form
    as /plan, in a sheet so the deal underneath is never actually left. */
 .dialog-scrim {

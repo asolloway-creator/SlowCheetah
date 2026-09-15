@@ -11,11 +11,14 @@
 
 import {
   calc,
+  kickerTierAt,
   periodSummary,
   type CalcResult,
   type CompPlan,
   type DealInput,
   type PeriodToDate,
+  type QuarterToDate,
+  type QuarterlyKickerTier,
 } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 
@@ -114,6 +117,60 @@ export function effectiveRateLabel(plan: CompPlan, r: CalcResult): string {
     return fmtRateShort(plan, round2(plan.base_rate * (1 + plan.accelerator_rate / 100)));
   }
   return fmtRateShort(plan, r.effectiveRate);
+}
+
+// ── Quarterly kicker cross-effect ───────────────────────────────────────────
+//
+// Independent of the plan's own accelerator (outcome/outcomeCopy above) —
+// this deal can cross the accelerator and cost a quarterly tier in the same
+// breath, and the two can disagree. Sibling functions, not a change to
+// outcome()/outcomeCopy(): the two existing call sites of those stay exactly
+// as they were, and a plan with no quarterly_kicker never touches this code
+// path at all.
+
+export type CrossEffect = {
+  tierAtFull: QuarterlyKickerTier | null;
+  tierAtActual: QuarterlyKickerTier | null;
+  costsATier: boolean;
+  /** The lost kicker %, applied to the whole quarter's SaaS commission —
+   *  the "bigger number" a discount that looks fine elsewhere quietly costs. */
+  value: number;
+};
+
+/**
+ * Discounting can only ever cost a tier, never gain one — ARR credit is
+ * monotonically non-increasing in discount, so tierAtActual can never
+ * outrank tierAtFull. That's why this is a boolean, not a 3-way
+ * gained/lost/unchanged result: the "gained" branch is unreachable from
+ * any real input.
+ */
+export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): CrossEffect | null {
+  const kicker = plan.quarterly_kicker;
+  if (!kicker) return null;
+  const { r, rFull } = o;
+  const tierAtActual = kickerTierAt(kicker, qtd.saasArrBooked + r.subAnnual);
+  const tierAtFull = kickerTierAt(kicker, qtd.saasArrBooked + rFull.subAnnual);
+  const fullPct = tierAtFull?.kickerPct ?? 0;
+  const actualPct = tierAtActual?.kickerPct ?? 0;
+  if (fullPct <= actualPct) return { tierAtFull, tierAtActual, costsATier: false, value: 0 };
+  const saasBase = qtd.saasCommissionBooked + r.saasCommissionEffective;
+  return { tierAtFull, tierAtActual, costsATier: true, value: round2((saasBase * (fullPct - actualPct)) / 100) };
+}
+
+export type CrossEffectCopy = { label: string; sentence: string; value: number };
+
+/** Silent (null) unless this specific deal costs a tier — never a
+ *  permanently-visible box, same "give it its own home only when it
+ *  matters" precedent as Secondary.caption below. */
+export function crossEffectCopy(plan: CompPlan, x: CrossEffect | null): CrossEffectCopy | null {
+  if (!x?.costsATier || !plan.quarterly_kicker) return null;
+  const sorted = [...plan.quarterly_kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
+  const tierNum = sorted.findIndex((t) => t.attainmentPct === x.tierAtFull!.attainmentPct) + 1;
+  return {
+    label: `Costs you Tier ${tierNum}`,
+    sentence: `This discount drops quarterly SaaS attainment below ${fmtPctShort(x.tierAtFull!.attainmentPct)}. Crossing it stays worth ${fmtMoney(x.value)} across the whole quarter's SaaS commission.`,
+    value: x.value,
+  };
 }
 
 // ── Copy ────────────────────────────────────────────────────────────────────

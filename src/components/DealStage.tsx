@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
+import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, periodNoun, planSentence } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
@@ -13,11 +13,14 @@ import Ledger, { type LedgerRow } from '@/components/Ledger';
 import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
+import KickerAlert from '@/components/KickerAlert';
 import {
   EMPTY,
   OPENING_PTD,
   SAMPLE,
   costOf,
+  crossEffect,
+  crossEffectCopy,
   isEmpty,
   outcome,
   outcomeCopy,
@@ -32,6 +35,7 @@ import {
 export default function DealStage({
   plan,
   ptd,
+  qtd,
   demo,
   onSave,
   onSavePlan,
@@ -40,6 +44,10 @@ export default function DealStage({
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
+  /** Only needed (and only fetched by callers) when plan.quarterly_kicker
+   *  is set — the calendar-quarter aggregate the cross-effect callout
+   *  measures against. */
+  qtd?: QuarterToDate | null;
   demo: boolean;
   onSave: (deal: DealInput) => Promise<{ error?: string }>;
   /** Demo only: swap in the visitor's own plan without leaving this page. */
@@ -76,6 +84,12 @@ export default function DealStage({
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o), [plan, deal, o]);
+  // Independent of the accelerator's own outcome/copy above — this deal can
+  // cross the accelerator and cost a quarterly kicker tier at the same
+  // time. null whenever the plan has no quarterly_kicker or qtd wasn't
+  // fetched (callers only fetch it when a kicker is actually configured).
+  const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
+  const xCopy = useMemo(() => crossEffectCopy(plan, xEffect), [plan, xEffect]);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
@@ -191,6 +205,8 @@ export default function DealStage({
                 disabled={empty || r.subMrrList <= 0}
               />
             </Outcome>
+
+            <KickerAlert copy={xCopy} />
 
             <div className="book-row">
               <button

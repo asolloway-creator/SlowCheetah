@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { periodLabel } from '@/lib/calc';
-import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
+import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate } from '@/lib/queries';
 import { saveDealAction } from './actions';
 import { Shell } from './AccountViews';
 import { DemoDeal } from './demo/DemoViews';
@@ -14,11 +14,14 @@ export default async function Home() {
   if (!plan) redirect('/plan');
   const { deals: _deals, ...ptd } = await getPeriodToDate(user.id, plan);
   void _deals;
+  // Only queried when the plan actually has a kicker — no extra query for
+  // the common case.
+  const qtd = plan.quarterly_kicker ? await getQuarterToDate(user.id) : null;
 
   return (
     <Shell current="/" email={user.email ?? ''}>
       <h1 className="page-title">New deal · {periodLabel(plan.period)}</h1>
-      <DealStage plan={plan} ptd={ptd} demo={false} onSave={saveDealAction} />
+      <DealStage plan={plan} ptd={ptd} qtd={qtd} demo={false} onSave={saveDealAction} />
     </Shell>
   );
 }

@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { PRESETS, type AcceleratorStyle, type CommissionStyle, type CompPlan, type Preset, type QuotaBasis } from '@/lib/calc';
+import {
+  PRESETS,
+  type AcceleratorStyle,
+  type CommissionStyle,
+  type CompPlan,
+  type Preset,
+  type QuarterlyKickerTier,
+  type QuotaBasis,
+} from '@/lib/calc';
 import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
 import NumField from '@/components/NumField';
@@ -27,6 +35,7 @@ const BLANK_PLAN: CompPlan = {
   accelerator_threshold: 0,
   accelerator_rate: 0,
   one_time_weight: 0,
+  quarterly_kicker: null,
 };
 
 /** A plain text field, same visual language as NumField. */
@@ -132,6 +141,36 @@ export default function PlanSentence({
     setP((x) => ({ ...x, accelerator_style: v, accelerator_rate: 0 }));
   };
 
+  // Independent of accelerator_style above — a second, optional bonus, not
+  // an alternative to the first. 105/150 seeded on turning it on: the one
+  // confirmed real shape, not an arbitrary placeholder, and easier to edit
+  // down from than to type from a blank 0.
+  const toggleKicker = (on: boolean) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => ({
+      ...x,
+      quarterly_kicker: on
+        ? (x.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 105, kickerPct: 0 }, { attainmentPct: 150, kickerPct: 0 }] })
+        : null,
+    }));
+  };
+  const setKickerTarget = (v: number) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => (x.quarterly_kicker ? { ...x, quarterly_kicker: { ...x.quarterly_kicker, target: v } } : x));
+  };
+  const setKickerTier = (idx: 0 | 1, field: keyof QuarterlyKickerTier, v: number) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => {
+      if (!x.quarterly_kicker) return x;
+      const tiers = [...x.quarterly_kicker.tiers] as [QuarterlyKickerTier, QuarterlyKickerTier];
+      tiers[idx] = { ...tiers[idx], [field]: v };
+      return { ...x, quarterly_kicker: { ...x.quarterly_kicker, tiers } };
+    });
+  };
+
   const choose = (x: Preset) => {
     setP(x.plan);
     setPreset(x.id);
@@ -158,6 +197,8 @@ export default function PlanSentence({
     : `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
 
   const hasAccel = p.accelerator_style !== 'none';
+  const kickerOn = p.quarterly_kicker !== null;
+  const kicker = p.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 105, kickerPct: 0 }, { attainmentPct: 150, kickerPct: 0 }] as [QuarterlyKickerTier, QuarterlyKickerTier] };
 
   if (compact) {
     return (
@@ -341,6 +382,67 @@ export default function PlanSentence({
             onChange={(n) => set('accelerator_rate', n)}
           />
         </div>
+      )}
+
+      <h2 className="section-h">Quarterly SaaS kicker</h2>
+      <div className="field">
+        <span className="field-label">Style</span>
+        <Segmented
+          label="Quarterly SaaS kicker"
+          value={kickerOn ? 'on' : 'off'}
+          options={[
+            ['off', 'Off'],
+            ['on', 'On'],
+          ]}
+          onChange={(v) => toggleKicker(v === 'on')}
+        />
+      </div>
+      <p className="field-note">
+        A second, independent bonus some plans stack on top of the accelerator above — cross a % of cumulative
+        quarterly SaaS attainment and the whole quarter&rsquo;s SaaS commission gets a kicker.
+      </p>
+      {kickerOn && (
+        <>
+          <NumField
+            id="kk-target"
+            label="Quarterly SaaS target"
+            value={kicker.target}
+            prefix="$"
+            onChange={setKickerTarget}
+          />
+          <div className="field-grid">
+            <NumField
+              id="kk-t1-pct"
+              label="Tier 1 attainment"
+              value={kicker.tiers[0].attainmentPct}
+              suffix="%"
+              onChange={(n) => setKickerTier(0, 'attainmentPct', n)}
+            />
+            <NumField
+              id="kk-t1-kick"
+              label="Tier 1 kicker"
+              value={kicker.tiers[0].kickerPct}
+              suffix="%"
+              onChange={(n) => setKickerTier(0, 'kickerPct', n)}
+            />
+          </div>
+          <div className="field-grid">
+            <NumField
+              id="kk-t2-pct"
+              label="Tier 2 attainment"
+              value={kicker.tiers[1].attainmentPct}
+              suffix="%"
+              onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
+            />
+            <NumField
+              id="kk-t2-kick"
+              label="Tier 2 kicker"
+              value={kicker.tiers[1].kickerPct}
+              suffix="%"
+              onChange={(n) => setKickerTier(1, 'kickerPct', n)}
+            />
+          </div>
+        </>
       )}
 
       <div className="plan-save">

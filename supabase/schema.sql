@@ -1,4 +1,4 @@
--- IOI schema v5 (2026-09-10): generic engine, two proven plan shapes.
+-- IOI schema v6 (2026-09-15): quarterly kicker cross-effect.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -12,10 +12,21 @@
 -- other non-recurring line, not a separate weighted bucket; merged into
 -- one_time_weight / one_time_amount / one_time_discount_pct.
 --
+-- v6 adds comp_plans.quarterly_kicker (a second, independent tiered bonus
+-- some real plans stack on top of accelerator_style — nullable, most plans
+-- don't have one) and deals.saas_commission (the SaaS-only slice of each
+-- deal's commission, persisted rather than derived later, so a plan edited
+-- mid-quarter doesn't silently reinterpret prior deals' kicker math).
+--
 -- A live database on an older version keeps the old columns with harmless
 -- defaults (the app no longer reads or writes them) unless you run:
 --   alter table public.comp_plans drop column attach_enabled, drop column attach_name, drop column attach_mrr, drop column implementation_weight;
 --   alter table public.deals drop column attach, drop column implementation_amount, drop column implementation_discount_pct;
+--
+-- To pick up v6 on a live v5 database WITHOUT dropping existing rows, run
+-- instead of the drop/create below:
+--   alter table public.comp_plans add column quarterly_kicker jsonb;
+--   alter table public.deals add column saas_commission numeric(14,2) not null default 0;
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -51,6 +62,10 @@ create table public.comp_plans (
   accelerator_threshold numeric(14,2) not null default 0 check (accelerator_threshold >= 0),
   accelerator_rate      numeric(8,3)  not null default 0 check (accelerator_rate >= 0),
   one_time_weight       numeric(6,2)  not null default 50 check (one_time_weight between 0 and 100),
+  -- { target: number, tiers: [{attainmentPct, kickerPct}, {attainmentPct, kickerPct}] } or null.
+  -- Validated app-side (savePlanAction / parseKicker) rather than in SQL —
+  -- same trust boundary as every other plan field here.
+  quarterly_kicker      jsonb,
   created_at            timestamptz not null default now(),
   unique (user_id)
 );
@@ -72,6 +87,10 @@ create table public.deals (
   commission_base             numeric(14,2) not null default 0,
   commission_earned           numeric(14,2) not null default 0,
   money_left_on_table         numeric(14,2) not null default 0,
+  -- The SaaS-only slice of commission_earned — all of it for months_of_mrr
+  -- plans, the proportional share for percent plans that blend in
+  -- one-time. What a quarterly_kicker multiplies against.
+  saas_commission             numeric(14,2) not null default 0,
   created_at                  timestamptz not null default now()
 );
 

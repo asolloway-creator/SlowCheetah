@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import {
   periodToDateFrom,
+  quarterToDateFrom,
   startOfPeriod,
   type CompPlan,
   type PeriodToDate,
+  type QuarterToDate,
+  type QuarterlyKicker,
   type SubscriptionMode,
 } from '@/lib/calc';
 
@@ -20,6 +23,7 @@ export type DealRow = {
   commission_base: number;
   commission_earned: number;
   money_left_on_table: number;
+  saas_commission: number;
   created_at: string;
 };
 
@@ -33,6 +37,24 @@ export async function currentUser() {
 }
 
 const num = (v: unknown) => Number(v);
+
+/** jsonb round-trips as a plain object or null — validate its shape rather
+ *  than trust it, same caution `num()` already applies to every other
+ *  column here. Malformed data (a hand-edited row, a future schema change)
+ *  degrades to "no kicker" instead of a broken plan. */
+function parseKicker(v: unknown): QuarterlyKicker | null {
+  if (!v || typeof v !== 'object') return null;
+  const k = v as { target?: unknown; tiers?: unknown };
+  const target = num(k.target);
+  const tiers = Array.isArray(k.tiers) ? k.tiers : [];
+  if (!(target > 0) || tiers.length !== 2) return null;
+  const parsed = tiers.map((t) => ({
+    attainmentPct: num((t as { attainmentPct?: unknown })?.attainmentPct),
+    kickerPct: num((t as { kickerPct?: unknown })?.kickerPct),
+  }));
+  if (parsed.some((t) => !(t.attainmentPct > 0) || !Number.isFinite(t.kickerPct))) return null;
+  return { target, tiers: [parsed[0], parsed[1]] };
+}
 
 export async function getCompPlan(userId: string): Promise<CompPlan | null> {
   const supabase = await createClient();
@@ -49,6 +71,7 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
     accelerator_threshold: num(data.accelerator_threshold),
     accelerator_rate: num(data.accelerator_rate),
     one_time_weight: num(data.one_time_weight),
+    quarterly_kicker: parseKicker(data.quarterly_kicker),
   };
 }
 
@@ -66,6 +89,7 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     commission_base: num(d.commission_base),
     commission_earned: num(d.commission_earned),
     money_left_on_table: num(d.money_left_on_table),
+    saas_commission: num(d.saas_commission),
     created_at: String(d.created_at),
   };
 }
@@ -85,4 +109,12 @@ export async function getPeriodToDate(
 ): Promise<PeriodToDate & { deals: DealRow[] }> {
   const deals = await listDeals(userId, { since: startOfPeriod(plan.period) });
   return { ...periodToDateFrom(deals), deals };
+}
+
+/** Always the calendar quarter, independent of plan.period — reuses
+ *  listDeals unmodified, just with a different `since`. Only called when
+ *  a plan actually has a quarterly_kicker configured. */
+export async function getQuarterToDate(userId: string): Promise<QuarterToDate> {
+  const deals = await listDeals(userId, { since: startOfPeriod('quarter') });
+  return quarterToDateFrom(deals);
 }

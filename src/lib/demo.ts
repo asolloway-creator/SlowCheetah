@@ -4,6 +4,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import {
   calc,
   periodToDateFrom,
+  quarterToDateFrom,
   startOfPeriod,
   syntheticOpening,
   DEMO_PLAN,
@@ -37,6 +38,7 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
     commission_base: Number(r.commissionBase.toFixed(2)),
     commission_earned: Number(r.commissionEffective.toFixed(2)),
     money_left_on_table: Number(r.lost.toFixed(2)),
+    saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
     created_at: createdAt.toISOString(),
   };
 }
@@ -137,12 +139,20 @@ export function useDemoStore() {
   const periodDeals = deals.filter((d) => new Date(d.created_at).getTime() >= since);
   const ptd = periodToDateFrom(periodDeals);
 
+  // Always the calendar quarter, independent of plan.period — same
+  // startOfPeriod('quarter') the real (Supabase) path uses in
+  // getQuarterToDate. Cheap to always compute; only read when a plan
+  // actually has a quarterly_kicker configured.
+  const quarterSince = startOfPeriod('quarter').getTime();
+  const qtd = quarterToDateFrom(deals.filter((d) => new Date(d.created_at).getTime() >= quarterSince));
+
   return {
     ready: state !== null,
     plan,
     deals,
     periodDeals,
     ptd,
+    qtd,
     saveDeal: async (deal: DealInput) => {
       update((s) => {
         const sinceNow = startOfPeriod(s.plan.period).getTime();

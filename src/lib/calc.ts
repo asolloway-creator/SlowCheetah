@@ -17,6 +17,27 @@ export type CommissionStyle = 'percent' | 'months_of_mrr';
 export type AcceleratorStyle = 'none' | 'rate_switch' | 'retro_bump';
 export type SubscriptionMode = 'mrr' | 'acv';
 
+/** One tier of a quarterly kicker: cross this % of the quarterly SaaS
+ *  target, and the whole quarter's SaaS commission gets this % bump. */
+export type QuarterlyKickerTier = {
+  attainmentPct: number;
+  kickerPct: number;
+};
+
+/**
+ * A second, independent incentive some real plans stack on top of whatever
+ * `accelerator_style` already models — a tiered bonus on cumulative
+ * quarterly SaaS attainment, always tracked against the calendar quarter
+ * regardless of `plan.period`. Fixed at two tiers rather than an arbitrary
+ * list: matches the one confirmed real shape (105%/150%), not a guess at
+ * plans nobody's shown us yet.
+ */
+export type QuarterlyKicker = {
+  /** Quarterly SaaS ARR target — 100% attainment. */
+  target: number;
+  tiers: [QuarterlyKickerTier, QuarterlyKickerTier];
+};
+
 export type CompPlan = {
   role_name: string;
   period: Period;
@@ -36,6 +57,9 @@ export type CompPlan = {
    *  bucket for every non-recurring cost on the deal — hardware,
    *  implementation, setup fees, whatever a given plan charges once. */
   one_time_weight: number;
+  /** Optional, independent of accelerator_style — most plans don't have
+   *  one. See QuarterlyKicker. */
+  quarterly_kicker: QuarterlyKicker | null;
 };
 
 export type DealInput = {
@@ -73,6 +97,13 @@ export type CalcResult = {
   /** Commission as it will actually pay on this deal (accelerator applied). */
   commissionEffective: number;
   commissionFullEffective: number;
+  /** The SaaS-only slice of commissionEffective — all of it for
+   *  months_of_mrr plans (already 100% SaaS by construction), the
+   *  proportional share attributable to subscription revenue for percent
+   *  plans that blend in one-time. What a quarterly SaaS kicker multiplies
+   *  against; kept separate because the blended commissionEffective isn't
+   *  otherwise splittable after the fact. */
+  saasCommissionEffective: number;
   /** The rate shown to the user (percent or months) after accelerator. */
   effectiveRate: number;
   hasDiscount: boolean;
@@ -153,6 +184,19 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     if (crossesAccelerator) retroBump = crossingWorth;
   }
 
+  // The proportional slice of commissionEffective attributable to
+  // subscription revenue — for months_of_mrr plans commissionEffective is
+  // already 100% SaaS, no split needed. For percent plans that blend in
+  // one-time at some weight, split by the same ratio the blend was built
+  // from, so it carries through whatever accelerator effect already
+  // applied above.
+  const saasCommissionEffective =
+    plan.commission_style === 'months_of_mrr'
+      ? commissionEffective
+      : commissionable > 0
+        ? commissionEffective * (subAnnual / commissionable)
+        : 0;
+
   const hasDiscount = dOt > 0 || dSub > 0;
   const lost = commissionFullEffective - commissionEffective;
   const customerSavesAnnual = deal.oneTime * dOt + subAnnualList * dSub;
@@ -176,6 +220,7 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     commissionFullBase,
     commissionEffective,
     commissionFullEffective,
+    saasCommissionEffective,
     effectiveRate,
     hasDiscount,
     lost,
@@ -224,6 +269,51 @@ export function periodToDateFrom(
     creditBooked: rows.reduce((s, d) => s + d.quota_credit, 0),
     commissionBooked: rows.reduce((s, d) => s + d.commission_base, 0),
     earnedBooked: rows.reduce((s, d) => s + d.commission_earned, 0),
+  };
+}
+
+/** Calendar-quarter aggregate for the kicker — always scoped to the real
+ *  quarter via startOfPeriod('quarter'), independent of plan.period. A
+ *  sibling to PeriodToDate rather than a 4th field on it: PeriodToDate is
+ *  used unconditionally everywhere, and most plans have no kicker to make
+ *  a quarterly figure meaningful. */
+export type QuarterToDate = {
+  /** Discounted new ARR booked this calendar quarter, all deals. */
+  saasArrBooked: number;
+  /** Sum of each deal's own saasCommissionEffective this quarter. */
+  saasCommissionBooked: number;
+};
+
+export function quarterToDateFrom(
+  rows: { arr: number; saas_commission: number }[],
+): QuarterToDate {
+  return {
+    saasArrBooked: rows.reduce((s, d) => s + d.arr, 0),
+    saasCommissionBooked: rows.reduce((s, d) => s + d.saas_commission, 0),
+  };
+}
+
+/** The highest tier reached at this ARR attainment, or null below Tier 1. */
+export function kickerTierAt(kicker: QuarterlyKicker, arrBooked: number): QuarterlyKickerTier | null {
+  if (kicker.target <= 0) return null;
+  const pct = (arrBooked / kicker.target) * 100;
+  return [...kicker.tiers].sort((a, b) => b.attainmentPct - a.attainmentPct).find((t) => pct >= t.attainmentPct) ?? null;
+}
+
+/** Quarter-level kicker status — the toAccelerator/quotaPct analogue of
+ *  periodSummary(), for the second, independent metric. */
+export function quarterlyKickerSummary(plan: CompPlan, qtd: QuarterToDate) {
+  const kicker = plan.quarterly_kicker;
+  if (!kicker) return null;
+  const attainmentPct = kicker.target > 0 ? (qtd.saasArrBooked / kicker.target) * 100 : 0;
+  const tier = kickerTierAt(kicker, qtd.saasArrBooked);
+  const nextTier = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct).find((t) => t.attainmentPct > attainmentPct) ?? null;
+  return {
+    tier,
+    attainmentPct,
+    bumpValue: tier ? qtd.saasCommissionBooked * (tier.kickerPct / 100) : 0,
+    nextTier,
+    toNextTierArr: nextTier ? Math.max(0, (kicker.target * nextTier.attainmentPct) / 100 - qtd.saasArrBooked) : 0,
   };
 }
 
@@ -300,6 +390,7 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 100000,
       accelerator_rate: 25,
       one_time_weight: 0,
+      quarterly_kicker: null,
     },
   },
   {
@@ -318,6 +409,7 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 8,
       accelerator_rate: 9.5,
       one_time_weight: 40,
+      quarterly_kicker: null,
     },
   },
   {
@@ -335,6 +427,7 @@ export const PRESETS: Preset[] = [
       accelerator_threshold: 0,
       accelerator_rate: 0,
       one_time_weight: 50,
+      quarterly_kicker: null,
     },
   },
 ];

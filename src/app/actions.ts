@@ -43,6 +43,7 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
     commission_base: Number(r.commissionBase.toFixed(2)),
     commission_earned: Number(r.commissionEffective.toFixed(2)),
     money_left_on_table: Number(r.lost.toFixed(2)),
+    saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
   });
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
@@ -61,6 +62,23 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   if (!user) return { error: 'Sign in to save your plan.' };
 
   const n = (v: unknown, lo = 0) => (Number.isFinite(Number(v)) ? Math.max(lo, Number(v)) : NaN);
+
+  // Optional and independent of accelerator_style — most plans send null
+  // here. When present, target and both tiers' attainment must be real
+  // numbers greater than zero; kickerPct is clamped like every other rate
+  // rather than rejected, same reasoning as base_rate above.
+  let quarterly_kicker: CompPlan['quarterly_kicker'] = null;
+  if (input.quarterly_kicker) {
+    const target = n(input.quarterly_kicker.target);
+    const [t0, t1] = input.quarterly_kicker.tiers ?? [];
+    const tier0 = { attainmentPct: n(t0?.attainmentPct), kickerPct: clampPct(Number(t0?.kickerPct)) };
+    const tier1 = { attainmentPct: n(t1?.attainmentPct), kickerPct: clampPct(Number(t1?.kickerPct)) };
+    if (!(target > 0) || !(tier0.attainmentPct > 0) || !(tier1.attainmentPct > 0)) {
+      return { error: 'Quarterly kicker target and tier attainment must be greater than zero.' };
+    }
+    quarterly_kicker = { target, tiers: [tier0, tier1] };
+  }
+
   const plan: CompPlan = {
     role_name: String(input.role_name ?? '').trim(),
     period: input.period === 'month' ? 'month' : 'quarter',
@@ -81,6 +99,7 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     accelerator_threshold: n(input.accelerator_threshold),
     accelerator_rate: clampPct(Number(input.accelerator_rate)),
     one_time_weight: clampPct(Number(input.one_time_weight)),
+    quarterly_kicker,
   };
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };

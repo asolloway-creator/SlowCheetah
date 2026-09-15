@@ -33,6 +33,7 @@ export function DemoDeal() {
       <DealStage
         plan={d.ready ? d.plan : DEMO_PLAN}
         ptd={d.ready ? d.ptd : OPENING_PTD}
+        qtd={d.qtd}
         demo
         onSave={d.saveDeal}
         onSavePlan={d.savePlan}
