@@ -241,17 +241,24 @@ export function syntheticOpening(plan: CompPlan): { booked: DealInput; starter: 
   const bookedCredit = target * 0.75;
   const starterCredit = Math.max(target - bookedCredit, target * 0.05);
 
-  const dealFor = (credit: number): DealInput => {
+  // Rounding to whole units/dollars-a-month can undershoot the credit it was
+  // asked for. Fine for the booked portion, but the starter deal's whole
+  // job is to visibly close the gap — rounded down, it can land a few
+  // dollars short and turn "crosses the accelerator" into an anticlimactic
+  // near-miss. Round it up instead: never short, at worst a dollar or two
+  // over.
+  const dealFor = (credit: number, roundUp = false): DealInput => {
+    const round = roundUp ? Math.ceil : Math.round;
     if (plan.quota_basis === 'units') {
-      const units = Math.max(1, Math.round(credit));
+      const units = Math.max(1, round(credit));
       const size = units * 500;
       return { oneTime: size, subscription: size, subMode: 'mrr', units, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
     }
-    const mrr = Math.max(1, Math.round(credit / 12));
+    const mrr = Math.max(1, round(credit / 12));
     return { oneTime: mrr, subscription: mrr, subMode: 'mrr', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
   };
 
-  return { booked: dealFor(bookedCredit), starter: dealFor(starterCredit) };
+  return { booked: dealFor(bookedCredit), starter: dealFor(starterCredit, true) };
 }
 
 // ── Period helpers ───────────────────────────────────────────────────────────
