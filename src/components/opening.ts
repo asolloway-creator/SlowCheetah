@@ -201,24 +201,28 @@ export type KickerOutcomeCopy = { tone: 'green' | 'red'; label: string; value: n
  * always shows exactly one of "crossed" / "short" / "blocked", never
  * silence once a deal exists.
  *
- * `dealCommission` is this deal's own commission (r.commissionEffective) —
- * named in the red sentence when the kicker loss outweighs it, which is
- * the whole point: a discount that looks fine on this deal can cost far
- * more elsewhere.
+ * No comparison to this deal's own commission here on purpose — that
+ * figure is already the giant "Commission on this deal" headline right
+ * below this card. Restating it in the sentence was both redundant (same
+ * number, third time on screen) and read as contradicting the *different*
+ * "your discounts cost you $X" figure a few lines further down (that one's
+ * atStake — commission lost to the discount, not commission earned — a
+ * distinction the parenthetical never made). The red-vs-green figures
+ * sitting right next to each other already make the stakes visible; the
+ * sentence's job is the mechanism, not another number.
  */
-export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null, dealCommission: number): KickerOutcomeCopy | null {
+export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null): KickerOutcomeCopy | null {
   if (!x || !plan.quarterly_kicker) return null;
   const sorted = [...plan.quarterly_kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
   const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((s) => s.attainmentPct === t.attainmentPct) + 1;
 
   if (x.costsATier) {
     const name = tierName(numOf(x.tierAtFull!));
-    const worseThanDeal = x.value > dealCommission;
     return {
       tone: 'red',
       label: `This deal costs you your ${name}`,
       value: x.value,
-      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission${worseThanDeal ? `, more than this deal's own commission (${fmtMoney(dealCommission)})` : ''}.`,
+      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission.`,
     };
   }
 

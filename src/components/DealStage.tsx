@@ -90,7 +90,7 @@ export default function DealStage({
   // time. null whenever the plan has no quarterly_kicker or qtd wasn't
   // fetched (callers only fetch it when a kicker is actually configured).
   const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
-  const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect, o.r.commissionEffective), [plan, xEffect, o.r.commissionEffective]);
+  const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect), [plan, xEffect]);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
