@@ -142,16 +142,16 @@ export default function PlanSentence({
   };
 
   // Independent of accelerator_style above — a second, optional bonus, not
-  // an alternative to the first. 105/150 seeded on turning it on: the one
-  // confirmed real shape, not an arbitrary placeholder, and easier to edit
-  // down from than to type from a blank 0.
+  // an alternative to the first. Seeded with plausible starting tiers on
+  // turning it on, not a blank 0 to type from scratch — easier to edit down
+  // than up.
   const toggleKicker = (on: boolean) => {
     setPreset(null);
     setMsg({});
     setP((x) => ({
       ...x,
       quarterly_kicker: on
-        ? (x.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 105, kickerPct: 0 }, { attainmentPct: 150, kickerPct: 0 }] })
+        ? (x.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 110, kickerPct: 0 }, { attainmentPct: 140, kickerPct: 0 }] })
         : null,
     }));
   };
@@ -198,7 +198,7 @@ export default function PlanSentence({
 
   const hasAccel = p.accelerator_style !== 'none';
   const kickerOn = p.quarterly_kicker !== null;
-  const kicker = p.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 105, kickerPct: 0 }, { attainmentPct: 150, kickerPct: 0 }] as [QuarterlyKickerTier, QuarterlyKickerTier] };
+  const kicker = p.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 110, kickerPct: 0 }, { attainmentPct: 140, kickerPct: 0 }] as [QuarterlyKickerTier, QuarterlyKickerTier] };
 
   if (compact) {
     return (
