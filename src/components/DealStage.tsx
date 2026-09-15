@@ -14,13 +14,13 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
-import KickerStatus from '@/components/KickerStatus';
 import {
   EMPTY,
   OPENING_PTD,
   SAMPLE,
   costOf,
   crossEffect,
+  kickerGroundingDetail,
   kickerOutcomeCopy,
   isEmpty,
   outcome,
@@ -63,6 +63,7 @@ export default function DealStage({
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
   const [open, setOpen] = useState(false);
+  const [mathOpen, setMathOpen] = useState(false);
 
   // The header's "Put your plan in" works from any page — it links here with
   // ?plan=1 to open the same inline dialog, instead of needing its own copy
@@ -90,7 +91,8 @@ export default function DealStage({
   // time. null whenever the plan has no quarterly_kicker or qtd wasn't
   // fetched (callers only fetch it when a kicker is actually configured).
   const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
-  const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect), [plan, xEffect]);
+  const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect, qtd ?? null), [plan, xEffect, qtd]);
+  const groundingDetail = kickerGroundingDetail(plan, qtd ?? null);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
@@ -207,7 +209,6 @@ export default function DealStage({
               />
             </Outcome>
 
-            <KickerStatus plan={plan} qtd={qtd ?? null} />
             <KickerOutcome copy={xCopy} />
 
             <div className="book-row">
@@ -247,7 +248,25 @@ export default function DealStage({
               </p>
             )}
 
-            {!empty && <Ledger className="money-ledger" rows={rows} />}
+            {!empty && (
+              <>
+                <button
+                  type="button"
+                  className="math-summary"
+                  aria-expanded={mathOpen}
+                  aria-controls="math-more"
+                  onClick={() => setMathOpen((v) => !v)}
+                >
+                  <span className="math-summary-title">See the math</span>
+                </button>
+
+                <div id="math-more" className={`math-more${mathOpen ? '' : ' is-collapsed'}`}>
+                  {copy.detail && <p className="math-more-detail">{copy.detail}</p>}
+                  {groundingDetail && <p className="math-more-detail">{groundingDetail}</p>}
+                  <Ledger className="money-ledger" rows={rows} />
+                </div>
+              </>
+            )}
           </section>
         </div>
 

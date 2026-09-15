@@ -28,10 +28,14 @@ export default function Outcome({
             copy.secondary.signed ? fmtSigned(copy.secondary.value) : (copy.secondary.format ?? fmtMoney)(copy.secondary.value)
           }${copy.secondary.caption ? ` — ${copy.secondary.caption}` : ''}.`
         : '';
-      setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${secondary}`);
+      // copy.detail lives in the visible "See the math" disclosure, collapsed
+      // by default — screen reader users don't get the same "tap to expand"
+      // affordance sighted users do, so the live region still says it in full.
+      const detail = copy.detail ? ` ${copy.detail}` : '';
+      setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${detail}${secondary}`);
     }, 300);
     return () => clearTimeout(t);
-  }, [copy.name, copy.figureText, copy.sentence, copy.secondary]);
+  }, [copy.name, copy.figureText, copy.sentence, copy.detail, copy.secondary]);
 
   return (
     <div className="outcome">

@@ -13,6 +13,7 @@ import {
   calc,
   kickerTierAt,
   periodSummary,
+  quarterlyKickerSummary,
   type CalcResult,
   type CompPlan,
   type DealInput,
@@ -190,7 +191,17 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
  *  deal page and the /plan form so they never disagree with each other. */
 export const tierName = (num: number) => (num === 1 ? 'Quarterly Bonus' : 'Quarterly Bonus (Stretch)');
 
-export type KickerOutcomeCopy = { tone: 'green' | 'red'; label: string; value: number; sentence: string };
+/**
+ * Red is the moment worth stopping for — full card, figure, mechanism, and
+ * a short grounding clause (where the quarter already stood before this
+ * deal), so "below 105%" doesn't read as invented. Green is a fact worth
+ * confirming, not a warning — one quiet line, no card, no sentence: a
+ * confirmation doesn't need the same visual weight as an alarm, and giving
+ * it that weight is part of why the page read as noisy even on good news.
+ */
+export type KickerOutcomeCopy =
+  | { tone: 'red'; label: string; value: number; sentence: string }
+  | { tone: 'green'; label: string; value: number };
 
 /**
  * Silent (null) unless this deal actually moves the needle — never a
@@ -201,9 +212,9 @@ export type KickerOutcomeCopy = { tone: 'green' | 'red'; label: string; value: n
  * always shows exactly one of "crossed" / "short" / "blocked", never
  * silence once a deal exists.
  *
- * No comparison to this deal's own commission here on purpose — that
- * figure is already the giant "Commission on this deal" headline right
- * below this card. Restating it in the sentence was both redundant (same
+ * No comparison to this deal's own commission in the red sentence on
+ * purpose — that figure is already the giant "Commission on this deal"
+ * headline right below this card. Restating it was both redundant (same
  * number, third time on screen) and read as contradicting the *different*
  * "your discounts cost you $X" figure a few lines further down (that one's
  * atStake — commission lost to the discount, not commission earned — a
@@ -211,18 +222,21 @@ export type KickerOutcomeCopy = { tone: 'green' | 'red'; label: string; value: n
  * sitting right next to each other already make the stakes visible; the
  * sentence's job is the mechanism, not another number.
  */
-export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null): KickerOutcomeCopy | null {
-  if (!x || !plan.quarterly_kicker) return null;
-  const sorted = [...plan.quarterly_kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
+export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null, qtd: QuarterToDate | null): KickerOutcomeCopy | null {
+  const kicker = plan.quarterly_kicker;
+  if (!x || !kicker) return null;
+  const sorted = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
   const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((s) => s.attainmentPct === t.attainmentPct) + 1;
+  const bookedPct = qtd && kicker.target > 0 ? (qtd.saasArrBooked / kicker.target) * 100 : null;
 
   if (x.costsATier) {
     const name = tierName(numOf(x.tierAtFull!));
+    const grounding = bookedPct !== null ? ` You're at ${fmtPctShort(bookedPct)} booked this quarter already.` : '';
     return {
       tone: 'red',
       label: `This deal costs you your ${name}`,
       value: x.value,
-      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission.`,
+      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission.${grounding}`,
     };
   }
 
@@ -235,13 +249,31 @@ export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null): Kicker
       tone: 'green',
       label: causedByDeal ? `This deal unlocks your ${name}` : `Your ${name} stays locked in`,
       value: x.value,
-      sentence: causedByDeal
-        ? `Crossing ${fmtPctShort(x.tierAtActual.attainmentPct)} quarterly SaaS attainment locks it in — applies to the whole quarter's SaaS commission.`
-        : `Already past ${fmtPctShort(x.tierAtActual.attainmentPct)} quarterly SaaS attainment regardless of this deal.`,
     };
   }
 
   return null;
+}
+
+/**
+ * The full booked-quarter breakdown — was KickerStatus's entire job before
+ * it merged into kickerOutcomeCopy above. Now lives only in the "See the
+ * math" disclosure: the short groundingCaption on the red card covers the
+ * default read, this is for whoever wants the exact numbers.
+ */
+export function kickerGroundingDetail(plan: CompPlan, qtd: QuarterToDate | null): string | null {
+  const kicker = plan.quarterly_kicker;
+  if (!kicker || !qtd) return null;
+  const s = quarterlyKickerSummary(plan, qtd);
+  if (!s) return null;
+  const sorted = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
+  const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((x) => x.attainmentPct === t.attainmentPct) + 1;
+  const tail = s.tier
+    ? ` · ${tierName(numOf(s.tier))} locked in — +${fmtPctShort(s.tier.kickerPct)} on the quarter`
+    : s.nextTier
+      ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
+      : '';
+  return `Already booked this quarter: ${fmtMoney(qtd.saasArrBooked)} of ${fmtMoney(kicker.target)} (${fmtPctShort(s.attainmentPct)})${tail}`;
 }
 
 // ── Copy ────────────────────────────────────────────────────────────────────
@@ -276,6 +308,12 @@ export type OutcomeCopy = {
    *  figure, not instead of it. */
   secondary: Secondary | null;
   sentence: string;
+  /** The discount-cost breakdown — one-time vs. subscription, what it
+   *  costs on this deal specifically. True and worth having, but not
+   *  worth forcing into the default read every time: lives in the "See
+   *  the math" disclosure, not inline in `sentence`. Null wherever the
+   *  original sentence never had a residual clause to begin with. */
+  detail: string | null;
   /** Plain text for the live region and the pinned bar. */
   figureText: string;
 };
@@ -292,28 +330,31 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
   const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0;
   const bothDiscounted = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct > 0;
   const weighted = plan.commission_style === 'percent' && plan.one_time_weight < 100;
+  // Discount-cost breakdown — moved out of the always-read sentence and
+  // into OutcomeCopy.detail (the "See the math" disclosure). No leading
+  // space here (that was for inline concatenation, which detail doesn't need).
   const residual =
     o.atStake > 0
       ? onlySub
-        ? ` The ${pct} discount still costs you ${fmtMoney(o.atStake)} on this deal.`
+        ? `The ${pct} discount still costs you ${fmtMoney(o.atStake)} on this deal.`
         : onlyOneTime && weighted
           ? // The gap between what a discount looks like to the customer and
             // what it actually costs in commission only exists because this
             // plan weights revenue types differently — worth naming, not
             // just totaling.
-            ` The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)} — they count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)} — they count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
           : bothDiscounted && weighted
             ? // Both levers active: the one-time-weighting insight is still
               // true and still worth naming, not just swallowed into one
               // generic total the moment a second discount joins it.
-              ` Your discounts cost you ${fmtMoney(o.atStake)} on this deal — the one-time products alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
-            : ` Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
-      : '';
+              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal — the one-time products alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            : `Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
+      : null;
 
   if (o.state === 'empty') {
     return {
       name: 'Hold the line', nameTone: 'ink', figure: null, figureTone: 'ink', signed: false, caption: null,
-      secondary: null, sentence: 'Enter what you’re selling and this fills itself in.', figureText: '',
+      secondary: null, sentence: 'Enter what you’re selling and this fills itself in.', detail: null, figureText: '',
     };
   }
 
@@ -361,6 +402,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         sentence: retro
           ? `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal you've already closed this ${noun}.`
           : `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal after this one.`,
+        detail: null,
       };
     case 'crossed':
       return retro
@@ -373,7 +415,8 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
               signed: true,
               caption: safeCaptionCrossed,
             },
-            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.${residual}`,
+            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.`,
+            detail: residual,
           }
         : {
             ...base,
@@ -384,7 +427,8 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
               o.safeDiscountPct !== null
                 ? { label: 'Room to discount and still cross', value: o.safeDiscountPct, tone: 'ink', signed: false, format: fmtPctShort }
                 : null,
-            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.${residual}`,
+            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.`,
+            detail: residual,
           };
     case 'loss':
       return {
@@ -393,6 +437,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         // atStake is already the secondary figure above — no need to say
         // the dollar amount twice.
         sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year — you’re paying for part of it.`,
+        detail: null,
       };
     case 'past':
       return {
@@ -401,6 +446,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         sentence: retro
           ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${bump} more.`
           : `You’re past your accelerator. Every deal this ${noun}, including this one, earns ${accelRate}.`,
+        detail: null,
       };
     case 'held': {
       const opener = r.hasDiscount
@@ -418,7 +464,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
           : retro
             ? `${opener} ${lands} — ${toGo} more unlocks ${fmtSigned(r.crossingWorth)} on deals you’ve already closed.`
             : `${opener} ${lands} — ${toGo} more and every deal after that earns ${accelRate}.`;
-      return { ...base, secondary: null, sentence };
+      return { ...base, secondary: null, sentence, detail: null };
     }
   }
 }
