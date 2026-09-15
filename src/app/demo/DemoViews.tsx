@@ -21,7 +21,8 @@ export function DemoDeal() {
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' || !d.ready) return;
-    const fresh = d.deals.length === 5 && JSON.stringify(d.plan) === JSON.stringify(DEMO_PLAN);
+    // 5 current-month + 12 historical (seedQuarterHistory, demo.ts).
+    const fresh = d.deals.length === 17 && JSON.stringify(d.plan) === JSON.stringify(DEMO_PLAN);
     if (fresh && JSON.stringify(d.ptd) !== JSON.stringify(OPENING_PTD)) {
       console.warn('IOI: OPENING_PTD no longer mirrors the seeded period in demo.ts', d.ptd);
     }

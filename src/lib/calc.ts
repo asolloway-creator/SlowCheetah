@@ -446,10 +446,10 @@ export const PRESETS: Preset[] = [
 export const DEMO_PLAN: CompPlan = {
   ...PRESETS.find((p) => p.id === 'units-switch')!.plan,
   quarterly_kicker: {
-    target: 43800,
+    target: 180000,
     tiers: [
-      { attainmentPct: 100, kickerPct: 3 },
-      { attainmentPct: 130, kickerPct: 5 },
+      { attainmentPct: 105, kickerPct: 15 },
+      { attainmentPct: 130, kickerPct: 20 },
     ],
   },
 };

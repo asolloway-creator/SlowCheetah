@@ -14,6 +14,7 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerAlert from '@/components/KickerAlert';
+import KickerStatus from '@/components/KickerStatus';
 import {
   EMPTY,
   OPENING_PTD,
@@ -206,6 +207,7 @@ export default function DealStage({
               />
             </Outcome>
 
+            <KickerStatus plan={plan} qtd={qtd ?? null} />
             <KickerAlert copy={xCopy} />
 
             <div className="book-row">

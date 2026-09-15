@@ -43,17 +43,18 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
   };
 }
 
+const D = (
+  p: Partial<DealInput> & { subscription: number; units: number },
+): DealInput => ({
+  oneTime: 0, subMode: 'mrr',
+  oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
+});
+
 /** A mid-month rep: 6 of 8 units to the accelerator, a couple of discounts. */
 function seedDeals(plan: CompPlan): DealRow[] {
   const start = startOfPeriod(plan.period).getTime();
   const now = Date.now();
   const at = (f: number) => new Date(start + (now - start) * f);
-  const D = (
-    p: Partial<DealInput> & { subscription: number; units: number },
-  ): DealInput => ({
-    oneTime: 0, subMode: 'mrr',
-    oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
-  });
   const script: [DealInput, number][] = [
     [D({ units: 1, subscription: 500, oneTime: 800 }), 0.1],
     [D({ units: 1, subscription: 650, subscriptionDiscountPct: 10, oneTime: 600 }), 0.3],
@@ -68,8 +69,63 @@ function seedDeals(plan: CompPlan): DealRow[] {
   return rows.reverse();
 }
 
+/**
+ * Two "already-booked" prior months, on top of seedDeals()'s current
+ * month — a single month's commission pool is too small to make
+ * DEMO_PLAN's quarterly_kicker land anywhere realistic. Each month is its
+ * own 8-unit run (independently crossing its own monthly accelerator,
+ * same as a real month would), giving the quarter a believable historical
+ * position instead of a bare current-month slice.
+ *
+ * Dates are anchored relative to "now" (75 and 40 days back), clamped to
+ * never predate the calendar quarter, rather than mapped onto real
+ * calendar months — that keeps this correct and stable no matter what day
+ * of the year the demo is viewed: 40+ days is always more than a month,
+ * so these can never accidentally land inside the current month and get
+ * double-counted into OPENING_PTD, and the Math.max floor means they're
+ * still fully counted (not silently dropped) even when "now" is early in
+ * the quarter. See OPENING_QTD in opening.ts, sized against this.
+ */
+function seedQuarterHistory(plan: CompPlan): DealRow[] {
+  const quarterStart = startOfPeriod('quarter').getTime();
+  const now = Date.now();
+  const DAY = 86400000;
+  const HOUR = 3600000;
+  const monthScript = (deals: DealInput[], daysBack: number): DealRow[] => {
+    const anchor = Math.max(quarterStart, now - daysBack * DAY);
+    const rows: DealRow[] = [];
+    deals.forEach((deal, i) => {
+      rows.push(rowFromDeal(plan, deal, periodToDateFrom(rows), new Date(anchor + i * HOUR)));
+    });
+    return rows.reverse();
+  };
+  const month1 = monthScript(
+    [
+      D({ units: 1, subscription: 750, oneTime: 965 }),
+      D({ units: 1, subscription: 805, oneTime: 915 }),
+      D({ units: 2, subscription: 1630, oneTime: 1825 }),
+      D({ units: 1, subscription: 720, oneTime: 860 }),
+      D({ units: 1, subscription: 775, oneTime: 915 }),
+      D({ units: 2, subscription: 1590, oneTime: 1770 }),
+    ],
+    75,
+  );
+  const month2 = monthScript(
+    [
+      D({ units: 1, subscription: 710, oneTime: 915 }),
+      D({ units: 1, subscription: 815, subscriptionDiscountPct: 10, oneTime: 965 }),
+      D({ units: 2, subscription: 1570, oneTime: 1770 }),
+      D({ units: 1, subscription: 730, oneTime: 860 }),
+      D({ units: 1, subscription: 750, oneTime: 880, oneTimeDiscountPct: 15 }),
+      D({ units: 2, subscription: 1525, oneTime: 1720 }),
+    ],
+    40,
+  );
+  return [...month2, ...month1];
+}
+
 function fresh(): DemoState {
-  return { plan: DEMO_PLAN, deals: seedDeals(DEMO_PLAN), seeded: true };
+  return { plan: DEMO_PLAN, deals: [...seedDeals(DEMO_PLAN), ...seedQuarterHistory(DEMO_PLAN)], seeded: true };
 }
 
 // Module-level store so useSyncExternalStore has a stable snapshot. The server

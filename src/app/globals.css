@@ -327,6 +327,12 @@ table.deals { width: 100%; border-collapse: collapse; }
 .import-banner-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .import-banner-actions { display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-4); }
 
+/* Where the quarter actually stands, from deals already booked — a plain
+   fact, not a warning, so it's muted text like .stage-context rather than
+   a bordered card. Sits above .kicker-alert so the alarm below it always
+   has a grounded number to react against. */
+.kicker-status { margin-top: var(--s-5); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
+
 /* Crosses the plan's own accelerator fine, costs a quarterly kicker tier
    instead — a warning, not a passive readout, so it gets the red treatment
    .import-banner's ink border doesn't. */

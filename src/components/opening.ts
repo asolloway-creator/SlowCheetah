@@ -28,7 +28,7 @@ export const EMPTY: DealInput = {
 };
 
 /**
- * The seeded deal: 2 units, $800 MRR, $1,500 one-time (hardware/setup) at
+ * The seeded deal: 2 units, $600 MRR, $1,800 one-time (hardware/setup) at
  * 20% off. Landing this deal is what pushes the rep from 6 to 8 units —
  * exactly the monthly accelerator threshold — so it crosses on its own,
  * at the accelerated rate, the moment it's booked. The 20% is deliberately
@@ -38,9 +38,15 @@ export const EMPTY: DealInput = {
  * sticker cost vs. what it actually costs in commission — is the thing
  * worth noticing, and it only exists because the plan weights revenue
  * types differently. A flat single-metric plan has no such gap to find.
+ *
+ * Sized (together with demo.ts's seeded history) so a 50% subscription
+ * discount drops quarterly SaaS attainment from ~106% to ~104% against
+ * DEMO_PLAN's quarterly_kicker — the accelerator crossing above is
+ * discount-invariant (units, not dollars), so that story stays untouched
+ * while this one plays out underneath it. See DEMO_PLAN in calc.ts.
  */
 export const SAMPLE: DealInput = {
-  oneTime: 1500, subscription: 800, subMode: 'mrr', units: 2,
+  oneTime: 1800, subscription: 600, subMode: 'mrr', units: 2,
   oneTimeDiscountPct: 20, subscriptionDiscountPct: 0,
 };
 
@@ -51,12 +57,14 @@ export const SAMPLE: DealInput = {
 export const OPENING_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 2636.27, earnedBooked: 2636.27 };
 
 /**
- * Same seeded month, summed against the calendar quarter instead of the
- * plan's period — what DEMO_PLAN's quarterly_kicker measures against. All 5
- * seeded deals land in the current month, so this is the same 5 rows as
- * OPENING_PTD, just totaled differently. Same drift check applies.
+ * The calendar quarter's booked position, independent of plan.period —
+ * what DEMO_PLAN's quarterly_kicker measures against. Unlike OPENING_PTD,
+ * this is NOT just the current month's 5 seeded deals: it also includes
+ * demo.ts's seedQuarterHistory() — two prior "already-booked" months —
+ * since one month's commission pool alone can't produce a realistic
+ * kicker value. Same drift check applies (DemoViews.tsx).
  */
-export const OPENING_QTD: QuarterToDate = { saasArrBooked: 36120, saasCommissionBooked: 2528.4 };
+export const OPENING_QTD: QuarterToDate = { saasArrBooked: 183582, saasCommissionBooked: 13785.24 };
 
 export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 
