@@ -175,15 +175,12 @@ export default function DealStage({
   return (
     <>
       <section className="stage" aria-labelledby="stage-context">
-        <p id="stage-context" className="stage-context">
-          {plan.role_name} · {label}
-        </p>
         {demo && !planSaved && (
-          // Leads with "this is fake data" before the plan mechanics below,
-          // not after — and no CTA of its own: the header's "Put your plan
-          // in" is right there, one glance up, so a second link to the same
-          // place just doubled the same action. This line's job is framing,
-          // not another click target.
+          // Leads the whole block — "this is fake data" has to land before
+          // a visitor reads anything else, not after their role/plan. No
+          // CTA of its own: the header's "Put your plan in" is right there,
+          // one glance up, so a second link to the same place just doubled
+          // the same action. This line's job is framing, not a click target.
           <p className="stage-sample-note">This is a sample {noun} — try the numbers below.</p>
         )}
         {demo && planSaved && (
@@ -194,6 +191,9 @@ export default function DealStage({
             </Link>
           </p>
         )}
+        <p id="stage-context" className="stage-context">
+          {plan.role_name} · {label}
+        </p>
         {/* Plan mechanics sit last in this block, immediately above the
             accelerator bar they describe — reads as "here's the rule," then
             the very next thing on screen is that rule drawn as a line. */}
