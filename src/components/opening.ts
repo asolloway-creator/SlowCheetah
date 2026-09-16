@@ -55,7 +55,11 @@ export const SAMPLE: DealInput = {
  * Mirror of demo.ts's seeded month, used only for the pre-hydration frame
  * and the OG image. A dev-mode check compares it to the store after hydration.
  */
-export const OPENING_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 2636.27, earnedBooked: 2636.27 };
+export const OPENING_PTD: PeriodToDate = {
+  creditBooked: 6,
+  commissionBooked: 3689.5599999999995,
+  earnedBooked: 3689.5599999999995,
+};
 
 /**
  * The calendar quarter's booked position, independent of plan.period —
@@ -65,7 +69,7 @@ export const OPENING_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 26
  * since one month's commission pool alone can't produce a realistic
  * kicker value. Same drift check applies (DemoViews.tsx).
  */
-export const OPENING_QTD: QuarterToDate = { saasArrBooked: 183582, saasCommissionBooked: 13785.24 };
+export const OPENING_QTD: QuarterToDate = { saasArrBooked: 183558, saasCommissionBooked: 13690.56 };
 
 export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 

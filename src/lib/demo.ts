@@ -50,17 +50,24 @@ const D = (
   oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
 });
 
-/** A mid-month rep: 6 of 8 units to the accelerator, a couple of discounts. */
+/**
+ * A mid-month rep: 6 of 8 units to the accelerator, several discounts —
+ * sized so "left on the table" reads as a real, noticed number ($294.84)
+ * rather than a rounding error ($57.33, the original sizing). Only two of
+ * five rows carried a discount before; most real months look more like
+ * this. See OPENING_PTD in opening.ts, hand-verified against this exact
+ * script.
+ */
 function seedDeals(plan: CompPlan): DealRow[] {
   const start = startOfPeriod(plan.period).getTime();
   const now = Date.now();
   const at = (f: number) => new Date(start + (now - start) * f);
   const script: [DealInput, number][] = [
-    [D({ units: 1, subscription: 500, oneTime: 800 }), 0.1],
-    [D({ units: 1, subscription: 650, subscriptionDiscountPct: 10, oneTime: 600 }), 0.3],
-    [D({ units: 2, subscription: 900, oneTime: 1200 }), 0.5],
-    [D({ units: 1, subscription: 550, oneTime: 700 }), 0.7],
-    [D({ units: 1, subscription: 475, oneTime: 650, oneTimeDiscountPct: 15 }), 0.9],
+    [D({ units: 1, subscription: 700, oneTime: 1000 }), 0.1],
+    [D({ units: 1, subscription: 750, subscriptionDiscountPct: 18, oneTime: 900 }), 0.3],
+    [D({ units: 2, subscription: 1600, oneTime: 2000, oneTimeDiscountPct: 15 }), 0.5],
+    [D({ units: 1, subscription: 800, subscriptionDiscountPct: 25, oneTime: 1000 }), 0.7],
+    [D({ units: 1, subscription: 700, oneTime: 900, oneTimeDiscountPct: 20 }), 0.9],
   ];
   const rows: DealRow[] = [];
   for (const [deal, f] of script) {
@@ -101,23 +108,23 @@ function seedQuarterHistory(plan: CompPlan): DealRow[] {
   };
   const month1 = monthScript(
     [
-      D({ units: 1, subscription: 750, oneTime: 965 }),
-      D({ units: 1, subscription: 805, oneTime: 915 }),
-      D({ units: 2, subscription: 1630, oneTime: 1825 }),
-      D({ units: 1, subscription: 720, oneTime: 860 }),
-      D({ units: 1, subscription: 775, oneTime: 915 }),
-      D({ units: 2, subscription: 1590, oneTime: 1770 }),
+      D({ units: 1, subscription: 680, oneTime: 870 }),
+      D({ units: 1, subscription: 725, oneTime: 825 }),
+      D({ units: 2, subscription: 1470, oneTime: 1645 }),
+      D({ units: 1, subscription: 650, oneTime: 775 }),
+      D({ units: 1, subscription: 695, oneTime: 825 }),
+      D({ units: 2, subscription: 1430, oneTime: 1595 }),
     ],
     75,
   );
   const month2 = monthScript(
     [
-      D({ units: 1, subscription: 710, oneTime: 915 }),
-      D({ units: 1, subscription: 815, subscriptionDiscountPct: 10, oneTime: 965 }),
-      D({ units: 2, subscription: 1570, oneTime: 1770 }),
-      D({ units: 1, subscription: 730, oneTime: 860 }),
-      D({ units: 1, subscription: 750, oneTime: 880, oneTimeDiscountPct: 15 }),
-      D({ units: 2, subscription: 1525, oneTime: 1720 }),
+      D({ units: 1, subscription: 640, oneTime: 825 }),
+      D({ units: 1, subscription: 735, subscriptionDiscountPct: 10, oneTime: 870 }),
+      D({ units: 2, subscription: 1415, oneTime: 1595 }),
+      D({ units: 1, subscription: 660, oneTime: 775 }),
+      D({ units: 1, subscription: 680, oneTime: 795, oneTimeDiscountPct: 15 }),
+      D({ units: 2, subscription: 1375, oneTime: 1550 }),
     ],
     40,
   );
