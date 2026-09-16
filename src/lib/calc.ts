@@ -443,23 +443,27 @@ export const PRESETS: Preset[] = [
 // is driven by units here, not $) can still drop quarterly SaaS attainment
 // below a tier. Sized against the seeded deals in demo.ts / OPENING_QTD in
 // opening.ts — see that file if these numbers ever need to move.
-// kickerPct is pure upside on top of quarterly SaaS commission — it never
-// touches accelerator_threshold/crossesAccelerator (units-based) or the
-// attainment/crossing math against quarterly_kicker.target (ARR-based, no
-// kickerPct term at all). Free to move on its own without re-deriving the
-// seeded deals' sizing in demo.ts or the discount-crossing point in
-// opening.ts's SAMPLE doc comment (verified: 15%->70% leaves both exactly
-// where they were, 105.977%->103.977% crossing at 24.42% subscription
-// discount). Raised from 15/20 to 70/85 — the original bumpValue at rest
-// ($2,156.18) read as too small a number to anchor the "quarterly bonus"
-// story on; 70% lands it just over $10,000.
+// 15%/20% -> 70%/85% (a prior pass) read as unrealistic for the percentage
+// itself — real accelerator/SPIFF kickers don't run that high. The better
+// lever is the dollar base kickerPct multiplies against: every $ amount in
+// demo.ts's seeded deals and opening.ts's SAMPLE deal is scaled 3x from
+// this file's original numbers (units, discount percentages, and this
+// plan's own quota/rates untouched), and this target scales the same 3x
+// (180,000 -> 540,000) so attainmentPct — a ratio of two things both
+// scaled by the same factor — comes out byte-identical to before:
+// 105.977% resting, crossing at 24.42% subscription discount, 103.977% at
+// 50%, all unchanged. kickerPct only needed to move from 15/20 to a still-
+// plausible 25/30 on top of that 3x base to clear $10,000 at rest
+// ($10,780.92). See demo.ts's seedDeals()/seedQuarterHistory() and
+// opening.ts's SAMPLE for the matching 3x — they all have to move
+// together or this ratio (and OPENING_PTD/OPENING_QTD) drifts.
 export const DEMO_PLAN: CompPlan = {
   ...PRESETS.find((p) => p.id === 'units-switch')!.plan,
   quarterly_kicker: {
-    target: 180000,
+    target: 540000,
     tiers: [
-      { attainmentPct: 105, kickerPct: 70 },
-      { attainmentPct: 130, kickerPct: 85 },
+      { attainmentPct: 105, kickerPct: 25 },
+      { attainmentPct: 130, kickerPct: 30 },
     ],
   },
 };

@@ -52,22 +52,31 @@ const D = (
 
 /**
  * A mid-month rep: 6 of 8 units to the accelerator, several discounts —
- * sized so "left on the table" reads as a real, noticed number ($294.84)
+ * sized so "left on the table" reads as a real, noticed number ($884.52)
  * rather than a rounding error ($57.33, the original sizing). Only two of
  * five rows carried a discount before; most real months look more like
  * this. See OPENING_PTD in opening.ts, hand-verified against this exact
  * script.
+ *
+ * Every dollar amount here is 3x the original sizing (units and discount
+ * percentages untouched) — DEMO_PLAN's quarterly_kicker.target moved the
+ * same 3x (calc.ts), which keeps attainmentPct (a ratio of two things both
+ * scaled by the same factor) exactly where it was: same crossing point,
+ * same accelerator math, just bigger absolute dollars so the kicker reads
+ * as real money instead of raising kickerPct to an implausible rate. The 3x
+ * has to hold across this whole function, seedQuarterHistory() below, and
+ * SAMPLE in opening.ts, or OPENING_PTD/OPENING_QTD there drift.
  */
 function seedDeals(plan: CompPlan): DealRow[] {
   const start = startOfPeriod(plan.period).getTime();
   const now = Date.now();
   const at = (f: number) => new Date(start + (now - start) * f);
   const script: [DealInput, number][] = [
-    [D({ units: 1, subscription: 700, oneTime: 1000 }), 0.1],
-    [D({ units: 1, subscription: 750, subscriptionDiscountPct: 18, oneTime: 900 }), 0.3],
-    [D({ units: 2, subscription: 1600, oneTime: 2000, oneTimeDiscountPct: 15 }), 0.5],
-    [D({ units: 1, subscription: 800, subscriptionDiscountPct: 25, oneTime: 1000 }), 0.7],
-    [D({ units: 1, subscription: 700, oneTime: 900, oneTimeDiscountPct: 20 }), 0.9],
+    [D({ units: 1, subscription: 2100, oneTime: 3000 }), 0.1],
+    [D({ units: 1, subscription: 2250, subscriptionDiscountPct: 18, oneTime: 2700 }), 0.3],
+    [D({ units: 2, subscription: 4800, oneTime: 6000, oneTimeDiscountPct: 15 }), 0.5],
+    [D({ units: 1, subscription: 2400, subscriptionDiscountPct: 25, oneTime: 3000 }), 0.7],
+    [D({ units: 1, subscription: 2100, oneTime: 2700, oneTimeDiscountPct: 20 }), 0.9],
   ];
   const rows: DealRow[] = [];
   for (const [deal, f] of script) {
@@ -108,23 +117,23 @@ function seedQuarterHistory(plan: CompPlan): DealRow[] {
   };
   const month1 = monthScript(
     [
-      D({ units: 1, subscription: 680, oneTime: 870 }),
-      D({ units: 1, subscription: 725, oneTime: 825 }),
-      D({ units: 2, subscription: 1470, oneTime: 1645 }),
-      D({ units: 1, subscription: 650, oneTime: 775 }),
-      D({ units: 1, subscription: 695, oneTime: 825 }),
-      D({ units: 2, subscription: 1430, oneTime: 1595 }),
+      D({ units: 1, subscription: 2040, oneTime: 2610 }),
+      D({ units: 1, subscription: 2175, oneTime: 2475 }),
+      D({ units: 2, subscription: 4410, oneTime: 4935 }),
+      D({ units: 1, subscription: 1950, oneTime: 2325 }),
+      D({ units: 1, subscription: 2085, oneTime: 2475 }),
+      D({ units: 2, subscription: 4290, oneTime: 4785 }),
     ],
     75,
   );
   const month2 = monthScript(
     [
-      D({ units: 1, subscription: 640, oneTime: 825 }),
-      D({ units: 1, subscription: 735, subscriptionDiscountPct: 10, oneTime: 870 }),
-      D({ units: 2, subscription: 1415, oneTime: 1595 }),
-      D({ units: 1, subscription: 660, oneTime: 775 }),
-      D({ units: 1, subscription: 680, oneTime: 795, oneTimeDiscountPct: 15 }),
-      D({ units: 2, subscription: 1375, oneTime: 1550 }),
+      D({ units: 1, subscription: 1920, oneTime: 2475 }),
+      D({ units: 1, subscription: 2205, subscriptionDiscountPct: 10, oneTime: 2610 }),
+      D({ units: 2, subscription: 4245, oneTime: 4785 }),
+      D({ units: 1, subscription: 1980, oneTime: 2325 }),
+      D({ units: 1, subscription: 2040, oneTime: 2385, oneTimeDiscountPct: 15 }),
+      D({ units: 2, subscription: 4125, oneTime: 4650 }),
     ],
     40,
   );

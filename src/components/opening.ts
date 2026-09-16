@@ -29,8 +29,8 @@ export const EMPTY: DealInput = {
 };
 
 /**
- * The seeded deal: 2 units, $600 MRR, $1,800 one-time (hardware/setup) at
- * 20% off. Landing this deal is what pushes the rep from 6 to 8 units —
+ * The seeded deal: 2 units, $1,800 MRR, $5,400 one-time (hardware/setup)
+ * at 20% off. Landing this deal is what pushes the rep from 6 to 8 units —
  * exactly the monthly accelerator threshold — so it crosses on its own,
  * at the accelerated rate, the moment it's booked. The 20% is deliberately
  * on the one-time side, not the subscription: one-time products count at
@@ -45,20 +45,26 @@ export const EMPTY: DealInput = {
  * DEMO_PLAN's quarterly_kicker — the accelerator crossing above is
  * discount-invariant (units, not dollars), so that story stays untouched
  * while this one plays out underneath it. See DEMO_PLAN in calc.ts.
+ *
+ * 3x the original $600/$1,800 sizing — the whole seeded quarter moved by
+ * the same factor (demo.ts, and DEMO_PLAN's quarterly_kicker.target in
+ * calc.ts) so every ratio this deal's math depends on lands exactly where
+ * it was, just with bigger absolute dollars behind it.
  */
 export const SAMPLE: DealInput = {
-  oneTime: 1800, subscription: 600, subMode: 'mrr', units: 2,
+  oneTime: 5400, subscription: 1800, subMode: 'mrr', units: 2,
   oneTimeDiscountPct: 20, subscriptionDiscountPct: 0,
 };
 
 /**
  * Mirror of demo.ts's seeded month, used only for the pre-hydration frame
- * and the OG image. A dev-mode check compares it to the store after hydration.
+ * and the OG image. A dev-mode check compares it to the store after
+ * hydration. 3x the prior figures — see SAMPLE above.
  */
 export const OPENING_PTD: PeriodToDate = {
   creditBooked: 6,
-  commissionBooked: 3689.5599999999995,
-  earnedBooked: 3689.5599999999995,
+  commissionBooked: 11068.68,
+  earnedBooked: 11068.68,
 };
 
 /**
@@ -67,9 +73,10 @@ export const OPENING_PTD: PeriodToDate = {
  * this is NOT just the current month's 5 seeded deals: it also includes
  * demo.ts's seedQuarterHistory() — two prior "already-booked" months —
  * since one month's commission pool alone can't produce a realistic
- * kicker value. Same drift check applies (DemoViews.tsx).
+ * kicker value. Same drift check applies (DemoViews.tsx). 3x the prior
+ * figures — see SAMPLE above.
  */
-export const OPENING_QTD: QuarterToDate = { saasArrBooked: 183558, saasCommissionBooked: 13690.56 };
+export const OPENING_QTD: QuarterToDate = { saasArrBooked: 550674, saasCommissionBooked: 41071.68 };
 
 export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
 
