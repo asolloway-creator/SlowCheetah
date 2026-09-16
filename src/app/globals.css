@@ -580,6 +580,11 @@ main { display: block; padding-bottom: var(--s-8); }
 .line-ring.is-pulsing { animation: ring-pulse var(--dur-3) var(--ease-spring) both; }
 .line-marker, .line-callout, .line-origin, .line-quota-label { position: absolute; top: 0; white-space: nowrap; }
 .line-marker { left: var(--x); color: var(--grey-1); }
+/* Centred on --x like .line-callout already does, not left-anchored — a
+   long marker (a custom plan's own wording runs longer than the demo's
+   "8 units · 9.5% from here") was overflowing the card's right edge with
+   nothing but left: var(--x) to place it. */
+.line-marker.is-centre { transform: translateX(-50%); }
 .line-marker.is-right { left: auto; right: calc(100% - var(--x)); }
 .line-origin { left: 0; color: var(--grey-1); }
 .line-callout { left: var(--x); transform: translateX(-50%); font-weight: 500; }
