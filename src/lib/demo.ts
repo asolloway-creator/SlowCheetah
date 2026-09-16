@@ -220,6 +220,11 @@ export function useDemoStore() {
 
   return {
     ready: state !== null,
+    // Whether savePlan() has ever succeeded, independent of whether the
+    // values entered happen to match the stock plan's own numbers — unlike
+    // comparing `plan` to DEMO_PLAN by value, this stays correct even if
+    // someone opens the plan dialog and resubmits the defaults unchanged.
+    seeded: state?.seeded ?? true,
     plan,
     deals,
     periodDeals,

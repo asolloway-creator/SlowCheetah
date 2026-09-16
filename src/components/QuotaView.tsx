@@ -17,9 +17,12 @@ export default function QuotaView({
   plan: CompPlan;
   ptd: PeriodToDate;
   deals: DealRow[];
-  /** Second, lighter touch of the same plan-bridge the deal page makes right
-   *  after booking — this is where a demo visitor lands right after that,
-   *  looking at a real ledger of sample numbers. Never shown signed in. */
+  /** Second, lighter touch of the same plan-bridge the deal page makes —
+   *  this is where a demo visitor lands right after booking, looking at a
+   *  real ledger of sample numbers. Never shown signed in, and the caller
+   *  (DemoViews.tsx) only passes it true while still on the stock plan —
+   *  same "already made this connection" suppression the deal page's own
+   *  bridges use, via planSaved there. */
   demo?: boolean;
 }) {
   const s = periodSummary(plan, ptd);

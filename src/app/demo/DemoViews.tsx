@@ -52,7 +52,12 @@ export function DemoQuota() {
   const d = useDemoStore();
   return (
     <Shell current="/quota" email={null} width="narrow">
-      {d.ready && <QuotaView plan={d.plan} ptd={d.ptd} deals={d.periodDeals} demo />}
+      {/* d.seeded is false the instant savePlan() has ever succeeded, same
+          "already made this connection" signal DealStage.tsx's own
+          plan-bridges use (there, local planSaved state) — without it, this
+          page kept inviting someone to "put your plan in" after they
+          already had. */}
+      {d.ready && <QuotaView plan={d.plan} ptd={d.ptd} deals={d.periodDeals} demo={d.seeded} />}
     </Shell>
   );
 }
