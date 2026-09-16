@@ -85,22 +85,36 @@ export default function DealStage({
   }, [demo, searchParams, router]);
 
   // `deal` only reads `initialDeal` on the very first render — but the very
-  // first render can't yet know whether localStorage holds a previously
-  // saved custom plan (server and pre-hydration client both render as the
-  // stock DEMO_PLAN). savePlan() already swaps in a plan-shaped starter the
-  // moment you save one *this* session; this is the same swap for a
-  // returning visitor's reload, where hydration reveals the real plan a
-  // beat after mount. Runs at most once — a ref latch, not just `!dirty` —
-  // so it can never fire again after that and clobber startOver()/a later
-  // savePlan(), which already set `deal` correctly themselves.
-  const caughtUpToSavedPlan = useRef(false);
+  // first render can't yet know what's actually in localStorage: a saved
+  // custom plan, or bookings from an earlier visit that have pushed the
+  // stock demo's period past its scripted opening state (server and
+  // pre-hydration client both render as the untouched stock demo either
+  // way). Two cases, same root fix — savePlan() and book() already swap
+  // `deal` for something that fits the moment; this is the same catch-up
+  // for whatever hydration reveals a beat after mount:
+  //  - a saved custom plan: SAMPLE is sized for the stock plan's quota, not
+  //    this one, so swap in a starter actually shaped to it.
+  //  - a drifted stock demo (you've booked past OPENING_PTD's 6-units
+  //    scripted position): SAMPLE still carries its fixed 20% one-time
+  //    discount, which no longer has anything to offset it once it's not
+  //    also the deal crossing the accelerator — reads as pure, uncontexted
+  //    cost ("$13.68 left on the table") instead of the intended "look how
+  //    little this costs you" moment. Falls back to empty, same as right
+  //    after a real booking, rather than a canned deal that no longer fits
+  //    the story.
+  // Runs at most once — a ref latch, not just `!dirty` — so it can never
+  // fire again after that and clobber startOver()/a later savePlan(),
+  // which already set `deal` correctly themselves.
+  const caughtUpToSavedState = useRef(false);
   useEffect(() => {
-    if (caughtUpToSavedPlan.current || !demo || dirty) return;
-    if (JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
-    caughtUpToSavedPlan.current = true;
+    if (caughtUpToSavedState.current || !demo || dirty) return;
+    const customPlan = JSON.stringify(plan) !== JSON.stringify(DEMO_PLAN);
+    const driftedStockDemo = !customPlan && JSON.stringify(ptd) !== JSON.stringify(OPENING_PTD);
+    if (!customPlan && !driftedStockDemo) return;
+    caughtUpToSavedState.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeal(syntheticOpening(plan).starter);
-  }, [demo, plan, dirty]);
+    setDeal(customPlan ? syntheticOpening(plan).starter : EMPTY);
+  }, [demo, plan, ptd, dirty]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
