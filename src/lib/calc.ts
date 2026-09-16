@@ -351,6 +351,73 @@ export function syntheticOpening(plan: CompPlan): { booked: DealInput; starter: 
   return { booked: dealFor(bookedCredit), starter: dealFor(starterCredit, true) };
 }
 
+/**
+ * `booked` above is sized against the monthly accelerator/quota (a few
+ * units or a slice of a monthly quota) — nowhere near a quarter's worth of
+ * ARR, so a plan with a quarterly_kicker configured would show nothing
+ * for it: the kicker, often the single biggest number on the page, stays
+ * invisible until a real visitor books enough of their own deals to
+ * approach it themselves. Two more synthetic prior-quarter deals (plain
+ * background history, not tied to any accelerator story) closing most of
+ * that gap so the kicker has something real to show the moment the plan
+ * is saved. Returns [] when there's no kicker to seed toward, or `booked`
+ * alone already gets there.
+ *
+ * `starter` matters here, not just `booked` — it's not booked yet, but
+ * it's what's actually sitting in the deal form the moment the plan is
+ * saved, and the hand-seeded stock demo's whole kicker story is that the
+ * *in-progress* deal is what crosses the tier: drag its discount down and
+ * it un-crosses, right in front of you. Sizing history to clear the tier
+ * on its own (an earlier version of this function did exactly that)
+ * leaves the slider with nothing left to do — the kicker becomes a
+ * decoration that never moves. Reserving `starter`'s own ARR out of the
+ * target instead means the already-booked history sits *just under* the
+ * tier, and it's `starter` — the one thing on screen with a slider
+ * attached — that tips it over, the same live crossing every other plan
+ * on this site already has.
+ *
+ * Deliberately not the same deal twice — only `subscription` feeds ARR
+ * (subAnnual only ever reads deal.subscription, never deal.oneTime), so
+ * everything else here — the 58/42 split, unit counts, the oneTime
+ * multiplier, the discount on the second one — is free to vary for
+ * realism without moving the number this function exists to hit. Two
+ * identical rows would be an obvious tell the moment anyone opened
+ * /history; splitting one number across two differently-shaped deals
+ * reads as an actual quarter instead.
+ */
+export function syntheticKickerHistory(plan: CompPlan, booked: DealInput, starter: DealInput): DealInput[] {
+  const kicker = plan.quarterly_kicker;
+  if (!kicker || kicker.target <= 0) return [];
+  const tier1 = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct)[0];
+  if (!tier1) return [];
+  const opening = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
+  const bookedArr = calc(plan, booked, opening).subAnnual;
+  const starterArr = calc(plan, starter, opening).subAnnual;
+  // Just over the first tier — the same "crossed, but a discount could
+  // knock you back under it" position the hand-seeded stock demo opens
+  // on, not maxed out against the target. starterArr is reserved, not
+  // included in the history itself — see the doc comment above.
+  const desiredArr = kicker.target * (tier1.attainmentPct / 100) * 1.01;
+  const gap = Math.max(0, desiredArr - bookedArr - starterArr);
+  if (gap <= 0) return [];
+  const round5 = (n: number) => Math.max(5, Math.round(n / 5) * 5);
+  const mrrFor = (shareOfGap: number) => round5((gap * shareOfGap) / 12);
+  const subA = mrrFor(0.58);
+  const subB = mrrFor(0.42);
+  const dealA: DealInput = {
+    oneTime: round5(subA * 1.15), subscription: subA, subMode: 'mrr', units: 2,
+    oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
+  };
+  const dealB: DealInput = {
+    // A one-time discount, not a subscription one — the latter would
+    // shrink subMrr and undershoot the ARR this function solved for;
+    // oneTimeDiscountPct never touches subAnnual at all.
+    oneTime: round5(subB * 0.85), subscription: subB, subMode: 'mrr', units: 1,
+    oneTimeDiscountPct: 18, subscriptionDiscountPct: 0,
+  };
+  return [dealA, dealB];
+}
+
 // ── Period helpers ───────────────────────────────────────────────────────────
 
 export function startOfPeriod(period: Period, now = new Date()): Date {

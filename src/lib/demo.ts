@@ -7,6 +7,7 @@ import {
   quarterToDateFrom,
   startOfPeriod,
   syntheticOpening,
+  syntheticKickerHistory,
   DEMO_PLAN,
   type CompPlan,
   type DealInput,
@@ -250,9 +251,26 @@ export function useDemoStore() {
     // the accelerator on the new plan, same as the default demo, instead of
     // a blank $0 that makes a real plan look like a broken one.
     savePlan: async (plan: CompPlan) => {
-      const { booked } = syntheticOpening(plan);
-      const row = rowFromDeal(plan, booked, { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 }, new Date(Date.now() - 6 * 86400000));
-      update((s) => ({ ...s, plan, deals: [row], seeded: false }));
+      const { booked, starter } = syntheticOpening(plan);
+      const opening = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
+      const row = rowFromDeal(plan, booked, opening, new Date(Date.now() - 6 * 86400000));
+      // Plain background history, not tied to the current month's own
+      // accelerator story — same 75/40-day anchoring as demo.ts's stock
+      // seedQuarterHistory() (always outside the current month, clamped to
+      // never predate the calendar quarter), just one deal per "month"
+      // instead of six. Empty array (no quarterly_kicker, `booked` alone
+      // already gets there, or `starter` alone already reserves the rest
+      // of the gap) means this plan renders exactly as before — no
+      // behavior change for the common case. `starter` is passed through
+      // so the history stays reserved for it — see syntheticKickerHistory's
+      // doc comment in calc.ts.
+      const quarterStart = startOfPeriod('quarter').getTime();
+      const now = Date.now();
+      const DAY = 86400000;
+      const kickerRows = syntheticKickerHistory(plan, booked, starter).map((deal, i) =>
+        rowFromDeal(plan, deal, opening, new Date(Math.max(quarterStart, now - (75 - i * 35) * DAY))),
+      );
+      update((s) => ({ ...s, plan, deals: [row, ...kickerRows], seeded: false }));
       return {};
     },
     reset: () => update(() => fresh()),
