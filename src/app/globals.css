@@ -622,6 +622,7 @@ main { display: block; padding-bottom: var(--s-8); }
 .quota-bridge { margin-top: var(--s-5); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .history-empty { margin-top: var(--s-5); font-size: var(--fs-body); line-height: var(--lh-body); }
 .history-empty-link { margin-top: var(--s-3); }
+.history-error { margin-top: var(--s-3); color: var(--red); }
 .history-foot { margin-top: var(--s-5); color: var(--grey-1); }
 .plan-intro { margin-top: var(--s-4); font-size: var(--fs-body); line-height: var(--lh-body); max-width: 56ch; }
 .plan-save { display: flex; justify-content: space-between; align-items: center; gap: var(--s-4); margin-top: var(--s-6); }
@@ -634,16 +635,31 @@ main { display: block; padding-bottom: var(--s-8); }
 .auth-form .btn { margin-top: var(--s-4); }
 .auth-error { margin-bottom: var(--s-4); color: var(--red); }
 .auth-privacy { margin-top: var(--s-5); color: var(--grey-1); }
+.auth-actions { margin-top: var(--s-5); }
 
-/* The untouched /auth/error page still uses its old class names. */
-.auth-shell { padding-top: var(--s-8); }
-.auth-card { max-width: calc(var(--container-auth) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
-.auth-brand { margin-bottom: var(--s-6); }
-.monogram { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0.04em; }
-.auth-title { font-size: var(--fs-h1); line-height: var(--lh-h1); letter-spacing: -0.015em; font-weight: 500; }
-.notice.err { margin-top: var(--s-4); color: var(--red); }
-.auth-sub { margin: var(--s-4) 0 var(--s-5); font-size: var(--fs-body); line-height: var(--lh-body); }
-.btn-lg { width: 100%; }
+/* Loading/error route boundaries (app/loading.tsx, app/error.tsx) — no
+   Shell (no signed-in state to key nav off of at that layer), so this is
+   its own small self-contained centred frame instead. */
+.state-page {
+  min-height: calc(100vh - var(--h-masthead));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-5);
+  padding: var(--s-8) var(--gutter);
+  text-align: center;
+}
+.state-page-body { max-width: var(--container-auth); }
+.state-page-text { margin-top: var(--s-4); color: var(--grey-1); animation: state-pulse 1.6s var(--ease-out) infinite; }
+.state-page-actions { margin-top: var(--s-5); display: flex; align-items: center; justify-content: center; gap: var(--s-4); flex-wrap: wrap; }
+@keyframes state-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .state-page-text { animation: none; }
+}
 
 /* ---------- responsive --------------------------------------------------- */
 @media (max-width: 1099px) {

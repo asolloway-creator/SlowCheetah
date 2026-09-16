@@ -241,6 +241,7 @@ export function useDemoStore() {
     },
     deleteDeal: async (id: string) => {
       update((s) => ({ ...s, deals: s.deals.filter((d) => d.id !== id) }));
+      return {};
     },
     // A different plan invalidates every existing row's quota_credit — it
     // was computed under the old quota_basis/commission_style, and summing
@@ -253,7 +254,17 @@ export function useDemoStore() {
     savePlan: async (plan: CompPlan) => {
       const { booked, starter } = syntheticOpening(plan);
       const opening = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
-      const row = rowFromDeal(plan, booked, opening, new Date(Date.now() - 6 * 86400000));
+      const now = Date.now();
+      const DAY = 86400000;
+      // Clamped to the start of the PLAN's own period, same as every other
+      // synthetic date below — without this floor, a monthly-period plan
+      // saved in the first 6 days of a calendar month backdates `booked`
+      // into the previous month, where useDemoStore's periodDeals filter
+      // silently drops it: /quota reads $0 booked instead of the ~75% of
+      // threshold this deal exists to seed, and the "one deal from
+      // crossing" story (the whole point of syntheticOpening) never shows.
+      const periodStart = startOfPeriod(plan.period).getTime();
+      const row = rowFromDeal(plan, booked, opening, new Date(Math.max(periodStart, now - 6 * DAY)));
       // Plain background history, not tied to the current month's own
       // accelerator story — same 75/40-day anchoring as demo.ts's stock
       // seedQuarterHistory() (always outside the current month, clamped to
@@ -265,8 +276,6 @@ export function useDemoStore() {
       // so the history stays reserved for it — see syntheticKickerHistory's
       // doc comment in calc.ts.
       const quarterStart = startOfPeriod('quarter').getTime();
-      const now = Date.now();
-      const DAY = 86400000;
       const kickerRows = syntheticKickerHistory(plan, booked, starter).map((deal, i) =>
         rowFromDeal(plan, deal, opening, new Date(Math.max(quarterStart, now - (75 - i * 35) * DAY))),
       );

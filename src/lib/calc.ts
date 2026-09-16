@@ -341,7 +341,22 @@ export function syntheticOpening(plan: CompPlan): { booked: DealInput; starter: 
     const round = roundUp ? Math.ceil : Math.round;
     if (plan.quota_basis === 'units') {
       const units = Math.max(1, round(credit));
-      const size = units * 500;
+      // A units-basis plan's quota/rates say nothing about a unit's dollar
+      // size on their own. A quarterly kicker does give us one real dollar
+      // signal — its ARR target — so when one's configured, size synthetic
+      // units off of it (assuming the unit quota roughly maps to the
+      // kicker's quarterly target) rather than an arbitrary flat guess.
+      // That keeps `booked`/`starter` on the same scale as
+      // syntheticKickerHistory's gap-filler deals below, instead of the two
+      // visibly disagreeing on /history. No kicker means no dollar signal
+      // at all — $500/unit is a plain placeholder, and nothing else in that
+      // case derives from it.
+      const unitsPerQuarter = plan.period === 'month' ? plan.quota * 3 : plan.quota;
+      const perUnitMrr =
+        plan.quarterly_kicker && plan.quarterly_kicker.target > 0 && unitsPerQuarter > 0
+          ? Math.max(100, Math.round(plan.quarterly_kicker.target / unitsPerQuarter / 12))
+          : 500;
+      const size = units * perUnitMrr;
       return { oneTime: size, subscription: size, subMode: 'mrr', units, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
     }
     const mrr = Math.max(1, round(credit / 12));

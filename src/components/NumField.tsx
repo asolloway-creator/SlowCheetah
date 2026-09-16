@@ -22,6 +22,7 @@ export default function NumField({
   prefix,
   suffix,
   min = 0,
+  max,
   integer = false,
   head,
   disabled,
@@ -33,6 +34,11 @@ export default function NumField({
   prefix?: string;
   suffix?: string;
   min?: number;
+  /** No cap when omitted — only pass this for fields that feed a rate/
+   *  multiplier calc() applies directly (a typo there renders as a
+   *  straight-faced, wildly wrong dollar figure), not for plain business
+   *  sizes like quota that can legitimately be large. */
+  max?: number;
   integer?: boolean;
   /** Something to sit at the right of the label row (a segmented control). */
   head?: ReactNode;
@@ -51,7 +57,7 @@ export default function NumField({
   function parse(raw: string) {
     const n = parseFloat(raw.replace(/[^0-9.]/g, ''));
     if (Number.isNaN(n)) return min;
-    const clamped = Math.max(min, n);
+    const clamped = max !== undefined ? Math.min(max, Math.max(min, n)) : Math.max(min, n);
     return integer ? Math.round(clamped) : Math.round(clamped * 100) / 100;
   }
 

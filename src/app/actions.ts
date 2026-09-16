@@ -12,7 +12,17 @@ const money = (n: number) => (Number.isFinite(n) ? Math.max(0, n) : 0);
 export async function saveDealAction(input: DealInput): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to save deals.' };
-  const plan = await getCompPlan(user.id);
+  // Caught here rather than left to throw: this runs from a client button
+  // click, not a page load, so there's no error.tsx boundary above it to
+  // catch a rejection — an uncaught one would leave the button stuck
+  // "Saving…" forever instead of surfacing through the same msg.error UI
+  // every other failure on this form already uses.
+  let plan;
+  try {
+    plan = await getCompPlan(user.id);
+  } catch {
+    return { error: 'Could not load your comp plan. Try again in a moment.' };
+  }
   if (!plan) return { error: 'Set up your comp plan before saving a deal.' };
 
   const deal: DealInput = {
@@ -50,11 +60,13 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   return {};
 }
 
-export async function deleteDealAction(id: string): Promise<void> {
+export async function deleteDealAction(id: string): Promise<Result> {
   const { supabase, user } = await currentUser();
-  if (!user || !id) return;
-  await supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+  if (!user || !id) return { error: 'Sign in to delete deals.' };
+  const { error } = await supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+  if (error) return { error: error.message };
   revalidatePath('/', 'layout');
+  return {};
 }
 
 export async function savePlanAction(input: CompPlan): Promise<Result> {
@@ -75,6 +87,14 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     const tier1 = { attainmentPct: n(t1?.attainmentPct), kickerPct: clampPct(Number(t1?.kickerPct)) };
     if (!(target > 0) || !(tier0.attainmentPct > 0) || !(tier1.attainmentPct > 0)) {
       return { error: 'Quarterly kicker target and tier attainment must be greater than zero.' };
+    }
+    // kickerTierAt/quarterlyKickerSummary (calc.ts) sort tiers by
+    // attainmentPct rather than trust array position — so a Stretch tier at
+    // or below the base tier wouldn't crash, it would just silently become
+    // "Tier 1" everywhere the plan is actually used, contradicting its own
+    // label on this form. Reject it here instead of letting that drift.
+    if (!(tier1.attainmentPct > tier0.attainmentPct)) {
+      return { error: 'Quarterly Bonus (Stretch) attainment must be higher than the base tier’s.' };
     }
     quarterly_kicker = { target, tiers: [tier0, tier1] };
   }
@@ -104,6 +124,15 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };
   if (!Number.isFinite(plan.accelerator_threshold)) return { error: 'Accelerator threshold must be a number.' };
+  // A threshold of 0 with an accelerator style selected means "already
+  // accelerated from the first deal" — permanently, since creditBooked can
+  // never be negative (calc.ts). Not a crash, just a plan that can never
+  // demonstrate the thing it's configured to do; most likely to happen
+  // after switching quota_basis, which resets this field to 0 without
+  // resetting accelerator_style.
+  if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
+    return { error: 'Set a threshold for your accelerator — it can’t kick in at zero.' };
+  }
 
   const { error } = await supabase
     .from('comp_plans')

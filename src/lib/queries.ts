@@ -58,7 +58,14 @@ function parseKicker(v: unknown): QuarterlyKicker | null {
 
 export async function getCompPlan(userId: string): Promise<CompPlan | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from('comp_plans').select('*').eq('user_id', userId).maybeSingle();
+  const { data, error } = await supabase.from('comp_plans').select('*').eq('user_id', userId).maybeSingle();
+  // A failed fetch is not the same thing as "this user has no plan yet" —
+  // the two were conflated here, and every page-load caller treats a null
+  // return as license to redirect to /plan. A returning user hitting a
+  // transient Supabase failure would land back on plan setup looking like
+  // their account was wiped, instead of seeing an error. Thrown (like
+  // listDeals already does below) so it surfaces through error.tsx instead.
+  if (error) throw new Error(error.message);
   if (!data) return null;
   return {
     role_name: String(data.role_name),

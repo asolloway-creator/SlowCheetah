@@ -177,7 +177,35 @@ export default function PlanSentence({
     setMsg({});
   };
 
+  // Blocks a plan from ever being *saved* in a state that would render as
+  // broken the moment it's used, rather than only bounding what a field can
+  // be typed to (NumField's `max` below handles that half). An accelerator
+  // with a $0/0-unit threshold can never fire; a kicker left at its $0
+  // default target can never be reached; a "Stretch" tier at or below the
+  // base tier's attainment silently swaps which one calc.ts treats as which
+  // (it sorts by attainment, not by which field you typed it into).
+  function validate(plan: CompPlan): string | null {
+    if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
+      return `Set a threshold for your accelerator — it can’t kick in at ${arr ? '$0' : '0 units'}.`;
+    }
+    if (plan.quarterly_kicker) {
+      if (!(plan.quarterly_kicker.target > 0)) {
+        return 'Set a quarterly SaaS target before saving — the kicker can’t be reached at $0.';
+      }
+      const [t0, t1] = plan.quarterly_kicker.tiers;
+      if (!(t1.attainmentPct > t0.attainmentPct)) {
+        return 'Quarterly Bonus (Stretch) attainment must be higher than the base tier’s.';
+      }
+    }
+    return null;
+  }
+
   async function submit() {
+    const err = validate(p);
+    if (err) {
+      setMsg({ error: err });
+      return;
+    }
     setPending(true);
     setMsg({});
     const res = await onSave(p);
@@ -225,6 +253,7 @@ export default function PlanSentence({
             label="Base rate"
             value={p.base_rate}
             suffix={percent ? '%' : 'months of MRR'}
+            max={percent ? 100 : 36}
             onChange={(n) => set('base_rate', n)}
           />
           {hasAccel && (
@@ -245,6 +274,7 @@ export default function PlanSentence({
             label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
             value={p.accelerator_rate}
             suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
+            max={p.accelerator_style === 'retro_bump' || percent ? 100 : 36}
             onChange={(n) => set('accelerator_rate', n)}
           />
         )}
@@ -337,11 +367,12 @@ export default function PlanSentence({
           label="Base rate"
           value={p.base_rate}
           suffix={percent ? '%' : 'months of MRR'}
+          max={percent ? 100 : 36}
           onChange={(n) => set('base_rate', n)}
         />
       </div>
       {percent && (
-        <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" onChange={(n) => set('one_time_weight', n)} />
+        <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" max={100} onChange={(n) => set('one_time_weight', n)} />
       )}
 
       <h2 className="section-h">Accelerator</h2>
@@ -379,6 +410,7 @@ export default function PlanSentence({
             label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
             value={p.accelerator_rate}
             suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
+            max={p.accelerator_style === 'retro_bump' || percent ? 100 : 36}
             onChange={(n) => set('accelerator_rate', n)}
           />
         </div>
@@ -416,6 +448,7 @@ export default function PlanSentence({
               label="Quarterly Bonus attainment"
               value={kicker.tiers[0].attainmentPct}
               suffix="%"
+              max={1000}
               onChange={(n) => setKickerTier(0, 'attainmentPct', n)}
             />
             <NumField
@@ -423,6 +456,7 @@ export default function PlanSentence({
               label="Quarterly Bonus kicker"
               value={kicker.tiers[0].kickerPct}
               suffix="%"
+              max={200}
               onChange={(n) => setKickerTier(0, 'kickerPct', n)}
             />
           </div>
@@ -432,6 +466,7 @@ export default function PlanSentence({
               label="Quarterly Bonus (Stretch) attainment"
               value={kicker.tiers[1].attainmentPct}
               suffix="%"
+              max={1000}
               onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
             />
             <NumField
@@ -439,6 +474,7 @@ export default function PlanSentence({
               label="Quarterly Bonus (Stretch) kicker"
               value={kicker.tiers[1].kickerPct}
               suffix="%"
+              max={200}
               onChange={(n) => setKickerTier(1, 'kickerPct', n)}
             />
           </div>

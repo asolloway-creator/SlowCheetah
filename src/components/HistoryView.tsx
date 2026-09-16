@@ -24,11 +24,12 @@ export default function HistoryView({
 }: {
   plan: CompPlan;
   deals: DealRow[];
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<{ error?: string }>;
   demo?: boolean;
   onReset?: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const current = periodLabel(plan.period);
 
   const groups: { period: string; rows: DealRow[] }[] = [];
@@ -60,6 +61,11 @@ export default function HistoryView({
           <p className="history-caption">
             left on the table in {current}, across {currentRows.length} deal{currentRows.length === 1 ? '' : 's'}.
           </p>
+          {error && (
+            <p className="history-error" role="alert">
+              {error}
+            </p>
+          )}
 
           <div className="table-scroll">
             <table className="deals">
@@ -105,8 +111,10 @@ export default function HistoryView({
                             disabled={busy === d.id}
                             onClick={async () => {
                               setBusy(d.id);
-                              await onDelete(d.id);
+                              setError(null);
+                              const res = await onDelete(d.id);
                               setBusy(null);
+                              if (res.error) setError(res.error);
                             }}
                           >
                             {busy === d.id ? 'Deleting…' : 'Delete'}
