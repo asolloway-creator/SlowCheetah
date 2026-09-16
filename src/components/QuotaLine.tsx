@@ -6,7 +6,7 @@ import { periodNoun } from '@/lib/format';
 import { dealLine, quarterLine, type LineModel } from '@/components/opening';
 
 type Props =
-  | { mode: 'deal'; plan: CompPlan; ptd: PeriodToDate; r: CalcResult }
+  | { mode: 'deal'; plan: CompPlan; ptd: PeriodToDate; r: CalcResult; empty?: boolean }
   | { mode: 'quarter'; plan: CompPlan; ptd: PeriodToDate };
 
 const pct = (f: number) => `${(f * 100).toFixed(3)}%`;
@@ -18,7 +18,8 @@ const vars = (o: Record<string, string>) => o as CSSProperties;
  * on the site are these geometry values.
  */
 export default function QuotaLine(props: Props) {
-  const m: LineModel = props.mode === 'deal' ? dealLine(props.plan, props.ptd, props.r) : quarterLine(props.plan, props.ptd);
+  const m: LineModel =
+    props.mode === 'deal' ? dealLine(props.plan, props.ptd, props.r, props.empty) : quarterLine(props.plan, props.ptd);
   const markX = m.ringX ?? m.quotaX ?? 1;
   const align: 'left' | 'centre' | 'right' = markX > 0.6 ? 'right' : markX < 0.12 ? 'left' : 'centre';
 

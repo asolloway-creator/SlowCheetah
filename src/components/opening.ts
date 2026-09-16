@@ -533,10 +533,29 @@ function markerText(plan: CompPlan): string {
  * the deal's *list* value — never on the discount — so only the bar and the
  * ghost move while dragging. Opening state: ring 57.1%, bar 56.6%, ghost 59.5%.
  */
-export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult): LineModel {
+export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmptyDeal = false): LineModel {
   const hasAccel = plan.accelerator_style !== 'none';
   const threshold = hasAccel ? plan.accelerator_threshold : plan.quota;
   const origin = ptd.creditBooked;
+  // An empty deal still carries DealInput's field defaults (EMPTY.units is
+  // 1, not 0 — a sensible starting point for the NumField, not a real
+  // deal) — calc() has no way to know the difference, so left unguarded
+  // this credits a phantom unit toward the line before anything's been
+  // entered. Collapse back to "nothing in progress" here instead: origin
+  // only, no crossing, no ghost, accelerated only if booked deals alone
+  // already got there.
+  const r2: CalcResult = isEmptyDeal
+    ? {
+        ...r,
+        creditAfter: origin,
+        creditFull: origin,
+        crossesAccelerator: false,
+        isAccelerated: r.wasAccelerated,
+        discountBlocksAccelerator: false,
+        attained: ptd.creditBooked >= plan.quota,
+        toQuota: Math.max(0, plan.quota - ptd.creditBooked),
+      }
+    : r;
   const toMark = Math.max(threshold, plan.quota) - origin;
   // A deal that could plausibly close the gap gets the wide 1.75x scale —
   // that's the room "crossed by $X" needs past the ring, and it's what the
@@ -545,28 +564,29 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult): Line
   // to make room for; scaling to its own size instead of the full gap kept
   // stranding it in the first third of the track with the ring and a dead
   // gap floating past it. Tie the scale to the gap itself there.
-  const canReach = r.creditFull >= toMark;
+  const creditFull = isEmptyDeal ? 0 : r2.creditFull;
+  const canReach = creditFull >= toMark;
   const span = canReach
-    ? Math.max(toMark * 1.75, r.creditFull * 1.15, plan.quota * 0.1, 1)
+    ? Math.max(toMark * 1.75, creditFull * 1.15, plan.quota * 0.1, 1)
     : Math.max(toMark * 1.25, plan.quota * 0.1, 1);
   const x = (v: number) => clamp01((v - origin) / span);
 
-  const barW = x(r.creditAfter);
-  const fullEnd = x(origin + r.creditFull);
-  const crossed = hasAccel && (r.crossesAccelerator || r.isAccelerated);
+  const barW = x(r2.creditAfter);
+  const fullEnd = x(origin + creditFull);
+  const crossed = hasAccel && (r2.crossesAccelerator || r2.isAccelerated);
   const pct = plan.quota > 0 ? Math.round((origin / plan.quota) * 100) : 0;
 
   let callout: LineModel['callout'];
   if (hasAccel) {
-    callout = r.discountBlocksAccelerator
-      ? { text: `${fmtCredit(plan, threshold - r.creditAfter)} short`, tone: 'red' }
+    callout = r2.discountBlocksAccelerator
+      ? { text: `${fmtCredit(plan, threshold - r2.creditAfter)} short`, tone: 'red' }
       : crossed
-        ? { text: `Crossed by ${fmtCredit(plan, r.creditAfter - threshold)}`, tone: 'green' }
-        : { text: `${fmtCredit(plan, threshold - r.creditAfter)} to go`, tone: 'dim' };
+        ? { text: `Crossed by ${fmtCredit(plan, r2.creditAfter - threshold)}`, tone: 'green' }
+        : { text: `${fmtCredit(plan, threshold - r2.creditAfter)} to go`, tone: 'dim' };
   } else {
-    callout = r.attained
+    callout = r2.attained
       ? { text: 'Quota made', tone: 'dim' }
-      : { text: `${fmtCredit(plan, r.toQuota)} to quota`, tone: 'dim' };
+      : { text: `${fmtCredit(plan, r2.toQuota)} to quota`, tone: 'dim' };
   }
 
   return {
@@ -575,7 +595,7 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult): Line
     ghostW: Math.max(0, fullEnd - barW),
     ringX: hasAccel ? x(threshold) : null,
     quotaX: !hasAccel || plan.quota !== threshold ? x(plan.quota) : null,
-    accelerated: r.isAccelerated,
+    accelerated: r2.isAccelerated,
     crossed,
     marker: markerText(plan),
     origin: `${fmtCredit(plan, origin)} booked · ${pct}% of quota`,

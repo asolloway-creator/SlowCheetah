@@ -411,10 +411,10 @@ main { display: block; padding-bottom: var(--s-8); }
   font-size: var(--fs-h1); line-height: var(--lh-h1); font-weight: 700; letter-spacing: 0.03em;
 }
 .wordmark-full {
-  font-style: italic; font-weight: 400; font-size: var(--fs-ui); line-height: var(--lh-ui);
+  font-weight: 400; font-size: var(--fs-ui); line-height: var(--lh-ui);
   letter-spacing: normal; color: var(--grey-1); white-space: nowrap;
 }
-.wordmark-full-accent { font-style: normal; font-weight: 700; color: var(--ink); }
+.wordmark-full-accent { font-weight: 700; color: var(--ink); }
 .nav { display: flex; justify-content: flex-end; gap: var(--s-5); height: 100%; }
 .nav a {
   position: relative; display: inline-flex; align-items: center; height: 100%; color: var(--grey-1); font-weight: 500; text-decoration: none;

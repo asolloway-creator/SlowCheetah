@@ -200,7 +200,7 @@ export default function DealStage({
           </p>
         )}
 
-        <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} />
+        <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
 
         <div className="stage-grid">
           <DealForm plan={plan} ptd={ptd} deal={deal} set={set} open={open} onToggle={() => setOpen((v) => !v)} />
@@ -236,7 +236,18 @@ export default function DealStage({
             {msg.error && <p className="after is-error">{msg.error}</p>}
             {msg.booked && (
               <>
-                <p className="after">Booked to {label} — the line moved.</p>
+                {/* "the line moved" is a claim about the accelerator bar — this
+                    deal-page bar only ever shows progress relative to whatever's
+                    in progress, so once the deal resets to empty it goes quiet
+                    again. /quota draws the same line from zero instead, so this
+                    is where "moved" actually reads as moved. Same link for demo
+                    and signed-in; neither path offered it before. */}
+                <p className="after">
+                  Booked to {label} — the line moved.{' '}
+                  <Link className="btn-text" href="/quota">
+                    See where you stand &rarr;
+                  </Link>
+                </p>
                 {demo && (
                   <p className="after-note">
                     Saved in this browser only ·{' '}
