@@ -8,7 +8,20 @@ import QuotaLine from '@/components/QuotaLine';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
 
 /** Where you stand: one narrative — a figure, the line, one sentence, a ledger. */
-export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: PeriodToDate; deals: DealRow[] }) {
+export default function QuotaView({
+  plan,
+  ptd,
+  deals,
+  demo,
+}: {
+  plan: CompPlan;
+  ptd: PeriodToDate;
+  deals: DealRow[];
+  /** Second, lighter touch of the same plan-bridge the deal page makes right
+   *  after booking — this is where a demo visitor lands right after that,
+   *  looking at a real ledger of sample numbers. Never shown signed in. */
+  demo?: boolean;
+}) {
   const s = periodSummary(plan, ptd);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -74,6 +87,14 @@ export default function QuotaView({ plan, ptd, deals }: { plan: CompPlan; ptd: P
           <p className="quota-sentence">{sentence}</p>
           <h2 className="section-h">This {noun} so far</h2>
           <Ledger rows={rows} />
+          {demo && (
+            <p className="quota-bridge">
+              Sample data — every figure above is real math on numbers that aren’t yours yet.{' '}
+              <Link className="btn-text" href="/?plan=1">
+                Put your plan in &rarr;
+              </Link>
+            </p>
+          )}
         </>
       )}
     </div>

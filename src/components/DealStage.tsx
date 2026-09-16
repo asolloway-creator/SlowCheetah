@@ -64,6 +64,11 @@ export default function DealStage({
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
   const [open, setOpen] = useState(false);
   const [mathOpen, setMathOpen] = useState(false);
+  // Captured at the moment of booking, before `deal` resets to EMPTY below —
+  // the post-booking plan-bridge names this exact figure ("$X was real math
+  // on a sample plan"), and `copy.figureText` stops being that number the
+  // instant the reset happens.
+  const [bookedFigure, setBookedFigure] = useState<string | null>(null);
 
   // The header's "Put your plan in" works from any page — it links here with
   // ?plan=1 to open the same inline dialog, instead of needing its own copy
@@ -144,6 +149,7 @@ export default function DealStage({
     if (res.error) {
       setMsg({ error: res.error });
     } else {
+      setBookedFigure(copy.figureText || null);
       setMsg({ booked: true });
       setDeal(EMPTY);
       setDirty(false);
@@ -300,6 +306,24 @@ export default function DealStage({
                       See it in your deals &rarr;
                     </Link>
                   </p>
+                )}
+                {/* The earned moment, not the header button's evergreen one —
+                    right after a rep has felt the mechanic actually pay out
+                    on a real click, name the exact number they just watched
+                    happen and point at the one thing standing between that
+                    and their own paycheck: it's sample data. Only for a
+                    demo that's still running the stock plan — someone who
+                    already put theirs in already made this connection. */}
+                {demo && !planSaved && bookedFigure && (
+                  <div className="plan-bridge">
+                    <p className="plan-bridge-title">{bookedFigure} was real math — on a sample plan.</p>
+                    <p className="plan-bridge-copy">Put your own numbers in and watch this become yours.</p>
+                    <div className="plan-bridge-actions">
+                      <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
+                        Put your plan in
+                      </button>
+                    </div>
+                  </div>
                 )}
               </>
             )}

@@ -368,6 +368,15 @@ table.deals { width: 100%; border-collapse: collapse; }
 .import-banner-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .import-banner-actions { display: flex; align-items: center; gap: var(--s-4); margin-top: var(--s-4); }
 
+/* The one moment this app asks a demo visitor to bring their own numbers
+   in — right after booking, not a standing header button that's easy to
+   read past once the demo itself gets interesting. Same "actual decision"
+   ink-bordered treatment as .import-banner, not the header's quiet default. */
+.plan-bridge { margin-top: var(--s-4); padding: var(--s-5); background: var(--stage); border: 1px solid var(--ink); border-radius: var(--r-ctl); }
+.plan-bridge-title { font-weight: 500; }
+.plan-bridge-copy { margin-top: var(--s-1); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
+.plan-bridge-actions { margin-top: var(--s-4); }
+
 /* This deal's effect on the quarterly bonus — red when it costs it, green
    when it keeps or unlocks it. NOT the same visual weight both ways: red
    is the moment worth stopping for (full card, same idiom
@@ -607,6 +616,10 @@ main { display: block; padding-bottom: var(--s-8); }
 .quota-caption, .history-caption { margin-top: var(--s-2); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--grey-1); }
 .quota > .line { margin: var(--s-6) 0; }
 .quota-sentence { font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: -0.01em; max-width: 36ch; }
+/* The lighter second touch of the deal page's .plan-bridge — plain text
+   under the ledger a demo visitor is already looking at, not another
+   bordered card competing with it two screens later. */
+.quota-bridge { margin-top: var(--s-5); color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
 .history-empty { margin-top: var(--s-5); font-size: var(--fs-body); line-height: var(--lh-body); }
 .history-empty-link { margin-top: var(--s-3); }
 .history-foot { margin-top: var(--s-5); color: var(--grey-1); }
@@ -674,7 +687,7 @@ main { display: block; padding-bottom: var(--s-8); }
   .math-summary { order: 3; }
   .math-more { order: 3; }
   .book-row { order: 4; }
-  .after, .after-note { order: 5; }
+  .after, .after-note, .plan-bridge { order: 5; }
   .deal-h { order: 6; margin-top: var(--s-6); margin-bottom: 0; }
   .deal-more { order: 10; }
   .below { flex-direction: column; align-items: stretch; }

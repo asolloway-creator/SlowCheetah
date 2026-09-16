@@ -52,7 +52,7 @@ export function DemoQuota() {
   const d = useDemoStore();
   return (
     <Shell current="/quota" email={null} width="narrow">
-      {d.ready && <QuotaView plan={d.plan} ptd={d.ptd} deals={d.periodDeals} />}
+      {d.ready && <QuotaView plan={d.plan} ptd={d.ptd} deals={d.periodDeals} demo />}
     </Shell>
   );
 }
