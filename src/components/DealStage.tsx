@@ -263,6 +263,26 @@ export default function DealStage({
 
             <KickerOutcome copy={xCopy} />
 
+            {/* Not gated behind booking — most visitors will drag the
+                slider, watch a real number move, and never click Book at
+                all, and that's the actual peak-trust moment, not a
+                completed action. Tracks whatever's already on screen
+                (copy.figureText, same figure as the headline above) and
+                disappears the instant msg.booked is true, handing off to
+                the captured-figure version below in its own spot rather
+                than showing two at once. */}
+            {demo && !planSaved && !msg.booked && !empty && (
+              <div className="plan-bridge plan-bridge-live">
+                <p className="plan-bridge-title">{copy.figureText} — on a sample plan.</p>
+                <p className="plan-bridge-copy">Put your own numbers in and every figure here becomes real.</p>
+                <div className="plan-bridge-actions">
+                  <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
+                    Put your plan in
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="book-row">
               {dirty && !pending && !msg.booked && !msg.error && <span className="nudge-ring book-nudge-ring" aria-hidden="true" />}
               <button
@@ -307,15 +327,13 @@ export default function DealStage({
                     </Link>
                   </p>
                 )}
-                {/* The earned moment, not the header button's evergreen one —
-                    right after a rep has felt the mechanic actually pay out
-                    on a real click, name the exact number they just watched
-                    happen and point at the one thing standing between that
-                    and their own paycheck: it's sample data. Only for a
-                    demo that's still running the stock plan — someone who
-                    already put theirs in already made this connection. */}
+                {/* The post-booking twin of the one above (near KickerOutcome),
+                    which stops rendering the instant msg.booked flips —
+                    this is its replacement in this spot, now naming the
+                    figure that was just booked rather than tracking a live
+                    one. Never both at once. */}
                 {demo && !planSaved && bookedFigure && (
-                  <div className="plan-bridge">
+                  <div className="plan-bridge plan-bridge-booked">
                     <p className="plan-bridge-title">{bookedFigure} was real math — on a sample plan.</p>
                     <p className="plan-bridge-copy">Put your own numbers in and watch this become yours.</p>
                     <div className="plan-bridge-actions">

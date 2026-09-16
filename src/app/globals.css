@@ -684,10 +684,16 @@ main { display: block; padding-bottom: var(--s-8); }
   .math-summary[aria-expanded="true"] .math-summary-title::after { content: " ▴"; }
   .outcome { order: 1; }
   .kicker-outcome { order: 2; }
+  /* Ties with kicker-outcome on order alone — DOM order (it's the next
+     sibling) breaks the tie and puts it right after, ahead of the math
+     disclosure and the book button, matching desktop. Only one of the two
+     .plan-bridge instances ever renders at once (never both, see
+     DealStage.tsx), so the two rules below never actually collide. */
+  .plan-bridge-live { order: 2; }
   .math-summary { order: 3; }
   .math-more { order: 3; }
   .book-row { order: 4; }
-  .after, .after-note, .plan-bridge { order: 5; }
+  .after, .after-note, .plan-bridge-booked { order: 5; }
   .deal-h { order: 6; margin-top: var(--s-6); margin-bottom: 0; }
   .deal-more { order: 10; }
   .below { flex-direction: column; align-items: stretch; }
