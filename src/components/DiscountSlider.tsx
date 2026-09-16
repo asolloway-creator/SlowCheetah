@@ -86,7 +86,6 @@ export default function DiscountSlider({
     raf.current = requestAnimationFrame(step);
   }
   const tryZero = () => animateTo(0);
-  const tryDiscount = () => animateTo(10);
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     delete e.currentTarget.dataset.pointer;
@@ -182,15 +181,6 @@ export default function DiscountSlider({
             Hold the line — try 0% &rarr;
           </button>
         )}
-        {value === 0 && !disabled && (
-          <button type="button" className="slider-hint" onClick={tryDiscount}>
-            <span className="slider-hint-note">try a discount</span>
-            <svg className="slider-hint-arrow" width="34" height="30" viewBox="0 0 34 30" fill="none" aria-hidden="true">
-              <path d="M30 5C29 12 22 24 10 26" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <path d="M3 18L9 27L18 22" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        )}
       </div>
       <div className="slider-row" style={rowStyle}>
         {editing ? (
@@ -203,6 +193,7 @@ export default function DiscountSlider({
         )}
         <span className="slider-track" />
         <span className="slider-fill" />
+        {value === 0 && !disabled && <span className="slider-idle-ring" aria-hidden="true" />}
         {range}
       </div>
       {caption && <p className="slider-caption">{caption}</p>}

@@ -476,7 +476,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
 /** Caption under the promoted slider: "5% off = $55 a month off · the customer saves $660 a year". */
 export function sliderCaption(deal: DealInput, r: CalcResult): string {
   const d = deal.subscriptionDiscountPct;
-  if (d <= 0) return 'Full price';
+  if (d <= 0) return 'Full price — drag to see what it costs.';
   // "on the subscription alone" — the Ledger's Customer saves row totals
   // this together with the one-time discount, so without the qualifier
   // the two figures read as disagreeing rather than answering different
