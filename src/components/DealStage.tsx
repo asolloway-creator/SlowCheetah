@@ -222,6 +222,7 @@ export default function DealStage({
             <KickerOutcome copy={xCopy} />
 
             <div className="book-row">
+              {dirty && !pending && !msg.booked && !msg.error && <span className="nudge-ring book-nudge-ring" aria-hidden="true" />}
               <button
                 type="button"
                 className={`btn ${demo ? 'btn-secondary' : 'btn-primary'}`}
@@ -235,15 +236,20 @@ export default function DealStage({
             {msg.error && <p className="after is-error">{msg.error}</p>}
             {msg.booked && (
               <>
-                {/* "the line moved" is a claim about the accelerator bar — this
-                    deal-page bar only ever shows progress relative to whatever's
-                    in progress, so once the deal resets to empty it goes quiet
-                    again. /quota draws the same line from zero instead, so this
-                    is where "moved" actually reads as moved. Same link for demo
-                    and signed-in; neither path offered it before. */}
+                {/* No "the line moved" clause — the pulse on the link below is
+                    doing that inviting work now, and /quota is the place that
+                    actually shows the line moved (this deal-page bar only ever
+                    shows progress relative to whatever's in progress, so it
+                    goes quiet again the instant the deal resets to empty).
+                    Same link for demo and signed-in; neither path offered it
+                    before. */}
                 <p className="after">
-                  Booked to {label} — the line moved.{' '}
-                  <Link className="btn-text" href="/quota">
+                  Booked to {label}.{' '}
+                  <Link className="btn-text stand-nudge" href="/quota">
+                    <span className="stand-nudge-mark" aria-hidden="true">
+                      <span className="nudge-ring stand-nudge-ring" />
+                      <span className="stand-nudge-dot" />
+                    </span>
                     See where you stand &rarr;
                   </Link>
                 </p>

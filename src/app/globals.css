@@ -226,26 +226,43 @@ strong { font-weight: 500; }
 .slider-input:disabled::-moz-range-thumb { border-color: var(--grey-2); box-shadow: none; }
 .slider:has(.slider-input:active) .slider-fill, .slider:has(.slider-input:active) .bubble { transition: none; }
 .slider-caption { margin-top: var(--s-2); color: var(--grey-1); }
-/* A soft ring pulsing outward from the thumb at rest — the nudge to try
-   the one control worth touching first, done with the system's own ink
-   token instead of an illustration or a second typeface. A real element,
-   not a ::-webkit-slider-thumb animation — vendor thumb pseudo-elements
-   are unreliable to animate consistently cross-browser. Decorative only
-   (aria-hidden, pointer-events: none); gone the instant the value moves. */
-.slider-idle-ring {
-  position: absolute; left: var(--centre); top: 50%; width: var(--h-thumb); height: var(--h-thumb);
-  margin-left: calc(var(--h-thumb) / -2); margin-top: calc(var(--h-thumb) / -2);
-  border-radius: var(--r-round); border: 1.5px solid var(--ink); pointer-events: none;
-  animation: slider-idle-pulse 1.8s ease-in-out infinite;
-}
-@keyframes slider-idle-pulse {
+/* Shared "look here" pulse — a real element growing outward and fading,
+   done with the system's own ink token instead of an illustration or a
+   second typeface. Used at exactly one place at a time along the demo
+   flow, each instance gone the moment its own trigger clears, so the eye
+   is never asked to watch two things pulse at once. Decorative only
+   (aria-hidden, pointer-events: none) — never the only cue an action
+   exists, always paired with a real control or link underneath it. */
+.nudge-ring { position: absolute; pointer-events: none; animation: nudge-pulse 1.8s ease-in-out infinite; }
+@keyframes nudge-pulse {
   0% { transform: scale(1); opacity: 0.5; }
   60% { transform: scale(1.8); opacity: 0; }
   100% { transform: scale(1.8); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .slider-idle-ring { animation: none; display: none; }
+  .nudge-ring { animation: none; display: none; }
 }
+/* On the discount slider's thumb, at rest. */
+.slider-idle-ring {
+  left: var(--centre); top: 50%; width: var(--h-thumb); height: var(--h-thumb);
+  margin-left: calc(var(--h-thumb) / -2); margin-top: calc(var(--h-thumb) / -2);
+  border-radius: var(--r-round); border: 1.5px solid var(--ink);
+}
+/* Around "Book this deal", once the sample deal has actually been changed —
+   .book-row shrinks to the button's own size so the ring hugs it exactly. */
+/* justify-self: below 899px, .money is display: contents (see the mobile
+   media query), which makes this a direct grid item of .stage-grid — grid
+   items stretch by default, which would blow this back out to full width
+   despite display: inline-flex. */
+.book-row { margin-top: var(--s-4); position: relative; display: inline-flex; justify-self: start; }
+.book-nudge-ring { inset: -4px; border-radius: calc(var(--r-ctl) + 4px); border: 1.5px solid var(--ink); }
+/* Before "See where you stand", once a deal is booked — a small dot instead
+   of a ring sized to a whole control, since there's no thumb or button here
+   to wrap, just a line of text pointing at the next page. */
+.btn-text.stand-nudge { display: inline-flex; align-items: center; gap: var(--s-2); }
+.stand-nudge-mark { position: relative; flex: none; width: 6px; height: 6px; }
+.stand-nudge-dot { display: block; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--ink); }
+.stand-nudge-ring { left: 0; top: 0; width: 6px; height: 6px; border-radius: var(--r-round); border: 1.5px solid var(--ink); }
 
 /* the value bubble (click-to-type) */
 .bubble {
@@ -474,7 +491,10 @@ main { display: block; padding-bottom: var(--s-8); }
    line it describes — same rhythm as the sample-note's own margin-top
    above it, whichever of the two notes precedes it. */
 .stage-sample-note + .stage-context, .stage-plan-saved + .stage-context { margin-top: var(--s-3); }
-.stage > .line { margin: var(--s-5) 0 var(--s-6); }
+/* A hairline break where the intro copy ends and the live instrument
+   starts — deal-page only (the quota page's .quota > .line has no such
+   preceding text block to break from). */
+.stage > .line { margin: var(--s-5) 0 var(--s-6); padding-top: var(--s-5); border-top: var(--hair); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }
 .money { border-left: var(--hair); padding-left: var(--s-7); min-width: 0; }
 
@@ -515,7 +535,6 @@ main { display: block; padding-bottom: var(--s-8); }
 .outcome-secondary-caption { display: block; margin-top: var(--s-2); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--grey-1); }
 .outcome > .slider { margin-top: var(--s-4); }
 .outcome-sentence { margin-top: var(--s-4); font-size: var(--fs-body); line-height: var(--lh-body); }
-.book-row { margin-top: var(--s-4); }
 .after { margin-top: var(--s-3); }
 .after.is-error { color: var(--red); }
 .after-note { margin-top: var(--s-1); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--grey-1); }
@@ -537,9 +556,15 @@ main { display: block; padding-bottom: var(--s-8); }
 .line-post-quota { margin-left: -1px; }
 .line-bar {
   position: absolute; left: 0; top: 50%; width: var(--w); height: 8px; margin-top: -4px; border-radius: var(--r-round);
-  background: linear-gradient(180deg, var(--ink-2), var(--ink));
+  background: linear-gradient(180deg, var(--ink-2), var(--ink)); transform-origin: left;
   transition: width var(--dur-3) var(--ease-out), background var(--dur-2) var(--ease-out);
+  /* Fills in from nothing on every mount — new visitor or returning, deal
+     page or quota — instead of just appearing static at rest. Pure CSS,
+     no JS state: the underlying --w is already correct at first paint
+     (server or client), this only animates the reveal on top of it. */
+  animation: line-bar-in 0.7s var(--ease-out) both;
 }
+@keyframes line-bar-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .line.is-accelerated .line-bar { background: linear-gradient(180deg, #129449, var(--green)); }
 .line-ghost {
   position: absolute; left: var(--x); top: 50%; width: var(--w); height: 8px; margin-top: -4px; background: var(--red-tint); border-radius: var(--r-round);
@@ -700,7 +725,7 @@ main { display: block; padding-bottom: var(--s-8); }
   .line-bar, .line-ghost, .line-ring, .slider-fill, .bubble, .toggle-knob, .pinned, .btn, .slider-input::-webkit-slider-thumb, .slider-input::-moz-range-thumb {
     transition-property: color, background-color, border-color, opacity, box-shadow, visibility;
   }
-  .line-ring.is-pulsing { animation: none; }
+  .line-ring.is-pulsing, .line-bar { animation: none; }
   .fade-up { animation-name: none; opacity: 1; }
   .toggle:active:not(:disabled) .toggle-knob, .btn:active:not(:disabled) { transform: none; }
   .toggle[aria-checked="true"] .toggle-knob { transform: translateX(20px); }
