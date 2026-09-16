@@ -178,18 +178,13 @@ export default function DealStage({
         <p id="stage-context" className="stage-context">
           {plan.role_name} · {label}
         </p>
-        <p className="stage-context">{planSentence(plan)}</p>
         {demo && !planSaved && (
-          // "sample {noun}" used to be a quiet qualifier buried in the line
-          // above — easy to read past without registering that none of this
-          // is the visitor's own data. Its own line, own color, and the
-          // actual next step named, not just implied by the header button.
-          <p className="stage-sample-note">
-            This is a sample {noun} — try the numbers below, then{' '}
-            <Link className="btn-text" href="/?plan=1">
-              put in your plan &rarr;
-            </Link>
-          </p>
+          // Leads with "this is fake data" before the plan mechanics below,
+          // not after — and no CTA of its own: the header's "Put your plan
+          // in" is right there, one glance up, so a second link to the same
+          // place just doubled the same action. This line's job is framing,
+          // not another click target.
+          <p className="stage-sample-note">This is a sample {noun} — try the numbers below.</p>
         )}
         {demo && planSaved && (
           <p className="after-note stage-plan-saved">
@@ -199,6 +194,10 @@ export default function DealStage({
             </Link>
           </p>
         )}
+        {/* Plan mechanics sit last in this block, immediately above the
+            accelerator bar they describe — reads as "here's the rule," then
+            the very next thing on screen is that rule drawn as a line. */}
+        <p className="stage-context">{planSentence(plan)}</p>
 
         <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
 

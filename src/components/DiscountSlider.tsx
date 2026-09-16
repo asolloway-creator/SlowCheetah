@@ -67,22 +67,26 @@ export default function DiscountSlider({
     setEditing(false);
   }
 
-  /** Tween the value to 0 over 480ms; everything downstream animates from it. */
-  function tryZero() {
+  /** Tween the value to a target over 480ms; everything downstream animates
+   *  from it. Shared by both directions — holding the line back to 0%, and
+   *  the first nudge away from it — so dragging is never the only way in. */
+  function animateTo(target: number) {
     if (raf.current !== null) cancelAnimationFrame(raf.current);
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      onChange(0);
+      onChange(target);
       return;
     }
     const start = value;
     const t0 = performance.now();
     const step = (ts: number) => {
       const p = Math.min(1, (ts - t0) / 480);
-      onChange(p >= 1 ? 0 : round2(start * (1 - easeOut(p))));
+      onChange(p >= 1 ? target : round2(start + (target - start) * easeOut(p)));
       raf.current = p < 1 ? requestAnimationFrame(step) : null;
     };
     raf.current = requestAnimationFrame(step);
   }
+  const tryZero = () => animateTo(0);
+  const tryDiscount = () => animateTo(10);
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     delete e.currentTarget.dataset.pointer;
@@ -176,6 +180,11 @@ export default function DiscountSlider({
         {value > 0 && !disabled && (
           <button type="button" className="btn-text slider-prompt" onClick={tryZero}>
             Hold the line — try 0% &rarr;
+          </button>
+        )}
+        {value === 0 && !disabled && (
+          <button type="button" className="btn-text slider-prompt" onClick={tryDiscount}>
+            See what a discount costs — try 10% &rarr;
           </button>
         )}
       </div>

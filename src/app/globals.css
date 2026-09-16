@@ -450,6 +450,10 @@ main { display: block; padding-bottom: var(--s-8); }
    this is their data), not another quiet caption to read past. */
 .stage-sample-note { margin-top: var(--s-3); color: var(--ink); font-size: var(--fs-body); line-height: var(--lh-body); }
 .stage-plan-saved { margin-top: var(--s-2); }
+/* The plan-mechanics line now reads last in this block, right before the
+   line it describes — same rhythm as the sample-note's own margin-top
+   above it, whichever of the two notes precedes it. */
+.stage-sample-note + .stage-context, .stage-plan-saved + .stage-context { margin-top: var(--s-3); }
 .stage > .line { margin: var(--s-5) 0 var(--s-6); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }
 .money { border-left: var(--hair); padding-left: var(--s-7); min-width: 0; }
@@ -651,6 +655,9 @@ main { display: block; padding-bottom: var(--s-8); }
   .line-marker { left: auto; right: 0; white-space: normal; max-width: 70%; text-align: right; }
   .line-origin { white-space: normal; max-width: 42%; }
   .line-quota-label, .line-quota-label.is-right { left: auto; right: 0; transform: none; white-space: normal; max-width: 60%; text-align: right; }
+  /* The label and the try-a-value prompt no longer fit on one row at phone
+     widths — wrap instead of letting the prompt run off the edge. */
+  .slider-head { flex-wrap: wrap; row-gap: var(--s-1); }
   .ledger dd { white-space: normal; }
   .tiles { grid-template-columns: 1fr; }
   .plan-save { flex-direction: column; align-items: stretch; }
