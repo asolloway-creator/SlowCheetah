@@ -193,7 +193,7 @@ export default function DiscountSlider({
         )}
         <span className="slider-track" />
         <span className="slider-fill" />
-        {value === 0 && !disabled && <span className="slider-idle-ring" aria-hidden="true" />}
+        {value === 0 && !disabled && <span className="nudge-ring slider-idle-ring" aria-hidden="true" />}
         {range}
       </div>
       {caption && <p className="slider-caption">{caption}</p>}
