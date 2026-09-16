@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
@@ -84,6 +84,24 @@ export default function DealStage({
     }
   }, [demo, searchParams, router]);
 
+  // `deal` only reads `initialDeal` on the very first render — but the very
+  // first render can't yet know whether localStorage holds a previously
+  // saved custom plan (server and pre-hydration client both render as the
+  // stock DEMO_PLAN). savePlan() already swaps in a plan-shaped starter the
+  // moment you save one *this* session; this is the same swap for a
+  // returning visitor's reload, where hydration reveals the real plan a
+  // beat after mount. Runs at most once — a ref latch, not just `!dirty` —
+  // so it can never fire again after that and clobber startOver()/a later
+  // savePlan(), which already set `deal` correctly themselves.
+  const caughtUpToSavedPlan = useRef(false);
+  useEffect(() => {
+    if (caughtUpToSavedPlan.current || !demo || dirty) return;
+    if (JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
+    caughtUpToSavedPlan.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeal(syntheticOpening(plan).starter);
+  }, [demo, plan, dirty]);
+
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
   // Independent of the accelerator's own outcome/copy above — this deal can
@@ -123,6 +141,10 @@ export default function DealStage({
     setDeal(SAMPLE);
     setDirty(false);
     setMsg({});
+    // onStartOver resets the store's plan back to DEMO_PLAN — without this,
+    // "Your plan is in" kept showing after a reset that put the stock demo
+    // plan back, claiming a saved plan that no longer existed.
+    setPlanSaved(false);
   }
 
   // Swapping in a real plan leaves the sample deal's numbers behind too —
