@@ -27,6 +27,19 @@
 -- instead of the drop/create below:
 --   alter table public.comp_plans add column quarterly_kicker jsonb;
 --   alter table public.deals add column saas_commission numeric(14,2) not null default 0;
+--
+-- v7 (2026-09-16): security hardening, no schema change. Postgres grants
+-- EXECUTE on a new function to PUBLIC by default; handle_new_user is a
+-- trigger function (fires on insert into auth.users, never meant to be
+-- called directly) that had never had that default grant revoked, so it
+-- sat reachable via /rest/v1/rpc/handle_new_user for anon and authenticated
+-- alike. Calling it outside a trigger context errors (`new` is undefined),
+-- so this was never exploitable, but there's no reason to leave the surface
+-- open — caught by Supabase's own security advisor. Revoking EXECUTE from
+-- PUBLIC doesn't touch the trigger itself, which fires as the function's
+-- owner (SECURITY DEFINER) regardless of the invoking role's own grants.
+-- On a live pre-v7 database, run: revoke execute on function
+-- public.handle_new_user() from public, anon, authenticated;
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -45,6 +58,10 @@ end; $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
+
+-- Not callable directly (see the v7 note above) — only the trigger above
+-- invokes it, which runs as the function's owner regardless of this revoke.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 drop table if exists public.deals;
 drop table if exists public.comp_plans;
