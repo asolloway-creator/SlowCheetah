@@ -443,13 +443,23 @@ export const PRESETS: Preset[] = [
 // is driven by units here, not $) can still drop quarterly SaaS attainment
 // below a tier. Sized against the seeded deals in demo.ts / OPENING_QTD in
 // opening.ts — see that file if these numbers ever need to move.
+// kickerPct is pure upside on top of quarterly SaaS commission — it never
+// touches accelerator_threshold/crossesAccelerator (units-based) or the
+// attainment/crossing math against quarterly_kicker.target (ARR-based, no
+// kickerPct term at all). Free to move on its own without re-deriving the
+// seeded deals' sizing in demo.ts or the discount-crossing point in
+// opening.ts's SAMPLE doc comment (verified: 15%->70% leaves both exactly
+// where they were, 105.977%->103.977% crossing at 24.42% subscription
+// discount). Raised from 15/20 to 70/85 — the original bumpValue at rest
+// ($2,156.18) read as too small a number to anchor the "quarterly bonus"
+// story on; 70% lands it just over $10,000.
 export const DEMO_PLAN: CompPlan = {
   ...PRESETS.find((p) => p.id === 'units-switch')!.plan,
   quarterly_kicker: {
     target: 180000,
     tiers: [
-      { attainmentPct: 105, kickerPct: 15 },
-      { attainmentPct: 130, kickerPct: 20 },
+      { attainmentPct: 105, kickerPct: 70 },
+      { attainmentPct: 130, kickerPct: 85 },
     ],
   },
 };
