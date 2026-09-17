@@ -139,6 +139,12 @@ export default function DealStage({
   const noun = periodNoun(plan);
   const empty = isEmpty(deal);
   const subCost = costOf(plan, deal, ptd, 'subscriptionDiscountPct');
+  // Whatever's currently red on screen — money left on the table without
+  // crossing (secondary.tone), the accelerator's own discount blocked
+  // (also secondary.tone), or a kicker tier actually lost (xCopy.tone).
+  // The book-row nudge below reads as "go ahead, click this" — exactly
+  // wrong the instant the page is also saying this costs you something.
+  const isCostly = copy.secondary?.tone === 'red' || xCopy?.tone === 'red';
 
   const set = <K extends keyof DealInput>(k: K, v: DealInput[K]) => {
     setDeal((d) => ({ ...d, [k]: v }));
@@ -270,28 +276,21 @@ export default function DealStage({
 
             <KickerOutcome copy={xCopy} />
 
-            {/* Not gated behind booking — most visitors will drag the
-                slider, watch a real number move, and never click Book at
-                all, and that's the actual peak-trust moment, not a
-                completed action. Tracks whatever's already on screen
-                (copy.figureText, same figure as the headline above) and
-                disappears the instant msg.booked is true, handing off to
-                the captured-figure version below in its own spot rather
-                than showing two at once. */}
-            {demo && !planSaved && !msg.booked && !empty && (
-              <div className="plan-bridge plan-bridge-live">
-                <p className="plan-bridge-title">{copy.figureText} — on a sample plan.</p>
-                <p className="plan-bridge-copy">Put your own numbers in and every figure here becomes real.</p>
-                <div className="plan-bridge-actions">
-                  <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
-                    Put your plan in
-                  </button>
-                </div>
-              </div>
-            )}
-
+            {/* The decision follows directly from the verdict above it —
+                nothing between "here's what this costs or unlocks" and
+                the button that acts on it. The promo card used to sit
+                right here, which meant a rep who'd just been told they're
+                about to lose their quarterly bonus saw an unrelated "put
+                your plan in" upsell before they ever reached Book; it's
+                below now, after the decision, not inside it. */}
             <div className="book-row">
-              {dirty && !pending && !msg.booked && !msg.error && <span className="nudge-ring book-nudge-ring" aria-hidden="true" />}
+              {/* Reads as "go ahead, click this" — never while isCostly,
+                  where clicking is exactly the thing that locks the cost
+                  in. Encouragement is only honest when there's nothing to
+                  warn about. */}
+              {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
+                <span className="nudge-ring book-nudge-ring" aria-hidden="true" />
+              )}
               <button
                 type="button"
                 className={`btn ${demo ? 'btn-secondary' : 'btn-primary'}`}
@@ -352,6 +351,30 @@ export default function DealStage({
                 )}
               </>
             )}
+
+            {/* Not gated behind booking — most visitors will drag the
+                slider, watch a real number move, and never click Book at
+                all, and that's the actual peak-trust moment, not a
+                completed action. Tracks whatever's already on screen
+                (copy.figureText, same figure as the headline above) and
+                disappears the instant msg.booked is true, handing off to
+                plan-bridge-booked above in its own spot rather than
+                showing two at once. Sits after the decision now (book-row,
+                and whatever came of it) rather than before — a secondary
+                "by the way" upsell has no business between a verdict and
+                the button that acts on it. */}
+            {demo && !planSaved && !msg.booked && !empty && (
+              <div className="plan-bridge plan-bridge-live">
+                <p className="plan-bridge-title">{copy.figureText} — on a sample plan.</p>
+                <p className="plan-bridge-copy">Put your own numbers in and every figure here becomes real.</p>
+                <div className="plan-bridge-actions">
+                  <button type="button" className="btn btn-primary" onClick={() => setPlanOpen(true)}>
+                    Put your plan in
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!msg.booked && !msg.error && demo && dirty && (
               <p className="after">
                 <Link className="btn-text" href="/login">

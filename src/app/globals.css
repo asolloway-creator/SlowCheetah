@@ -764,19 +764,29 @@ main { display: block; padding-bottom: var(--s-8); }
   .math-summary-title { font-weight: 500; }
   .math-summary-title::after { content: " ▾"; color: var(--grey-1); }
   .math-summary[aria-expanded="true"] .math-summary-title::after { content: " ▴"; }
+  /* Verdict, then the decision, then whatever comes of it — matches
+     DealStage.tsx's DOM order exactly (order only matters here because
+     .money is display:contents below; desktop has no override and just
+     follows the DOM). The promo card and the math disclosure are both
+     secondary to that core sequence, so they land after it, not inside
+     it — a rep who's just been told a discount costs them their
+     quarterly bonus shouldn't see an unrelated upsell before the button
+     that acts on the warning. */
   .outcome { order: 1; }
   .kicker-outcome { order: 2; }
-  /* Ties with kicker-outcome on order alone — DOM order (it's the next
-     sibling) breaks the tie and puts it right after, ahead of the math
-     disclosure and the book button, matching desktop. Only one of the two
-     .plan-bridge instances ever renders at once (never both, see
-     DealStage.tsx), so the two rules below never actually collide. */
-  .plan-bridge-live { order: 2; }
-  .math-summary { order: 3; }
-  .math-more { order: 3; }
-  .book-row { order: 4; }
-  .after, .after-note, .plan-bridge-booked { order: 5; }
-  .deal-h { order: 6; margin-top: var(--s-6); margin-bottom: 0; }
+  .book-row { order: 3; }
+  /* .after covers three mutually-exclusive things (an error, "Booked
+     to…", or "Sign in to keep it") and .after-note one more (the
+     post-booking "Saved in this browser only…") — never more than one
+     on screen at once, so sharing an order value is safe. */
+  .after, .after-note { order: 4; }
+  /* Same story as .after above: exactly one of these two ever renders
+     (DealStage.tsx), so grouping them is safe, not a coincidence to
+     maintain by hand. */
+  .plan-bridge-live, .plan-bridge-booked { order: 5; }
+  .math-summary { order: 6; }
+  .math-more { order: 6; }
+  .deal-h { order: 7; margin-top: var(--s-6); margin-bottom: 0; }
   .deal-more { order: 10; }
   .below { flex-direction: column; align-items: stretch; }
   .pinned {
