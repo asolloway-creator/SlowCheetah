@@ -23,7 +23,8 @@ const NAV = [
  * earned moment (after booking a deal, after putting a plan in). The one
  * thing every visitor should do gets the header instead: put your plan in.
  * `/?plan=1` opens the same inline dialog DealStage renders on `/`, from
- * any page.
+ * any page — except on `/` itself, where DealStage already renders that
+ * same CTA as the plan-bridge card, so the header link is a duplicate.
  */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   // is-minimal collapses the grid to 2 columns (no room reserved for a nav
@@ -59,9 +60,11 @@ export default function Masthead({ current, email }: { current: string; email: s
               </form>
             </>
           ) : (
-            <Link href="/?plan=1" className="btn btn-primary">
-              Put your plan in
-            </Link>
+            current !== '/' && (
+              <Link href="/?plan=1" className="btn btn-primary">
+                Put your plan in
+              </Link>
+            )
           )}
         </div>
       </div>
