@@ -197,6 +197,39 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
   return { tierAtFull, tierAtActual, tierAtBooked, costsATier, value };
 }
 
+/**
+ * The exact subscriptionDiscountPct at which this deal drops out of the
+ * kicker tier it would otherwise hold at full price — solved in closed
+ * form, the same room/listAnnual algebra outcome() already uses for
+ * safeDiscountPct above, just measured against the kicker's tier target
+ * instead of the accelerator threshold. subAnnual (all the kicker math
+ * reads) is a strictly linear function of subscriptionDiscountPct alone,
+ * so this is a fixed point given the deal's size and the quarter's
+ * booked ARR — it never moves while a live slider drags across it, only
+ * when the deal or the quarter's own numbers change.
+ *
+ * Only ever used to POSITION a marker — never to decide whether this
+ * deal currently costs the tier, which stays crossEffect's own
+ * costsATier at the live discount. Two independently-derived answers to
+ * "did we cross" is exactly the kind of thing that can drift out of
+ * sync; this function only ever answers "where," not "whether."
+ */
+export function kickerCrossDiscountPct(plan: CompPlan, o: Outcome, qtd: QuarterToDate | null): number | null {
+  const kicker = plan.quarterly_kicker;
+  if (!kicker || !qtd) return null;
+  const listAnnual = o.rFull.subMrrList * 12;
+  if (listAnnual <= 0) return null;
+  const x = crossEffect(plan, o, qtd);
+  if (!x?.tierAtFull) return null;
+  // Already secured by booked deals alone — this deal isn't what decides
+  // it, at any discount, so there's no breakpoint to mark.
+  if (x.tierAtBooked && x.tierAtBooked.attainmentPct >= x.tierAtFull.attainmentPct) return null;
+  const requiredArr = (kicker.target * x.tierAtFull.attainmentPct) / 100;
+  const roomDollars = requiredArr - qtd.saasArrBooked;
+  if (roomDollars <= 0) return null;
+  return Math.min(100, Math.max(0, round2(100 * (1 - roomDollars / listAnnual))));
+}
+
 /** "Tier 1"/"Tier 2" is engine language — nobody talks about their comp
  *  plan that way. One name for each of the two fixed tiers, shared by the
  *  deal page and the /plan form so they never disagree with each other. */

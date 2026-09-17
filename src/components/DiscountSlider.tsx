@@ -22,6 +22,8 @@ export default function DiscountSlider({
   valueText,
   caption,
   disabled = false,
+  kickerBreakpointPct = null,
+  costsATier = false,
 }: {
   id: string;
   label: string;
@@ -33,6 +35,17 @@ export default function DiscountSlider({
   valueText: string;
   caption?: string;
   disabled?: boolean;
+  /** Exact value at which this deal drops out of its quarterly-kicker
+   *  tier (see opening.ts's kickerCrossDiscountPct) — null/undefined
+   *  when no kicker is at stake for this deal. Draws a fixed notch on
+   *  the track at this position; lg only, ignored on size="sm". Only
+   *  ever positions the notch — never decides red, that's costsATier. */
+  kickerBreakpointPct?: number | null;
+  /** The engine's own crossEffect.costsATier at the live value — the
+   *  single source of truth for every red state this component draws
+   *  (notch, bubble, thumb, pulse), so they can never disagree with
+   *  each other or with the KickerOutcome card below. lg only. */
+  costsATier?: boolean;
 }) {
   // Fixed 0–100 scale — the track's max never moves, so a given thumb
   // position always means the same percentage. It used to rescale in steps
@@ -52,6 +65,21 @@ export default function DiscountSlider({
     },
     [],
   );
+
+  // One-shot pulse on the instant this deal first costs its kicker tier —
+  // seeded to the initial value so a deal that already starts past the
+  // line never fires a spurious pulse on mount. Fires again on a later
+  // false→true (crossed back to safe, then lost it again), never on the
+  // true→false retreat — same red-is-the-moment/green-stays-quiet
+  // asymmetry KickerOutcome already uses.
+  const wasCrossed = useRef(costsATier);
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (costsATier && !wasCrossed.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setPulse((k) => k + 1);
+    }
+    wasCrossed.current = costsATier;
+  }, [costsATier]);
 
   function startEdit() {
     cancelled.current = false;
@@ -96,9 +124,12 @@ export default function DiscountSlider({
     onChange(Math.max(0, Math.min(MAX, round2(value + dir * (e.shiftKey ? 5 : 0.5)))));
   }
 
-  const rowStyle = { '--pct': String(pctOfTrack) } as CSSProperties;
+  const rowStyle = {
+    '--pct': String(pctOfTrack),
+    ...(kickerBreakpointPct != null ? { '--kx': String(kickerBreakpointPct) } : {}),
+  } as CSSProperties;
   const shown = fmtPctShort(value);
-  const cls = ['slider', `slider-${size}`, costsYou > 0 ? 'is-costly' : '', disabled ? 'is-disabled' : ''].filter(Boolean).join(' ');
+  const cls = ['slider', `slider-${size}`, costsYou > 0 ? 'is-costly' : '', costsATier ? 'is-tier-crossed' : '', disabled ? 'is-disabled' : ''].filter(Boolean).join(' ');
 
   const range = (
     <input
@@ -193,7 +224,11 @@ export default function DiscountSlider({
         )}
         <span className="slider-track" />
         <span className="slider-fill" />
+        {kickerBreakpointPct != null && <span className="slider-kicker-mark" aria-hidden="true" />}
         {value === 0 && !disabled && <span className="nudge-ring slider-idle-ring" aria-hidden="true" />}
+        {pulse > 0 && (
+          <span key={pulse} className="slider-tier-ring" aria-hidden="true" onAnimationEnd={() => setPulse(0)} />
+        )}
         {range}
       </div>
       {caption && <p className="slider-caption">{caption}</p>}

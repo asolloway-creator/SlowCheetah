@@ -20,6 +20,7 @@ import {
   SAMPLE,
   costOf,
   crossEffect,
+  kickerCrossDiscountPct,
   kickerGroundingDetail,
   kickerOutcomeCopy,
   isEmpty,
@@ -129,6 +130,10 @@ export default function DealStage({
   // fetched (callers only fetch it when a kicker is actually configured).
   const xEffect = useMemo(() => (qtd ? crossEffect(plan, o, qtd) : null), [plan, o, qtd]);
   const xCopy = useMemo(() => kickerOutcomeCopy(plan, xEffect, qtd ?? null), [plan, xEffect, qtd]);
+  // Where the tier is lost, not whether it currently is — positions the
+  // slider's fixed notch. xEffect.costsATier (at the live discount) is
+  // still the only thing that decides red vs. not, below.
+  const kickerCrossPct = useMemo(() => kickerCrossDiscountPct(plan, o, qtd ?? null), [plan, o, qtd]);
   const groundingDetail = kickerGroundingDetail(plan, qtd ?? null);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -255,9 +260,11 @@ export default function DealStage({
                 value={deal.subscriptionDiscountPct}
                 onChange={(v) => set('subscriptionDiscountPct', v)}
                 costsYou={subCost}
-                valueText={`${fmtPctShort(deal.subscriptionDiscountPct)} off${subCost > 0 ? ` — costs you ${fmtMoney(subCost)}` : ''}`}
+                valueText={`${fmtPctShort(deal.subscriptionDiscountPct)} off${subCost > 0 ? ` — costs you ${fmtMoney(subCost)}` : ''}${xCopy?.tone === 'red' ? ` — ${xCopy.label}` : ''}`}
                 caption={sliderCaption(deal, r)}
                 disabled={empty || r.subMrrList <= 0}
+                kickerBreakpointPct={kickerCrossPct}
+                costsATier={Boolean(xEffect?.costsATier)}
               />
             </Outcome>
 

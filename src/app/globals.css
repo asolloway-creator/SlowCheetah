@@ -196,6 +196,35 @@ strong { font-weight: 500; }
   transition: width var(--dur-1) var(--ease-out), background var(--dur-2) var(--ease-out);
 }
 .slider.is-costly .slider-fill { background: linear-gradient(180deg, #C62F22, var(--red)); }
+/* Fixed landmark at the exact % this deal drops out of its quarterly
+   kicker tier — a cut through the track down to the card's own ground
+   colour at rest (reads the same regardless of whether .slider-fill
+   underneath happens to be red from the unrelated is-costly signal
+   above), flipping to a solid flag the instant it's actually crossed.
+   Taller than the 8px track/fill (100% of the row) and z-indexed above
+   them so it stays legible no matter what's under it. Positioned with
+   the exact same thumb-centring formula --centre uses, just keyed to
+   --kx (a fixed position) instead of the live --pct. */
+.slider-kicker-mark {
+  position: absolute; top: 0; height: 100%; width: 3px; margin-left: -1.5px;
+  left: calc(var(--kx) * 1% + 14px - var(--kx) * 0.28px);
+  background: var(--stage); z-index: 1; pointer-events: none;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+.slider.is-tier-crossed .slider-kicker-mark { background: var(--red); }
+/* The bubble and thumb are what the dragging hand/eye are actually on —
+   persistent red for as long as the deal is past the line, not just the
+   track. .slider:has(.slider-input:active) below already strips this to
+   an instant snap during an actual pointer drag; a keyboard step or the
+   click-to-type editor still gets the eased transition. */
+.slider.is-tier-crossed .bubble { background: var(--red); }
+.slider.is-tier-crossed .bubble::after { border-top-color: var(--red); }
+.slider.is-tier-crossed .slider-input::-webkit-slider-thumb {
+  border-color: var(--red); box-shadow: inset 0 0 0 var(--s-2) var(--red-tint), var(--shadow-thumb);
+}
+.slider.is-tier-crossed .slider-input::-moz-range-thumb {
+  border-color: var(--red); box-shadow: inset 0 0 0 var(--s-2) var(--red-tint), var(--shadow-thumb);
+}
 .slider.is-disabled .slider-fill { display: none; }
 .slider.is-disabled .slider-label { color: var(--grey-1); }
 .slider-input {
@@ -505,10 +534,25 @@ main { display: block; padding-bottom: var(--s-8); }
    preceding text block to break from). */
 .stage > .line { margin: var(--s-5) 0 var(--s-6); padding-top: var(--s-5); border-top: var(--hair); }
 .stage-grid { display: grid; grid-template-columns: 5fr 7fr; column-gap: var(--s-7); align-items: start; }
-.money { border-left: var(--hair); padding-left: var(--s-7); min-width: 0; }
+.money { min-width: 0; }
 
-/* deal column */
-.deal { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--s-4); row-gap: var(--s-3); align-content: start; min-width: 0; }
+/* deal column — shorter than .money at rest (it's just input fields
+   against .money's whole result narrative), so it's sticky: it travels
+   with the scroll instead of stopping dead and leaving blank stage below
+   it while .money keeps going. Inert automatically below 900px, where
+   .deal becomes `display: contents` (see the 899px block) and position
+   has no box left to apply to.
+   The column divider lives here now, as border-right, not on .money as
+   border-left — a border sizes to its own box, so this is always exactly
+   as tall as .deal's real content, never running past it into blank
+   space the way a border on the taller sibling would. padding-right
+   replaces (not adds to) .money's old padding-left, so the gutter
+   between the columns is unchanged — only the rule's height changed. */
+.deal {
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--s-4); row-gap: var(--s-3); align-content: start; min-width: 0;
+  position: sticky; top: var(--s-7);
+  padding-right: var(--s-7); border-right: var(--hair);
+}
 .deal-h, .deal-sub, .deal-note { grid-column: 1 / -1; }
 .deal-h { order: 0; margin-bottom: var(--s-1); font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: -0.01em; font-weight: 500; }
 .deal-summary { display: none; }
@@ -517,6 +561,16 @@ main { display: block; padding-bottom: var(--s-8); }
 .deal-units { order: 2; margin-top: var(--s-3); }
 .deal-ot { order: 5; margin-top: var(--s-3); }
 .deal-note { order: 7; color: var(--grey-1); }
+/* Closes the bottom edge so the sticky panel reads as a deliberately
+   bounded shape from every side, not just cut off on the right — mirrors
+   .stage > .line's own padding-top/border-top pairing above, run in
+   reverse. Desktop-only and its own rule (not merged into .deal-note
+   above): .deal-note is never display:contents, unlike .deal itself, so
+   an unguarded border here would leak onto the mobile "Edit the deal"
+   panel. */
+@media (min-width: 900px) {
+  .deal-note { padding-bottom: var(--s-5); border-bottom: var(--hair); }
+}
 
 /* money column */
 .outcome-name { font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: -0.01em; font-weight: 500; transition: color var(--dur-2) var(--ease-out); }
@@ -671,10 +725,13 @@ main { display: block; padding-bottom: var(--s-8); }
 /* ---------- responsive --------------------------------------------------- */
 @media (max-width: 1099px) {
   .stage-grid { grid-template-columns: 1fr 1fr; column-gap: var(--s-6); }
-  .money { padding-left: var(--s-6); }
+  .deal { padding-right: var(--s-6); }
 }
 
 @media (max-width: 899px) {
+  /* .deal's sticky position and border-right (above) both need a box to
+     apply to — display: contents on the next line removes that box, so
+     both are already inert here without any override. */
   :root { --stage-pad: var(--s-5); }
   .stage { padding-bottom: 0; }
   .stage-grid { grid-template-columns: minmax(0, 1fr); }
@@ -766,13 +823,34 @@ main { display: block; padding-bottom: var(--s-8); }
   50% { transform: scale(1.35); box-shadow: inset 0 0 0 7px var(--green-tint), 0 0 0 10px var(--green-tint); }
   100% { transform: scale(1); box-shadow: inset 0 0 0 7px var(--green-tint), 0 0 0 14px rgba(14, 122, 62, 0); }
 }
+/* One-shot burst at the moment a drag crosses into costing a kicker tier
+   — anchored to the LIVE thumb position (--centre, the same custom
+   property the bubble/idle-ring use), not the fixed notch, so it never
+   goes spatially stale if the drag keeps moving after the crossing
+   instant. Same 3-stop shape as ring-pulse above, recoloured — rgba(180,
+   35, 24, 0) is --red's own hex at 0 alpha, matching how ring-pulse
+   itself hardcodes --green's hex rather than a token. Plays once ("both"
+   fill mode holds the end state, no "infinite") and DiscountSlider.tsx
+   unmounts the element on animationend. */
+.slider-tier-ring {
+  position: absolute; left: var(--centre); top: 50%; width: var(--h-thumb); height: var(--h-thumb);
+  margin-left: calc(var(--h-thumb) / -2); margin-top: calc(var(--h-thumb) / -2);
+  border-radius: var(--r-round); pointer-events: none; z-index: 1;
+  animation: tier-cross-pulse var(--dur-3) var(--ease-spring) both;
+}
+@keyframes tier-cross-pulse {
+  0% { transform: scale(1); box-shadow: inset 0 0 0 var(--s-2) var(--red-tint), 0 0 0 0 var(--red-tint); }
+  50% { transform: scale(1.35); box-shadow: inset 0 0 0 var(--s-2) var(--red-tint), 0 0 0 10px var(--red-tint); }
+  100% { transform: scale(1); box-shadow: inset 0 0 0 var(--s-2) var(--red-tint), 0 0 0 14px rgba(180, 35, 24, 0); }
+}
 .fade-up { animation: fade-up var(--dur-2) var(--ease-out) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .line-bar, .line-ghost, .line-ring, .slider-fill, .bubble, .toggle-knob, .pinned, .btn, .slider-input::-webkit-slider-thumb, .slider-input::-moz-range-thumb {
+  .line-bar, .line-ghost, .line-ring, .slider-fill, .bubble, .toggle-knob, .pinned, .btn,
+  .slider-input::-webkit-slider-thumb, .slider-input::-moz-range-thumb, .slider-tier-ring {
     transition-property: color, background-color, border-color, opacity, box-shadow, visibility;
   }
-  .line-ring.is-pulsing, .line-bar { animation: none; }
+  .line-ring.is-pulsing, .line-bar, .slider-tier-ring { animation: none; }
   .fade-up { animation-name: none; opacity: 1; }
   .toggle:active:not(:disabled) .toggle-knob, .btn:active:not(:disabled) { transform: none; }
   .toggle[aria-checked="true"] .toggle-knob { transform: translateX(20px); }
