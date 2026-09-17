@@ -197,18 +197,20 @@ strong { font-weight: 500; }
 }
 .slider.is-costly .slider-fill { background: linear-gradient(180deg, #C62F22, var(--red)); }
 /* Fixed landmark at the exact % this deal drops out of its quarterly
-   kicker tier — a cut through the track down to the card's own ground
-   colour at rest (reads the same regardless of whether .slider-fill
-   underneath happens to be red from the unrelated is-costly signal
-   above), flipping to a solid flag the instant it's actually crossed.
-   Taller than the 8px track/fill (100% of the row) and z-indexed above
-   them so it stays legible no matter what's under it. Positioned with
-   the exact same thumb-centring formula --centre uses, just keyed to
-   --kx (a fixed position) instead of the live --pct. */
+   kicker tier — a small solid tick sitting above the track, the same
+   "marked point on a range" convention a lot of sliders already use, not
+   a cut into the track itself. A cut is absence, and absence looks the
+   same whether it's deliberate or something failed to render — it read
+   as a rendering glitch, not a mark. A tick doesn't have that problem:
+   it's a positive, unambiguous shape. Grey at rest (present, not
+   alarming — nothing's actually at stake yet), flips solid red the
+   instant it's crossed. Positioned with the exact same thumb-centring
+   formula --centre uses, just keyed to --kx (a fixed position) instead
+   of the live --pct. */
 .slider-kicker-mark {
-  position: absolute; top: 0; height: 100%; width: 3px; margin-left: -1.5px;
+  position: absolute; top: -2px; height: 8px; width: 2px; margin-left: -1px; border-radius: 1px;
   left: calc(var(--kx) * 1% + 14px - var(--kx) * 0.28px);
-  background: var(--stage); z-index: 1; pointer-events: none;
+  background: var(--grey-2); z-index: 1; pointer-events: none;
   transition: background-color var(--dur-2) var(--ease-out);
 }
 .slider.is-tier-crossed .slider-kicker-mark { background: var(--red); }
