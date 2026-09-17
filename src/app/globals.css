@@ -547,7 +547,14 @@ main { display: block; padding-bottom: var(--s-8); }
 .after { margin-top: var(--s-3); }
 .after.is-error { color: var(--red); }
 .after-note { margin-top: var(--s-1); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--grey-1); }
-.money-ledger { margin-top: var(--s-5); }
+/* Ledger's own background (--stage) is what makes its horizontal padding
+   read as a card rather than an unexplained inset — but this instance sits
+   inside .money, which is ALSO --stage, so that background disappears and
+   only the padding is left visible, floating the row content 16px off the
+   plain-text detail paragraphs directly above it. Same fix .deal-summary/
+   .math-summary already use for the same reason (a --paper box on a
+   --stage surface, just below in this file). */
+.money-ledger { margin-top: var(--s-5); background: var(--paper); }
 
 /* below the stage (demo): just "Start over" once something's changed — the
    plan CTA lives in the header now, not down here too. */
