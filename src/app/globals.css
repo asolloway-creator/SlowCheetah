@@ -429,7 +429,16 @@ table.deals { width: 100%; border-collapse: collapse; }
    "too tedious" was the actual complaint. */
 .math-summary { display: none; }
 .math-more { display: contents; }
-.math-more-detail { color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); }
+/* margin-top here, not just on the +-sibling rule below — without it, the
+   first paragraph had NO separation from whatever happens to precede this
+   disclosure (measured: 0px against "Sign in to keep it"), while every
+   other gap in this same block (between the two detail paragraphs, before
+   the ledger) was correctly spaced. Matches .money-ledger's own
+   margin-top just below — the same "start of this block" role, same
+   token, so the whole disclosure reads as one consistent rhythm instead
+   of the first line being the one exception. The more specific +-sibling
+   rule still overrides this for a second paragraph, same as before. */
+.math-more-detail { color: var(--grey-1); font-size: var(--fs-body); line-height: var(--lh-body); margin-top: var(--s-5); }
 .math-more-detail + .math-more-detail { margin-top: var(--s-3); }
 
 /* Putting your plan in, over the deal instead of away from it — same form
@@ -753,7 +762,11 @@ main { display: block; padding-bottom: var(--s-8); }
   .deal-summary-title::after { content: " ▾"; color: var(--grey-1); }
   .deal-summary[aria-expanded="true"] .deal-summary-title::after { content: " ▴"; }
   .deal-summary-desc { color: var(--grey-1); }
-  .math-more { display: block; margin-top: var(--s-4); }
+  /* No margin-top of its own — .math-more-detail's above already supplies
+     it, and .math-more is a grid item here (.money's display:contents
+     promotes it), which doesn't collapse margins with its child the way
+     a normal block would. Keeping both would stack 16px+24px=40px. */
+  .math-more { display: block; }
   .math-more.is-collapsed { display: none; }
   .math-summary {
     display: flex; flex-direction: column; gap: var(--s-1); width: 100%; margin-top: var(--s-5);
