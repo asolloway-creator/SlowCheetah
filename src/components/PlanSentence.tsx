@@ -221,7 +221,7 @@ export default function PlanSentence({
   const target = arr ? fmt(p.quota) : `${p.quota.toLocaleString('en-US')} unit${p.quota === 1 ? '' : 's'}`;
   const isBlank = !demo && !plan && JSON.stringify(p) === JSON.stringify(BLANK_PLAN);
   const readout = isBlank
-    ? 'Pick a shape below, or start filling in the fields — this line fills in as you go.'
+    ? 'Pick a preset above, or start filling in the fields below — this fills in as you go.'
     : `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
 
   const hasAccel = p.accelerator_style !== 'none';
