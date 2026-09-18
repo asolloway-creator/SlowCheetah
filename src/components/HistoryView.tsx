@@ -112,7 +112,19 @@ export default function HistoryView({
                             onClick={async () => {
                               setBusy(d.id);
                               setError(null);
-                              const res = await onDelete(d.id);
+                              // onDelete is a server action call — a network
+                              // failure or timeout rejects rather than
+                              // resolving to {error}, which without this
+                              // would leave the row stuck reading
+                              // "Deleting…" and permanently disabled.
+                              let res: { error?: string };
+                              try {
+                                res = await onDelete(d.id);
+                              } catch {
+                                setBusy(null);
+                                setError('Could not reach the server. Check your connection and try again.');
+                                return;
+                              }
                               setBusy(null);
                               if (res.error) setError(res.error);
                             }}

@@ -155,7 +155,17 @@ export default function DealStage({
   async function book() {
     setPending(true);
     setMsg({});
-    const res = await onSave(deal);
+    // onSave is a server action call — a network failure or timeout
+    // rejects rather than resolving to {error}, which without this would
+    // leave pending stuck true and the button reading "Booking…" forever.
+    let res: { error?: string };
+    try {
+      res = await onSave(deal);
+    } catch {
+      setPending(false);
+      setMsg({ error: 'Could not reach the server. Check your connection and try again.' });
+      return;
+    }
     setPending(false);
     if (res.error) {
       setMsg({ error: res.error });

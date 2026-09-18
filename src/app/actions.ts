@@ -16,14 +16,17 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   // click, not a page load, so there's no error.tsx boundary above it to
   // catch a rejection — an uncaught one would leave the button stuck
   // "Saving…" forever instead of surfacing through the same msg.error UI
-  // every other failure on this form already uses.
-  let plan;
+  // every other failure on this form already uses. Both reads need this,
+  // not just the first — a transient failure on either one is the same
+  // stuck-button failure mode from the caller's point of view.
+  let plan: CompPlan | null;
   try {
     plan = await getCompPlan(user.id);
   } catch {
     return { error: 'Could not load your comp plan. Try again in a moment.' };
   }
   if (!plan) return { error: 'Set up your comp plan before saving a deal.' };
+  const compPlan = plan;
 
   const deal: DealInput = {
     oneTime: money(input.oneTime),
@@ -37,8 +40,45 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
     return { error: 'Enter at least one line item before saving.' };
 
   // Recompute against the live period rather than trusting the browser.
-  const ptd = await getPeriodToDate(user.id, plan);
-  const r = calc(plan, deal, ptd);
+  //
+  // rate_switch specifically has no self-healing read (unlike retro_bump,
+  // whose period payout is recomputed live from the pool each time — see
+  // periodSummary in calc.ts): each deal's commission_earned is fixed
+  // forever at whatever it was computed against when it was inserted, and
+  // the period total is a plain sum of those. Two saves for the same user
+  // landing close together (two tabs, phone + laptop) can both read the
+  // same pre-crossing ptd and both get stored at the base rate even
+  // though their combined credit crosses the threshold — a permanent
+  // underpayment, not just a stale read.
+  //
+  // A real fix needs the read-then-insert to be atomic, which isn't
+  // reachable through a plain PostgREST insert without porting this
+  // engine into a database function. This is the pragmatic middle
+  // ground: read ptd twice, back to back, right before inserting — if
+  // creditBooked is identical both times, nothing landed in the gap and
+  // r is safe; if it moved, recompute against the newer read and check
+  // again. Not a lock, but it shrinks the race window from the whole
+  // request down to the gap between two reads, and a few attempts covers
+  // all but a genuinely simultaneous double-submit.
+  const userId = user.id;
+  async function readPtd() {
+    try {
+      return await getPeriodToDate(userId, compPlan);
+    } catch {
+      return null;
+    }
+  }
+  let ptd = await readPtd();
+  if (!ptd) return { error: 'Could not load where you stand this period. Try again in a moment.' };
+  let r = calc(plan, deal, ptd);
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; attempt < MAX_ATTEMPTS; attempt++) {
+    const confirm = await readPtd();
+    if (!confirm) return { error: 'Could not load where you stand this period. Try again in a moment.' };
+    if (confirm.creditBooked === ptd.creditBooked) break;
+    ptd = confirm;
+    r = calc(plan, deal, ptd);
+  }
 
   const { error } = await supabase.from('deals').insert({
     user_id: user.id,
