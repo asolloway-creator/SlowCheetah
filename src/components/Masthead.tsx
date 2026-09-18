@@ -27,9 +27,15 @@ const NAV = [
  * back in for someone who already has an account and just wants their own
  * plan and deals again — a first-time visitor never needs it, but there's
  * no page where a *returning* one can be assumed not to. So unlike "Put
- * your plan in" it's unconditional: quiet (auth-link, the same weight
- * "Sign out" gets once signed in), on every page including `/`, never
- * competing with the bolder CTA next to it.
+ * your plan in" it's unconditional, quiet, and present on every page
+ * including `/` — but WHERE it lives depends on what else is in the auth
+ * slot. On `/`, auth has nothing else in it, so "Sign in" sits there alone
+ * (auth-link, the same weight "Sign out" gets once signed in). Elsewhere,
+ * auth already holds the bolder "Put your plan in" button, and at phone
+ * widths that slot has no room left for a second item without overflowing
+ * or overlapping the wordmark (found live, see git history) — so there
+ * "Sign in" moves into the nav row instead, next to the back-link, which
+ * already has the width to spare.
  */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   // is-minimal collapses the grid to 2 columns (no room reserved for a nav
@@ -53,6 +59,7 @@ export default function Masthead({ current, email }: { current: string; email: s
           current !== '/' && (
             <nav className="nav" aria-label="Primary">
               <Link href="/">&larr; Back to your deal</Link>
+              <Link href="/login">Sign in</Link>
             </nav>
           )
         )}
@@ -64,17 +71,14 @@ export default function Masthead({ current, email }: { current: string; email: s
                 <button type="submit" className="auth-link">Sign out</button>
               </form>
             </>
+          ) : current === '/' ? (
+            <Link href="/login" className="auth-link">
+              Sign in
+            </Link>
           ) : (
-            <>
-              <Link href="/login" className="auth-link">
-                Sign in
-              </Link>
-              {current !== '/' && (
-                <Link href="/?plan=1" className="btn btn-primary">
-                  Put your plan in
-                </Link>
-              )}
-            </>
+            <Link href="/?plan=1" className="btn btn-primary">
+              Put your plan in
+            </Link>
           )}
         </div>
       </div>
