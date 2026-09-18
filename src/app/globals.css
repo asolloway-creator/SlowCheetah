@@ -706,7 +706,6 @@ main { display: block; padding-bottom: var(--s-8); }
 .auth-form { margin-top: var(--s-6); }
 .auth-form .btn { margin-top: var(--s-4); }
 .auth-error { margin-bottom: var(--s-4); color: var(--red); }
-.auth-privacy { margin-top: var(--s-5); color: var(--grey-1); }
 .auth-actions { margin-top: var(--s-5); }
 
 /* Loading/error route boundaries (app/loading.tsx, app/error.tsx) — no

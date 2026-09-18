@@ -9,7 +9,6 @@ export default function Footer({ widthClass }: { widthClass: string }) {
             Does this match your comp plan? Tell me &rarr;
           </a>
         </p>
-        <p>Nothing you enter is shared. Signed-in data is private to your account.</p>
       </div>
     </footer>
   );

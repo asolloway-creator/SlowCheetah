@@ -74,10 +74,6 @@ export default function LoginForm() {
           {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
         </button>
       </form>
-      <p className="auth-privacy">
-        Your plan and your deals are stored under your account, visible only to you &mdash; nobody who runs this app
-        can read them through it.
-      </p>
     </div>
   );
 }
