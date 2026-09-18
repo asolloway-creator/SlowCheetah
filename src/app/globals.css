@@ -758,10 +758,12 @@ main { display: block; padding-bottom: var(--s-8); }
     transition: border-color var(--dur-1) var(--ease-out);
   }
   .deal-summary:hover { border-color: var(--grey-2); }
-  .deal-summary-title { font-weight: 500; }
-  .deal-summary-title::after { content: " ▾"; color: var(--grey-1); }
-  .deal-summary[aria-expanded="true"] .deal-summary-title::after { content: " ▴"; }
-  .deal-summary-desc { color: var(--grey-1); }
+  /* Sole content of the button now — see the comment in DealForm.tsx.
+     Reads as the primary label (ink, not grey) with its own chevron,
+     same idiom .math-summary-title/.plan-summary-title use elsewhere. */
+  .deal-summary-desc { font-weight: 500; }
+  .deal-summary-desc::after { content: " ▾"; color: var(--grey-1); }
+  .deal-summary[aria-expanded="true"] .deal-summary-desc::after { content: " ▴"; }
   /* No margin-top of its own — .math-more-detail's above already supplies
      it, and .math-more is a grid item here (.money's display:contents
      promotes it), which doesn't collapse margins with its child the way

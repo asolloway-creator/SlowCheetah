@@ -47,11 +47,14 @@ export default function DealForm({
   return (
     <section className="deal" aria-labelledby="deal-h">
       <h2 id="deal-h" className="deal-h">
-        This deal
+        Edit the deal
       </h2>
 
+      {/* Mobile-only toggle (desktop hides it, see .deal-summary in
+          globals.css) — its own label used to repeat "Edit the deal" a
+          second time, directly under the heading above that now says the
+          same thing. Just the live preview here instead. */}
       <button type="button" className="deal-summary" aria-expanded={open} aria-controls="deal-more" onClick={onToggle}>
-        <span className="deal-summary-title">Edit the deal</span>
         <span className="deal-summary-desc">{dealSummary(deal)}</span>
       </button>
 
