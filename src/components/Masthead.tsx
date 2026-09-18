@@ -18,13 +18,18 @@ const NAV = [
  * uncluttered as before while completing the round trip the app itself
  * now offers.
  *
- * Sign-in doesn't get header real estate either — nothing here requires an
- * account, it's a "keep this across devices" upsell, and it already has an
- * earned moment (after booking a deal, after putting a plan in). The one
- * thing every visitor should do gets the header instead: put your plan in.
- * `/?plan=1` opens the same inline dialog DealStage renders on `/`, from
- * any page — except on `/` itself, where DealStage already renders that
- * same CTA as the plan-bridge card, so the header link is a duplicate.
+ * "Put your plan in" doesn't get header real estate on `/` — DealStage
+ * already renders that same CTA as the plan-bridge card there, so the
+ * header link would be a duplicate. Elsewhere `/?plan=1` opens the same
+ * inline dialog DealStage renders on `/`.
+ *
+ * "Sign in" is different: it's not a CTA earning its moment, it's a door
+ * back in for someone who already has an account and just wants their own
+ * plan and deals again — a first-time visitor never needs it, but there's
+ * no page where a *returning* one can be assumed not to. So unlike "Put
+ * your plan in" it's unconditional: quiet (auth-link, the same weight
+ * "Sign out" gets once signed in), on every page including `/`, never
+ * competing with the bolder CTA next to it.
  */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   // is-minimal collapses the grid to 2 columns (no room reserved for a nav
@@ -60,11 +65,16 @@ export default function Masthead({ current, email }: { current: string; email: s
               </form>
             </>
           ) : (
-            current !== '/' && (
-              <Link href="/?plan=1" className="btn btn-primary">
-                Put your plan in
+            <>
+              <Link href="/login" className="auth-link">
+                Sign in
               </Link>
-            )
+              {current !== '/' && (
+                <Link href="/?plan=1" className="btn btn-primary">
+                  Put your plan in
+                </Link>
+              )}
+            </>
           )}
         </div>
       </div>
