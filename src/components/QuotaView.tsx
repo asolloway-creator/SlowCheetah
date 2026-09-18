@@ -50,7 +50,11 @@ export default function QuotaView({
       : `${fmtCredit(plan, s.toQuota)} to quota. Same rate on every deal.`;
 
   const rows: LedgerRow[] = [
-    { label: 'Deals booked', value: String(deals.length), suffix: `· ${units} unit${units === 1 ? '' : 's'}` },
+    {
+      label: 'Deals booked',
+      value: `${deals.length} deal${deals.length === 1 ? '' : 's'}`,
+      suffix: `· ${units} unit${units === 1 ? '' : 's'}`,
+    },
     { label: 'New ARR', value: fmtMoney(arr) },
     {
       label: 'Commission so far',
@@ -62,7 +66,19 @@ export default function QuotaView({
             ? '· as booked'
             : `· at ${fmtRateShort(plan, plan.base_rate)}`,
     },
-    { label: 'Left on the table', value: lost > 0 ? fmtMoney(lost) : '—', tone: lost > 0 ? 'red' : 'dim' },
+    // Each deal's own residual, locked in at whatever it cost when THAT
+    // deal was booked — a discount given before you crossed the
+    // accelerator doesn't get rewritten once later deals cross it, so
+    // this can (and usually does) stay well above zero even once
+    // s.accelerated is true. The suffix exists so that isn't read as a
+    // contradiction — without it "past your accelerator" right above a
+    // nonzero red figure reads as the two disagreeing with each other.
+    {
+      label: 'Left on the table',
+      value: lost > 0 ? fmtMoney(lost) : '—',
+      suffix: lost > 0 ? `· across every discount given this ${noun}` : undefined,
+      tone: lost > 0 ? 'red' : 'dim',
+    },
   ];
 
   return (
