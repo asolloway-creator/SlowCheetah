@@ -60,7 +60,28 @@ export type CompPlan = {
   /** Optional, independent of accelerator_style — most plans don't have
    *  one. See QuarterlyKicker. */
   quarterly_kicker: QuarterlyKicker | null;
+  /** Benchmarking metadata only — never read by calc() or anything else in
+   *  this file. Optional; most saved plans won't have it yet. See
+   *  COMPANY_SIZE_BANDS below for why size is a band, not a raw headcount. */
+  industry: string | null;
+  company_size_band: string | null;
 };
+
+/** The fixed set of company-size bands a plan can be tagged with — a band,
+ *  never a raw headcount, by design: this is the same anonymization
+ *  discipline real comp-benchmarking players (Radford, Pave, OpenComp) use.
+ *  Cohorts form from bands, never from an exact number or a company name
+ *  (which this schema doesn't capture at all). One list, shared by the
+ *  plan form and (eventually) whatever reads this column for a cohort
+ *  view — never hand-typed in two places to drift apart. */
+export const COMPANY_SIZE_BANDS: [string, string][] = [
+  ['1-50', '1-50 employees'],
+  ['51-200', '51-200 employees'],
+  ['201-500', '201-500 employees'],
+  ['501-1000', '501-1,000 employees'],
+  ['1001-5000', '1,001-5,000 employees'],
+  ['5001+', '5,001+ employees'],
+];
 
 export type DealInput = {
   oneTime: number;
@@ -516,6 +537,8 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 25,
       one_time_weight: 0,
       quarterly_kicker: null,
+      industry: null,
+      company_size_band: null,
     },
   },
   {
@@ -535,6 +558,8 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 9.5,
       one_time_weight: 40,
       quarterly_kicker: null,
+      industry: null,
+      company_size_band: null,
     },
   },
   {
@@ -553,6 +578,8 @@ export const PRESETS: Preset[] = [
       accelerator_rate: 0,
       one_time_weight: 50,
       quarterly_kicker: null,
+      industry: null,
+      company_size_band: null,
     },
   },
 ];

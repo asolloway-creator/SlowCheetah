@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
+  COMPANY_SIZE_BANDS,
   PRESETS,
   type AcceleratorStyle,
   type CommissionStyle,
@@ -36,6 +37,8 @@ const BLANK_PLAN: CompPlan = {
   accelerator_rate: 0,
   one_time_weight: 0,
   quarterly_kicker: null,
+  industry: null,
+  company_size_band: null,
 };
 
 /** A plain text field, same visual language as NumField. */
@@ -490,6 +493,35 @@ export default function PlanSentence({
           </div>
         </>
       )}
+
+      <h2 className="section-h">About your company</h2>
+      <p className="field-note">
+        Optional, never required to save. Only used later to compare your plan against others shaped like it —
+        company size is stored as a band, never an exact headcount, and no company name is ever captured.
+      </p>
+      <div className="field-grid">
+        <TextField id="industry" label="Industry" value={p.industry ?? ''} onChange={(v) => set('industry', v || null)} placeholder="SaaS" />
+        <div className="field">
+          <label className="field-label" htmlFor="company-size">
+            Company size
+          </label>
+          <div className="field-box">
+            <select
+              id="company-size"
+              className="field-input"
+              value={p.company_size_band ?? ''}
+              onChange={(e) => set('company_size_band', e.target.value || null)}
+            >
+              <option value="">Prefer not to say</option>
+              {COMPANY_SIZE_BANDS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       <div className="plan-save">
         <p className={`plan-msg${msg.error ? ' is-error' : ''}`} aria-live="polite">

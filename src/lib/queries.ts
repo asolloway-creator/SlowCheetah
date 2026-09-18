@@ -89,6 +89,8 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
     accelerator_rate: num(data.accelerator_rate),
     one_time_weight: num(data.one_time_weight),
     quarterly_kicker: parseKicker(data.quarterly_kicker),
+    industry: data.industry ? String(data.industry) : null,
+    company_size_band: data.company_size_band ? String(data.company_size_band) : null,
   };
 }
 

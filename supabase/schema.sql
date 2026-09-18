@@ -1,4 +1,4 @@
--- IOI schema v6 (2026-09-15): quarterly kicker cross-effect.
+-- IOI schema v8 (2026-09-18): comp_plans.industry / company_size_band.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -40,6 +40,21 @@
 -- owner (SECURITY DEFINER) regardless of the invoking role's own grants.
 -- On a live pre-v7 database, run: revoke execute on function
 -- public.handle_new_user() from public, anon, authenticated;
+--
+-- v8 (2026-09-18) adds comp_plans.industry and comp_plans.company_size_band
+-- — both nullable, both optional, foundation for a future opt-in comp
+-- benchmarking/cohort view. Deliberately no company-name column: the
+-- anonymization policy (cohort by industry+size band only, bucketed
+-- numbers, minimum cohort size 5) is documented on the columns below and
+-- binding on anything built against them later, not just a suggestion.
+--
+-- To pick up v8 on a live v7 database WITHOUT dropping existing rows, run
+-- instead of the drop/create below:
+--   alter table public.comp_plans add column industry text;
+--   alter table public.comp_plans add column company_size_band text
+--     check (company_size_band is null or company_size_band in (
+--       '1-50', '51-200', '201-500', '501-1000', '1001-5000', '5001+'
+--     ));
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -83,6 +98,21 @@ create table public.comp_plans (
   -- Validated app-side (savePlanAction / parseKicker) rather than in SQL —
   -- same trust boundary as every other plan field here.
   quarterly_kicker      jsonb,
+  -- Benchmarking metadata only, both optional — never read by calc.ts or
+  -- anything else that computes a payout. See COMPANY_SIZE_BANDS in
+  -- calc.ts for the fixed band list; company_size_band is a band, never a
+  -- raw headcount, by design. ANONYMIZATION POLICY for any future
+  -- cohort/aggregate view built on these columns: group by
+  -- (industry, company_size_band) only, NEVER by company (this schema
+  -- doesn't capture a company name at all, and that's deliberate) —
+  -- bucket numeric outputs (quota bands, OTE ranges) rather than exact
+  -- dollars, and suppress any cohort below 5 distinct users. Easier to
+  -- hold this line now than to retrofit it once a thin cohort has already
+  -- shipped real numbers.
+  industry              text,
+  company_size_band     text check (company_size_band is null or company_size_band in (
+                           '1-50', '51-200', '201-500', '501-1000', '1001-5000', '5001+'
+                         )),
   created_at            timestamptz not null default now(),
   unique (user_id)
 );

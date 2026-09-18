@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
-import { calc, type CompPlan, type DealInput } from '@/lib/calc';
+import { calc, COMPANY_SIZE_BANDS, type CompPlan, type DealInput } from '@/lib/calc';
 
 export type Result = { error?: string };
 
@@ -160,7 +160,21 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     accelerator_rate: clampPct(Number(input.accelerator_rate)),
     one_time_weight: clampPct(Number(input.one_time_weight)),
     quarterly_kicker,
+    // Both optional benchmarking fields — never required to save a plan.
+    industry: String(input.industry ?? '').trim() || null,
+    company_size_band: null,
   };
+  // Validated against the fixed list rather than accepted as free text —
+  // this is the value a future cohort view groups by, so a typo'd band
+  // would silently start its own one-plan cohort instead of joining the
+  // right one.
+  const rawBand = String(input.company_size_band ?? '').trim();
+  if (rawBand) {
+    if (!COMPANY_SIZE_BANDS.some(([value]) => value === rawBand)) {
+      return { error: 'Company size must be one of the listed bands.' };
+    }
+    plan.company_size_band = rawBand;
+  }
   if (!plan.role_name) return { error: 'Role name is required.' };
   if (!(plan.quota > 0)) return { error: 'Quota must be greater than zero.' };
   if (!Number.isFinite(plan.accelerator_threshold)) return { error: 'Accelerator threshold must be a number.' };
