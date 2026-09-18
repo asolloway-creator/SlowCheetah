@@ -441,6 +441,49 @@ export function startOfPeriod(period: Period, now = new Date()): Date {
     : new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
+/** The UTC-instant offset (in minutes) between `date` and how `timeZone`
+ *  reads that same instant — evaluated at `date` itself, not cached, so
+ *  DST transitions resolve correctly on either side of the change. */
+function utcOffsetMinutes(date: Date, timeZone: string): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone, hourCycle: 'h23',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value]),
+  );
+  const asUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return (asUTC - date.getTime()) / 60000;
+}
+
+/**
+ * `startOfPeriod`'s server-side counterpart: the rep's own calendar, not
+ * the server's. `startOfPeriod` above reads `now`'s LOCAL getters, which
+ * is exactly right in the browser (demo.ts) — the runtime's local zone
+ * already is the visitor's. It's wrong on the server, where "local" means
+ * Vercel's UTC: a rep closing a deal at 9pm Eastern on the last day of the
+ * month — already past midnight UTC — would have it silently counted
+ * toward next month instead of the one they were racing to hit. This
+ * computes "today" from `timeZone` (the rep's own, via a client-set
+ * cookie — see queries.ts) instead of the runtime's, then finds the exact
+ * UTC instant that midnight-on-the-1st corresponds to THERE, so the
+ * Supabase `created_at >= since` filter lines up with the rep's own
+ * calendar regardless of what timezone the query happens to run in. */
+export function startOfPeriodInZone(period: Period, timeZone: string, now = new Date()): Date {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  const year = +parts.year;
+  const month = +parts.month - 1;
+  const startMonth = period === 'quarter' ? Math.floor(month / 3) * 3 : month;
+  const guessUTC = Date.UTC(year, startMonth, 1);
+  const offsetMin = utcOffsetMinutes(new Date(guessUTC), timeZone);
+  return new Date(guessUTC - offsetMin * 60000);
+}
+
 export function periodLabel(period: Period, d = new Date()): string {
   return period === 'quarter'
     ? `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`

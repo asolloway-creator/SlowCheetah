@@ -1,14 +1,24 @@
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import {
   periodToDateFrom,
   quarterToDateFrom,
-  startOfPeriod,
+  startOfPeriodInZone,
   type CompPlan,
   type PeriodToDate,
   type QuarterToDate,
   type QuarterlyKicker,
   type SubscriptionMode,
 } from '@/lib/calc';
+
+/** The rep's own calendar, not the server's — see startOfPeriodInZone's
+ *  own comment in calc.ts. Falls back to UTC only on a visitor's very
+ *  first request of a session, before SetTimeZoneCookie has had a chance
+ *  to set it; every request after is correct. */
+async function repTimeZone(): Promise<string> {
+  const store = await cookies();
+  return store.get('tz')?.value || 'UTC';
+}
 
 export type DealRow = {
   id: string;
@@ -114,7 +124,8 @@ export async function getPeriodToDate(
   userId: string,
   plan: CompPlan,
 ): Promise<PeriodToDate & { deals: DealRow[] }> {
-  const deals = await listDeals(userId, { since: startOfPeriod(plan.period) });
+  const tz = await repTimeZone();
+  const deals = await listDeals(userId, { since: startOfPeriodInZone(plan.period, tz) });
   return { ...periodToDateFrom(deals), deals };
 }
 
@@ -122,6 +133,7 @@ export async function getPeriodToDate(
  *  listDeals unmodified, just with a different `since`. Only called when
  *  a plan actually has a quarterly_kicker configured. */
 export async function getQuarterToDate(userId: string): Promise<QuarterToDate> {
-  const deals = await listDeals(userId, { since: startOfPeriod('quarter') });
+  const tz = await repTimeZone();
+  const deals = await listDeals(userId, { since: startOfPeriodInZone('quarter', tz) });
   return quarterToDateFrom(deals);
 }
