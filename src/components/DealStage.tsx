@@ -14,7 +14,6 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
-import Sculpture from '@/components/Sculpture';
 import {
   EMPTY,
   OPENING_PTD,
@@ -243,7 +242,6 @@ export default function DealStage({
           <div className="ds-panel" aria-hidden="true" />
 
           <div className="ds-aside">
-            <Sculpture kind="chart" id="sc-hero" className="ds-sculpture" />
             <article className="deal-card" id="deal-card" aria-labelledby="outcome-h">
               <header className="dc-head">
                 {demo && !planSaved && (

@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inte
 
 const TITLE = 'IOI · Know what a deal pays. And what it costs.';
 const DESC =
-  'A free commission calculator for sales reps. Drag a discount and see what it pays you, what it costs you and what it puts at stake, before you make the offer.';
+  'Pricing and deal intelligence for sales reps. Drag a discount and see what it pays you, what it costs you and what it puts at stake, before you make the offer.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tryioi.com'),

@@ -21,7 +21,7 @@ export function LandingHero() {
   return (
     <div className="hero">
       <p className="hero-chip">
-        <span className="mark-dot" aria-hidden="true" />A free commission calculator for sales reps
+        <span className="mark-dot" aria-hidden="true" />Pricing and deal intelligence for sales reps
       </p>
       <h1 className="hero-h">
         Know what a deal pays. <br />
