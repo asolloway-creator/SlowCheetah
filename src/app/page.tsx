@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { periodLabel } from '@/lib/calc';
 import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate } from '@/lib/queries';
 import { saveDealAction } from './actions';
 import { Shell } from './AccountViews';
@@ -19,8 +18,7 @@ export default async function Home() {
   const qtd = plan.quarterly_kicker ? await getQuarterToDate(user.id) : null;
 
   return (
-    <Shell current="/" email={user.email ?? ''}>
-      <h1 className="page-title">New deal · {periodLabel(plan.period)}</h1>
+    <Shell current="/" email={user.email ?? ''} width="full">
       <DealStage plan={plan} ptd={ptd} qtd={qtd} demo={false} onSave={saveDealAction} />
     </Shell>
   );

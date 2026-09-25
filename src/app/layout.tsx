@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Bricolage_Grotesque, Inter } from 'next/font/google';
 import SetTimeZoneCookie from '@/components/SetTimeZoneCookie';
 import './globals.css';
 
-// One family. The optical-size axis gives the display cut above 32px; the
-// tabular figures come from the font itself (see :root in globals.css).
+// Bricolage for display and money (it carries true tabular figures), Inter
+// for everything a rep reads or types.
+const display = Bricolage_Grotesque({ subsets: ['latin'], axes: ['opsz'], variable: '--font-display', display: 'swap' });
 const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter', display: 'swap' });
 
-const TITLE = 'IOI — See the whole deal before the offer is made';
+const TITLE = 'IOI · Know what a deal pays. And what it costs.';
 const DESC =
-  'Your comp plan, quota and accelerator, live on every deal. Drag a discount and watch exactly what it costs you. Free, no signup to try.';
+  'A free commission calculator for sales reps. Drag a discount and see what it pays you, what it costs you and what it puts at stake, before you make the offer.';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tryioi.com'),
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${display.variable}`}>
       <body>
         <SetTimeZoneCookie />
         {children}

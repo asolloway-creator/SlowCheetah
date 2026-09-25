@@ -1,22 +1,29 @@
 import Link from 'next/link';
 
-/**
- * The brand says its name once. The mark (post-ring-post) lives on the
- * favicon only — putting it beside the text here just repeated "IOI" twice.
- * "IOI" alone doesn't mean anything on first contact — it's an acronym, not
- * a word — so the expansion sits directly under it as one tight lockup, its
- * own I/O/I picked out, instead of floating beside it as an unrelated
- * caption. The letters have to visibly be the same letters.
- */
-export default function Wordmark() {
+/** The ring that stands in for the O: the same yellow marker the quota line uses for the accelerator. */
+export function MarkRing({ className }: { className?: string }) {
   return (
-    <Link href="/" className="wordmark">
-      <span className="wordmark-mark">IOI</span>
-      <span className="wordmark-full">
-        <span className="wordmark-full-accent">I</span>nformation{' '}
-        <span className="wordmark-full-accent">o</span>ver{' '}
-        <span className="wordmark-full-accent">i</span>ncentive
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="8.3" fill="var(--sun)" stroke="var(--ink)" strokeWidth="3.6" />
+    </svg>
+  );
+}
+
+/**
+ * "IOI" alone is an acronym, not a word, so the expansion sits beside it with
+ * its own I/o/i picked out. `compact` drops the expansion (footer).
+ */
+export default function Wordmark({ compact = false }: { compact?: boolean }) {
+  return (
+    <Link href="/" className="wordmark" aria-label="IOI, Information over incentive">
+      <span className="wordmark-mark" aria-hidden="true">
+        I<MarkRing className="wordmark-ring" />I
       </span>
+      {!compact && (
+        <span className="wordmark-full" aria-hidden="true">
+          <b>I</b>nformation <b>o</b>ver <b>i</b>ncentive
+        </span>
+      )}
     </Link>
   );
 }

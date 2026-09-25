@@ -280,7 +280,7 @@ export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null, qtd: Qu
       tone: 'red',
       label: `This deal costs you your ${name}`,
       value: x.value,
-      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it — across the whole quarter's SaaS commission.${grounding}`,
+      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it, across the whole quarter's SaaS commission.${grounding}`,
     };
   }
 
@@ -313,7 +313,7 @@ export function kickerGroundingDetail(plan: CompPlan, qtd: QuarterToDate | null)
   const sorted = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
   const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((x) => x.attainmentPct === t.attainmentPct) + 1;
   const tail = s.tier
-    ? ` · ${tierName(numOf(s.tier))} locked in — +${fmtPctShort(s.tier.kickerPct)} on the quarter`
+    ? ` · ${tierName(numOf(s.tier))} locked in: +${fmtPctShort(s.tier.kickerPct)} on the quarter`
     : s.nextTier
       ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
       : '';
@@ -386,12 +386,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
             // what it actually costs in commission only exists because this
             // plan weights revenue types differently — worth naming, not
             // just totaling.
-            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)} — they count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products only costs you ${fmtMoney(o.atStake)}. They count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
           : bothDiscounted && weighted
             ? // Both levers active: the one-time-weighting insight is still
               // true and still worth naming, not just swallowed into one
               // generic total the moment a second discount joins it.
-              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal — the one-time products alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
+              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal. The one-time products alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
             : `Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : null;
 
@@ -516,7 +516,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
 /** Caption under the promoted slider: "5% off = $55 a month off · the customer saves $660 a year". */
 export function sliderCaption(deal: DealInput, r: CalcResult): string {
   const d = deal.subscriptionDiscountPct;
-  if (d <= 0) return 'Full price — drag to see what it costs.';
+  if (d <= 0) return 'Full price. Drag to see what it costs.';
   // "on the subscription alone" — the Ledger's Customer saves row totals
   // this together with the one-time discount, so without the qualifier
   // the two figures read as disagreeing rather than answering different

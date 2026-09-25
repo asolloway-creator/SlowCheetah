@@ -1,33 +1,28 @@
 'use client';
 
-import type { CompPlan, DealInput, PeriodToDate } from '@/lib/calc';
-import { fmtMoney, fmtPctShort } from '@/lib/format';
+import type { ReactNode } from 'react';
+import { periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
+import { fmtMoney, fmtPctShort, planSentence } from '@/lib/format';
 import NumField from '@/components/NumField';
 import Segmented from '@/components/Segmented';
 import DiscountSlider from '@/components/DiscountSlider';
-import { costOf, dealSummary, oneTimeCopy } from '@/components/opening';
+import { costOf, oneTimeCopy } from '@/components/opening';
 
 type Setter = <K extends keyof DealInput>(k: K, v: DealInput[K]) => void;
 
-/**
- * The deal column. One DOM for every breakpoint: on desktop `.deal-more` is
- * `display: contents` and the grid orders the pairs; below 900px it becomes
- * the "Edit the deal" disclosure.
- */
+/** The deal builder: the plan it's measured against, then the three inputs. */
 export default function DealForm({
   plan,
   ptd,
   deal,
   set,
-  open,
-  onToggle,
+  footer,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
   deal: DealInput;
   set: Setter;
-  open: boolean;
-  onToggle: () => void;
+  footer?: ReactNode;
 }) {
   const d = deal.subscriptionDiscountPct;
   const acv = deal.subMode === 'acv';
@@ -38,32 +33,42 @@ export default function DealForm({
       ? acv
         ? `${fmtMoney(listMonthly)} a month at list${d > 0 ? ` · ${fmtMoney(listMonthly * (1 - d / 100))} after ${fmtPctShort(d)} off` : ''}`
         : `${fmtMoney(listAnnual)} a year at list${d > 0 ? ` · ${fmtMoney(listAnnual * (1 - d / 100))} after ${fmtPctShort(d)} off` : ''}`
-      : 'Per month or per year — whichever your quote says.';
+      : 'Per month or per year, whichever your quote says.';
 
   const otCost = costOf(plan, deal, ptd, 'oneTimeDiscountPct');
   const costText = (pct: number, cost: number) =>
-    `${fmtPctShort(pct)} off${cost > 0 ? ` — costs you ${fmtMoney(cost)}` : ' — costs you nothing'}`;
+    `${fmtPctShort(pct)} off, ${cost > 0 ? `costs you ${fmtMoney(cost)}` : 'costs you nothing'}`;
 
   return (
     <section className="deal" aria-labelledby="deal-h">
+      <p className="eyebrow">
+        <span className="mark-dot" aria-hidden="true" />
+        The deal builder
+      </p>
       <h2 id="deal-h" className="deal-h">
         Edit the deal
       </h2>
+      <p className="deal-plan">
+        <b>
+          {plan.role_name || 'Rep'} · {periodLabel(plan.period)}.
+        </b>{' '}
+        Change any input and the result card moves with it.
+      </p>
+      <ul className="chips" aria-label="Your plan">
+        {planSentence(plan)
+          .split(' · ')
+          .map((part) => (
+            <li key={part}>{part}</li>
+          ))}
+      </ul>
 
-      {/* Mobile-only toggle (desktop hides it, see .deal-summary in
-          globals.css) — its own label used to repeat "Edit the deal" a
-          second time, directly under the heading above that now says the
-          same thing. Just the live preview here instead. */}
-      <button type="button" className="deal-summary" aria-expanded={open} aria-controls="deal-more" onClick={onToggle}>
-        <span className="deal-summary-desc">{dealSummary(deal)}</span>
-      </button>
-
-      <div id="deal-more" className={`deal-more${open ? '' : ' is-collapsed'}`}>
+      <div className="deal-fields">
         <div className="deal-sub">
           <NumField
             id="sub"
             label="Subscription"
             prefix="$"
+            suffix={acv ? 'per year' : 'per month'}
             value={deal.subscription}
             onChange={(n) => set('subscription', n)}
             head={
@@ -82,7 +87,7 @@ export default function DealForm({
         </div>
 
         <div className="deal-units">
-          <NumField id="units" label="Units" value={deal.units} min={1} integer onChange={(n) => set('units', n)} />
+          <NumField id="units" label="Units" value={deal.units} min={1} integer stepper onChange={(n) => set('units', n)} />
         </div>
 
         <div className="deal-ot">
@@ -97,10 +102,19 @@ export default function DealForm({
             valueText={costText(deal.oneTimeDiscountPct, otCost)}
             disabled={deal.oneTime <= 0}
           />
+          <p className="field-note">
+            {otCost > 0 ? (
+              <>
+                {fmtPctShort(deal.oneTimeDiscountPct)} off one-time products costs you{' '}
+                <span className="is-red">{fmtMoney(otCost)}</span>.
+              </>
+            ) : (
+              oneTimeCopy(plan, deal, otCost)
+            )}
+          </p>
         </div>
-
-        <p className="deal-note">{oneTimeCopy(plan, deal, otCost)}</p>
       </div>
+      {footer}
     </section>
   );
 }

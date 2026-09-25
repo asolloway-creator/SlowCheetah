@@ -1,16 +1,23 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { fmtPctShort } from '@/lib/format';
 
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// Fixed 0–100 scale — a given thumb position always means the same
+// percentage, whatever the value.
+const MAX = 100;
+const MINOR = Array.from({ length: 21 }, (_, i) => i * 5);
+const MAJOR = [0, 25, 50, 75, 100];
+
 /**
- * A native range with a filled track, a click-to-type value bubble and a
- * "try 0%" tween. Keyboard: ←/→ 0.5, Shift 5, Home/End 0/max.
- * `size="lg"` is the promoted control under the outcome figure;
- * `size="sm"` is the compact one under the one-time products field.
+ * A native range with a click-to-type value bubble and a "try 0%" tween.
+ * Keyboard: ←/→ 0.5, Shift 5, Home/End 0/max.
+ * `size="lg"` is the promoted control on the result card: a tall track
+ * with a scale, and, when a quarterly bonus is at stake, the exact line
+ * where it's lost. `size="sm"` is the compact one under one-time products.
  */
 export default function DiscountSlider({
   id,
@@ -21,6 +28,7 @@ export default function DiscountSlider({
   costsYou = 0,
   valueText,
   caption,
+  aside,
   disabled = false,
   kickerBreakpointPct = null,
   costsATier = false,
@@ -30,29 +38,23 @@ export default function DiscountSlider({
   value: number;
   onChange: (v: number) => void;
   size?: 'lg' | 'sm';
-  /** Dollars this discount costs the rep — fills the track red when > 0. */
+  /** Dollars this discount costs the rep. On a plan with no bonus line to
+   *  mark, a costly discount turns the fill red (lg). */
   costsYou?: number;
   valueText: string;
   caption?: string;
+  /** Right side of the lg head row. */
+  aside?: ReactNode;
   disabled?: boolean;
-  /** Exact value at which this deal drops out of its quarterly-kicker
-   *  tier (see opening.ts's kickerCrossDiscountPct) — null/undefined
-   *  when no kicker is at stake for this deal. Draws a fixed notch on
-   *  the track at this position; lg only, ignored on size="sm". Only
-   *  ever positions the notch — never decides red, that's costsATier. */
+  /** Exact value at which this deal drops out of its quarterly-kicker tier
+   *  (opening.ts's kickerCrossDiscountPct), or null when none is at stake.
+   *  Only ever positions the line; never decides red, that's costsATier. lg only. */
   kickerBreakpointPct?: number | null;
-  /** The engine's own crossEffect.costsATier at the live value — the
-   *  single source of truth for every red state this component draws
-   *  (notch, bubble, thumb, pulse), so they can never disagree with
-   *  each other or with the KickerOutcome card below. lg only. */
+  /** The engine's own crossEffect.costsATier at the live value: the single
+   *  source of truth for every red state drawn here (fill, line, bubble,
+   *  thumb, pulse), so none can disagree with the bonus card. lg only. */
   costsATier?: boolean;
 }) {
-  // Fixed 0–100 scale — the track's max never moves, so a given thumb
-  // position always means the same percentage. It used to rescale in steps
-  // of 25 based on the current value, which meant "all the way right" could
-  // silently mean 25% one moment and 100% the next.
-  const MAX = 100;
-  const pctOfTrack = value;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const cancelled = useRef(false);
@@ -66,12 +68,9 @@ export default function DiscountSlider({
     [],
   );
 
-  // One-shot pulse on the instant this deal first costs its kicker tier —
-  // seeded to the initial value so a deal that already starts past the
-  // line never fires a spurious pulse on mount. Fires again on a later
-  // false→true (crossed back to safe, then lost it again), never on the
-  // true→false retreat — same red-is-the-moment/green-stays-quiet
-  // asymmetry KickerOutcome already uses.
+  // One-shot pulse the instant this deal first costs its bonus tier. Seeded
+  // to the initial value so a deal that starts past the line never pulses
+  // on mount; never fires on the retreat back to safe.
   const wasCrossed = useRef(costsATier);
   const [pulse, setPulse] = useState(0);
   useEffect(() => {
@@ -95,9 +94,7 @@ export default function DiscountSlider({
     setEditing(false);
   }
 
-  /** Tween the value to a target over 480ms; everything downstream animates
-   *  from it. Shared by both directions — holding the line back to 0%, and
-   *  the first nudge away from it — so dragging is never the only way in. */
+  /** Tween the value to a target over 480ms; everything downstream animates from it. */
   function animateTo(target: number) {
     if (raf.current !== null) cancelAnimationFrame(raf.current);
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -113,7 +110,6 @@ export default function DiscountSlider({
     };
     raf.current = requestAnimationFrame(step);
   }
-  const tryZero = () => animateTo(0);
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     delete e.currentTarget.dataset.pointer;
@@ -124,12 +120,22 @@ export default function DiscountSlider({
     onChange(Math.max(0, Math.min(MAX, round2(value + dir * (e.shiftKey ? 5 : 0.5)))));
   }
 
-  const rowStyle = {
-    '--pct': String(pctOfTrack),
-    ...(kickerBreakpointPct != null ? { '--kx': String(kickerBreakpointPct) } : {}),
+  const kx = size === 'lg' ? kickerBreakpointPct : null;
+  const style = {
+    '--pct': String(value),
+    ...(kx != null ? { '--kx': String(kx) } : {}),
   } as CSSProperties;
   const shown = fmtPctShort(value);
-  const cls = ['slider', `slider-${size}`, costsYou > 0 ? 'is-costly' : '', costsATier ? 'is-tier-crossed' : '', disabled ? 'is-disabled' : ''].filter(Boolean).join(' ');
+  const cls = [
+    'slider',
+    `slider-${size}`,
+    size === 'lg' && costsYou > 0 && kx == null ? 'is-costly' : '',
+    kx != null ? 'has-line' : '',
+    costsATier ? 'is-tier-crossed' : '',
+    disabled ? 'is-disabled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const range = (
     <input
@@ -153,14 +159,14 @@ export default function DiscountSlider({
     />
   );
 
-  const editor = (
+  const bubble = editing ? (
     <>
       <label className="sr-only" htmlFor={editId}>
         {label}, percent
       </label>
       <input
         id={editId}
-        className={size === 'lg' ? 'bubble bubble-input' : 'bubble bubble-sm bubble-input-sm'}
+        className="bubble bubble-input"
         type="text"
         inputMode="decimal"
         autoFocus
@@ -176,62 +182,90 @@ export default function DiscountSlider({
         }}
       />
     </>
+  ) : (
+    <button type="button" className="bubble" onClick={startEdit} disabled={disabled}>
+      {shown}
+      <span className="sr-only"> off, type a value</span>
+    </button>
   );
 
   if (size === 'sm') {
     return (
-      <div className={cls}>
+      <div className={cls} style={style}>
         <label className="sr-only" htmlFor={id}>
           {label}
         </label>
-        <div className="slider-row" style={rowStyle}>
-          {editing ? (
-            editor
-          ) : (
-            <button type="button" className="bubble bubble-sm" onClick={startEdit} disabled={disabled}>
-              {shown}
-              <span className="sr-only"> off — type a value</span>
-            </button>
-          )}
-          <span className="slider-track" />
-          <span className="slider-fill" />
+        <div className="slider-body">
+          {bubble}
+          <span className="slider-track">
+            <span className="slider-fill" />
+          </span>
           {range}
         </div>
       </div>
     );
   }
 
+  // Scale labels that would collide with the line's own value chip step aside.
+  const clearOfLine = (v: number) => kx == null || Math.abs(v - kx) > 7;
+
   return (
-    <div className={cls}>
+    <div className={cls} style={style}>
       <div className="slider-head">
         <label className="slider-label" htmlFor={id}>
+          <span className="sq sq-costs" aria-hidden="true" />
           {label}
         </label>
-        {value > 0 && !disabled && (
-          <button type="button" className="btn-text slider-prompt" onClick={tryZero}>
-            Hold the line — try 0% &rarr;
-          </button>
-        )}
+        {aside}
       </div>
-      <div className="slider-row" style={rowStyle}>
-        {editing ? (
-          editor
-        ) : (
-          <button type="button" className="bubble" onClick={startEdit} disabled={disabled}>
-            {shown}
-            <span className="sr-only"> off — type a value</span>
-          </button>
+      <div className="slider-body">
+        {bubble}
+        {kx != null && (
+          <>
+            <span className="slider-flank is-kept" aria-hidden="true">
+              <i />
+              <span>
+                <span className="slider-flank-long">Bonus </span>kept
+              </span>
+            </span>
+            <span className="slider-flank is-lost" aria-hidden="true">
+              <i />
+              <span>
+                <span className="slider-flank-long">Bonus </span>lost
+              </span>
+            </span>
+          </>
         )}
-        <span className="slider-track" />
-        <span className="slider-fill" />
-        {kickerBreakpointPct != null && <span className="slider-kicker-mark" aria-hidden="true" />}
+        <span className="slider-track">
+          {kx != null && <span className="slider-zone" />}
+          <span className="slider-fill" />
+        </span>
+        {kx != null && <span className="slider-line" aria-hidden="true" />}
         {value === 0 && !disabled && <span className="nudge-ring slider-idle-ring" aria-hidden="true" />}
         {pulse > 0 && (
           <span key={pulse} className="slider-tier-ring" aria-hidden="true" onAnimationEnd={() => setPulse(0)} />
         )}
         {range}
+        <div className="slider-scale" aria-hidden="true">
+          {MINOR.map((v) => (
+            <span key={v} className={`slider-tick${v % 25 === 0 ? ' is-major' : ''}`} style={{ '--v': String(v) } as CSSProperties} />
+          ))}
+          {MAJOR.filter(clearOfLine).map((v) => (
+            <span key={v} className="slider-tick-label" style={{ '--v': String(v) } as CSSProperties}>
+              {v}%
+            </span>
+          ))}
+          {kx != null && <span className="slider-line-chip">{fmtPctShort(kx)}</span>}
+        </div>
       </div>
-      {caption && <p className="slider-caption">{caption}</p>}
+      <div className="slider-foot">
+        {caption && <p className="slider-caption">{caption}</p>}
+        {value > 0 && !disabled && (
+          <button type="button" className="btn-text slider-prompt" onClick={() => animateTo(0)}>
+            Hold the line. Try 0% &rarr;
+          </button>
+        )}
+      </div>
     </div>
   );
 }

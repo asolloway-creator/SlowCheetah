@@ -1,24 +1,17 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import TweenedMoney from '@/components/TweenedMoney';
 import { fmtMoney, fmtSigned } from '@/lib/format';
 import type { OutcomeCopy, OutcomeState } from '@/components/opening';
 
 /**
- * The state name, the one big figure, the control beneath it (children), and
- * the sentence that explains the number. The animated figure is aria-hidden;
- * a debounced live region carries the plain-text summary instead.
+ * The state name and the one big figure (plus its secondary, when a state
+ * has one). The animated figure is aria-hidden; a debounced live region
+ * carries the plain-text summary, sentence and detail included, since those
+ * render elsewhere on the card.
  */
-export default function Outcome({
-  copy,
-  state,
-  children,
-}: {
-  copy: OutcomeCopy;
-  state: OutcomeState;
-  children?: ReactNode;
-}) {
+export default function Outcome({ copy, state }: { copy: OutcomeCopy; state: OutcomeState }) {
   const [live, setLive] = useState('');
   useEffect(() => {
     const t = setTimeout(() => {
@@ -26,11 +19,8 @@ export default function Outcome({
       const secondary = copy.secondary
         ? ` ${copy.secondary.label}: ${
             copy.secondary.signed ? fmtSigned(copy.secondary.value) : (copy.secondary.format ?? fmtMoney)(copy.secondary.value)
-          }${copy.secondary.caption ? ` — ${copy.secondary.caption}` : ''}.`
+          }${copy.secondary.caption ? `, ${copy.secondary.caption}` : ''}.`
         : '';
-      // copy.detail lives in the visible "See the math" disclosure, collapsed
-      // by default — screen reader users don't get the same "tap to expand"
-      // affordance sighted users do, so the live region still says it in full.
       const detail = copy.detail ? ` ${copy.detail}` : '';
       setLive(`${name}. ${copy.figureText ? `${copy.figureText}. ` : ''}${copy.sentence}${detail}${secondary}`);
     }, 300);
@@ -39,10 +29,11 @@ export default function Outcome({
 
   return (
     <div className="outcome">
-      <h2 id="outcome-h" key={state} className={`outcome-name fade-up${copy.nameTone === 'green' ? ' is-green' : ''}`}>
+      <h2 id="outcome-h" key={state} className="outcome-name fade-up">
+        <span className="sq sq-pays" aria-hidden="true" />
         {copy.name}
       </h2>
-      {copy.figure !== null && (
+      {copy.figure !== null ? (
         <p id="outcome-figure" className={`outcome-figure is-${copy.figureTone}`}>
           <span aria-hidden="true">
             <TweenedMoney value={copy.figure} signed={copy.signed} />
@@ -53,6 +44,8 @@ export default function Outcome({
             </span>
           )}
         </p>
+      ) : (
+        <p className="outcome-empty">{copy.sentence}</p>
       )}
       {copy.secondary && (
         <p key={`${state}-secondary`} className="outcome-secondary fade-up" aria-hidden="true">
@@ -63,8 +56,6 @@ export default function Outcome({
           {copy.secondary.caption && <span className="outcome-secondary-caption">{copy.secondary.caption}</span>}
         </p>
       )}
-      {children}
-      <p className="outcome-sentence">{copy.sentence}</p>
       <div className="sr-only" aria-live="polite">
         {live}
       </div>

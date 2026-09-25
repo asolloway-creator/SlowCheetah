@@ -8,6 +8,8 @@ import DealStage from '@/components/DealStage';
 import QuotaView from '@/components/QuotaView';
 import HistoryView from '@/components/HistoryView';
 import PlanSentence from '@/components/PlanSentence';
+import HowItWorks from '@/components/HowItWorks';
+import { ClosingCta, LandingHero } from '@/components/Landing';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 
 /**
@@ -32,8 +34,7 @@ export function DemoDeal() {
   }, [d.ready, d.deals.length, d.plan, d.ptd, d.qtd]);
 
   return (
-    <Shell current="/" email={null}>
-      <h1 className="headline">See the whole deal before the offer is made.</h1>
+    <Shell current="/" email={null} width="full">
       <DealStage
         plan={d.ready ? d.plan : DEMO_PLAN}
         ptd={d.ready ? d.ptd : OPENING_PTD}
@@ -43,7 +44,10 @@ export function DemoDeal() {
         onSavePlan={d.savePlan}
         onStartOver={d.reset}
         initialDeal={SAMPLE}
+        intro={<LandingHero />}
       />
+      <HowItWorks />
+      <ClosingCta />
     </Shell>
   );
 }

@@ -26,6 +26,7 @@ export default function NumField({
   integer = false,
   head,
   disabled,
+  stepper = false,
 }: {
   id: string;
   label: string;
@@ -43,6 +44,8 @@ export default function NumField({
   /** Something to sit at the right of the label row (a segmented control). */
   head?: ReactNode;
   disabled?: boolean;
+  /** −/+ buttons either side of the value, stepping by 1 (whole-number fields). */
+  stepper?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(display(value));
@@ -68,6 +71,13 @@ export default function NumField({
     onChange(next);
   }
 
+  function step(dir: 1 | -1) {
+    const next = parse(String(value + dir));
+    setEmitted(next);
+    setDraft(display(next));
+    onChange(next);
+  }
+
   return (
     <div className="field">
       {head ? (
@@ -78,7 +88,18 @@ export default function NumField({
       ) : (
         <label className="field-label" htmlFor={id}>{label}</label>
       )}
-      <div className={`field-box${prefix ? ' has-prefix' : ''}${suffix ? ' has-suffix' : ''}`}>
+      <div className={`field-box${prefix ? ' has-prefix' : ''}${suffix ? ' has-suffix' : ''}${stepper ? ' has-stepper' : ''}`}>
+        {stepper && (
+          <button
+            type="button"
+            className="field-step is-down"
+            aria-label={`One fewer, ${label.toLowerCase()}`}
+            disabled={disabled || value <= min}
+            onClick={() => step(-1)}
+          >
+            &minus;
+          </button>
+        )}
         {prefix && <span className="field-prefix" aria-hidden="true">{prefix}</span>}
         <input
           id={id}
@@ -111,6 +132,17 @@ export default function NumField({
           }}
         />
         {suffix && <span className="field-suffix" aria-hidden="true">{suffix}</span>}
+        {stepper && (
+          <button
+            type="button"
+            className="field-step is-up"
+            aria-label={`One more, ${label.toLowerCase()}`}
+            disabled={disabled || (max !== undefined && value >= max)}
+            onClick={() => step(1)}
+          >
+            +
+          </button>
+        )}
       </div>
     </div>
   );
