@@ -1,5 +1,7 @@
 <!--
-  Supabase → Authentication → Emails → Templates → Magic Link.
+  Supabase → Authentication → Emails → Templates, used for BOTH "Magic link or
+  OTP" (returning users) and "Confirm sign up" (first sign-in creates the
+  account). Pasted there as one line; live since 2026-09-28.
   Subject: Your IOI sign-in link
   Keep {{ .ConfirmationURL }}: app/auth/confirm/route.ts handles the link it produces.
   Email clients ignore <style> blocks and web fonts, so everything is inline with system fonts.
