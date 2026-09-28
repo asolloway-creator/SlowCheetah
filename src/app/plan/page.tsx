@@ -5,7 +5,7 @@ import { DemoPlan } from '../demo/DemoViews';
 import PlanSentence from '@/components/PlanSentence';
 import ImportDemoPlan from '@/components/ImportDemoPlan';
 
-export const metadata = { title: 'Your plan — IOI' };
+export const metadata = { title: 'Your plan · IOI' };
 
 export default async function PlanPage() {
   const { user } = await currentUser();

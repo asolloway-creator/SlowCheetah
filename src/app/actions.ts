@@ -185,7 +185,7 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   // after switching quota_basis, which resets this field to 0 without
   // resetting accelerator_style.
   if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
-    return { error: 'Set a threshold for your accelerator — it can’t kick in at zero.' };
+    return { error: 'Set a threshold for your accelerator. It can’t kick in at zero.' };
   }
 
   const { error } = await supabase

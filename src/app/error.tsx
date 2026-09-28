@@ -20,7 +20,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <div className="state-page-body">
         <h1 className="page-title">Something went wrong</h1>
         <p className="auth-copy">
-          That didn&rsquo;t load &mdash; a connection hiccup, not lost data. Try again, or head back to your deal.
+          That didn&rsquo;t load. It&rsquo;s a connection hiccup, not lost data. Try again, or head back to your deal.
         </p>
         <div className="state-page-actions">
           <button type="button" className="btn btn-primary" onClick={() => reset()}>

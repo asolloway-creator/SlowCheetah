@@ -201,11 +201,11 @@ export default function PlanSentence({
   // (it sorts by attainment, not by which field you typed it into).
   function validate(plan: CompPlan): string | null {
     if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
-      return `Set a threshold for your accelerator — it can’t kick in at ${arr ? '$0' : '0 units'}.`;
+      return `Set a threshold for your accelerator. It can’t kick in at ${arr ? '$0' : '0 units'}.`;
     }
     if (plan.quarterly_kicker) {
       if (!(plan.quarterly_kicker.target > 0)) {
-        return 'Set a quarterly SaaS target before saving — the kicker can’t be reached at $0.';
+        return 'Set a quarterly SaaS target before saving. The kicker can’t be reached at $0.';
       }
       const [t0, t1] = plan.quarterly_kicker.tiers;
       if (!(t1.attainmentPct > t0.attainmentPct)) {
@@ -246,8 +246,8 @@ export default function PlanSentence({
   const target = arr ? fmt(p.quota) : `${p.quota.toLocaleString('en-US')} unit${p.quota === 1 ? '' : 's'}`;
   const isBlank = !demo && !plan && JSON.stringify(p) === JSON.stringify(BLANK_PLAN);
   const readout = isBlank
-    ? 'Pick a preset above, or start filling in the fields below — this fills in as you go.'
-    : `You're ${article} ${p.role_name || 'rep'} working toward a ${target} ${noun}ly quota. ${planSentence(p)}.`;
+    ? 'Pick a preset above, or start on the fields below. This line fills in as you go.'
+    : `You're ${article} ${p.role_name || 'rep'} working toward a ${noun}ly quota of ${target}. ${planSentence(p)}.`;
 
   const hasAccel = p.accelerator_style !== 'none';
   const kickerOn = p.quarterly_kicker !== null;
@@ -327,7 +327,7 @@ export default function PlanSentence({
       <h1 className="page-title">Your plan</h1>
       <p className="plan-intro">
         {!demo && !plan
-          ? 'Set your plan once — two minutes. Everything stays editable.'
+          ? 'Set your plan once. It takes two minutes, and everything stays editable.'
           : 'Pick the shape closest to yours, then put in your numbers. Everything stays editable, and every deal recalculates.'}
       </p>
 
@@ -417,7 +417,7 @@ export default function PlanSentence({
       <p className="field-note">
         {p.accelerator_style === 'none' && 'Same rate on every deal, all ' + noun + ' long. Quota is still tracked.'}
         {p.accelerator_style === 'rate_switch' && `Once the threshold lands, every deal from that one on earns the accelerated rate. Earlier deals keep the base rate.`}
-        {p.accelerator_style === 'retro_bump' && `Once the threshold lands, the bump applies to every deal in the ${noun} — including the ones already closed.`}
+        {p.accelerator_style === 'retro_bump' && `Once the threshold lands, the bump applies to every deal in the ${noun}, including the ones already closed.`}
       </p>
       {p.accelerator_style !== 'none' && (
         <div className="field-grid">
@@ -455,7 +455,7 @@ export default function PlanSentence({
         />
       </div>
       <p className="field-note">
-        A second, independent bonus some plans stack on top of the accelerator above — cross a % of cumulative
+        A second, independent bonus some plans stack on top of the accelerator above. Cross a set % of cumulative
         quarterly SaaS attainment and the whole quarter&rsquo;s SaaS commission gets a kicker.
       </p>
       {kickerOn && (
@@ -508,8 +508,8 @@ export default function PlanSentence({
 
       <h2 className="section-h">About your company</h2>
       <p className="field-note">
-        Optional, never required to save. Only used later to compare your plan against others shaped like it —
-        company size is stored as a band, never an exact headcount, and no company name is ever captured.
+        Optional, never required to save. Only used later to compare your plan against others shaped like it.
+        Company size is stored as a band, never an exact headcount, and no company name is ever captured.
       </p>
       <div className="field-grid">
         <TextField id="industry" label="Industry" value={p.industry ?? ''} onChange={(v) => set('industry', v || null)} placeholder="SaaS" />

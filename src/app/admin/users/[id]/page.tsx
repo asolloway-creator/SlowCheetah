@@ -127,14 +127,14 @@ export default async function AdminUserPage({
                       <td>{day(d.created_at)}</td>
                       <td className="num">{d.units}</td>
                       <td className="num">{fmtMoney(d.arr)}</td>
-                      <td className="num">{d.one_time_amount ? fmtMoney(d.one_time_amount) : '—'}</td>
+                      <td className="num">{fmtMoney(d.one_time_amount ?? 0)}</td>
                       <td className="num">
                         {[d.subscription_discount_pct ? `${fmtPctShort(d.subscription_discount_pct)} sub` : null, d.one_time_discount_pct ? `${fmtPctShort(d.one_time_discount_pct)} one-time` : null]
                           .filter(Boolean)
-                          .join(' · ') || '—'}
+                          .join(' · ') || 'None'}
                       </td>
                       <td className="num">{fmtMoney(d.commission_earned)}</td>
-                      <td className="num">{d.money_left_on_table > 0 ? <span className="is-red">{fmtMoney(d.money_left_on_table)}</span> : '—'}</td>
+                      <td className="num">{d.money_left_on_table > 0 ? <span className="is-red">{fmtMoney(d.money_left_on_table)}</span> : fmtMoney(0)}</td>
                     </tr>
                   ))}
                 </tbody>

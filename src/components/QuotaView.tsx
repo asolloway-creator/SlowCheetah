@@ -40,11 +40,11 @@ export default function QuotaView({
   const sentence = hasAccel
     ? s.accelerated
       ? retro
-        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(plan.accelerator_rate)} more — ${fmtMoney(s.acceleratorValue)} so far.`
+        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(plan.accelerator_rate)} more. That’s ${fmtMoney(s.acceleratorValue)} so far.`
         : `You’re past your accelerator. Every deal from here earns ${fmtRateShort(plan, plan.accelerator_rate)}.`
       : retro
         ? `Hold the line on the next ${fmtCredit(plan, s.toAccelerator)} and you unlock ${fmtSigned(s.acceleratorValue)} on the deals you’ve already closed.`
-        : `${fmtCredit(plan, plan.accelerator_threshold)} land and every deal from there earns ${fmtRateShort(plan, plan.accelerator_rate)} — ${fmtCredit(plan, s.toAccelerator)} to go.`
+        : `${fmtCredit(plan, plan.accelerator_threshold)} land and every deal from there earns ${fmtRateShort(plan, plan.accelerator_rate)}. ${fmtCredit(plan, s.toAccelerator)} to go.`
     : s.attained
       ? 'Quota made. Same rate on every deal.'
       : `${fmtCredit(plan, s.toQuota)} to quota. Same rate on every deal.`;
@@ -75,7 +75,7 @@ export default function QuotaView({
     // nonzero red figure reads as the two disagreeing with each other.
     {
       label: 'Left on the table',
-      value: lost > 0 ? fmtMoney(lost) : '—',
+      value: fmtMoney(lost),
       suffix: lost > 0 ? `· across every discount given this ${noun}` : undefined,
       tone: lost > 0 ? 'red' : 'dim',
     },
@@ -89,8 +89,8 @@ export default function QuotaView({
         {empty
           ? `Nothing booked in ${label} yet.`
           : plan.quota_basis === 'arr'
-            ? `booked toward a ${fmtMoney(plan.quota)} quota — ${pct}% there.`
-            : `of ${fmtCredit(plan, plan.quota)} — ${pct}% there.`}
+            ? `booked toward a ${fmtMoney(plan.quota)} quota, ${pct}% there.`
+            : `of ${fmtCredit(plan, plan.quota)}, ${pct}% there.`}
       </p>
 
       <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
@@ -108,7 +108,7 @@ export default function QuotaView({
           <Ledger rows={rows} />
           {demo && (
             <p className="quota-bridge">
-              Sample data — every figure above is real math on numbers that aren’t yours yet.{' '}
+              Sample data. Every figure above is real math on numbers that aren’t yours yet.{' '}
               <Link className="btn-text" href="/?plan=1">
                 Put your plan in &rarr;
               </Link>

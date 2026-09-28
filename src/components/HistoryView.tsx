@@ -100,9 +100,9 @@ export default function HistoryView({
                         <td>{fmtDate(d.created_at)}</td>
                         <td>{d.units}</td>
                         <td>{fmtMoney(dealValue(d))}</td>
-                        <td className={disc > 0 ? '' : 'is-dim'}>{disc > 0 ? fmtPctShort(disc) : '—'}</td>
+                        <td className={disc > 0 ? '' : 'is-dim'}>{disc > 0 ? fmtPctShort(disc) : 'None'}</td>
                         <td>{fmtMoney(d.commission_earned)}</td>
-                        <td className={lost > 0 ? 'is-red' : 'is-dim'}>{lost > 0 ? fmtMoney(lost) : '—'}</td>
+                        <td className={lost > 0 ? 'is-red' : 'is-dim'}>{fmtMoney(lost)}</td>
                         <td>
                           <button
                             type="button"

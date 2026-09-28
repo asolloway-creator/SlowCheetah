@@ -5,7 +5,7 @@ import { Shell } from '../AccountViews';
 import { DemoHistory } from '../demo/DemoViews';
 import HistoryView from '@/components/HistoryView';
 
-export const metadata = { title: 'Your deals — IOI' };
+export const metadata = { title: 'Your deals · IOI' };
 
 export default async function HistoryPage() {
   const { user } = await currentUser();

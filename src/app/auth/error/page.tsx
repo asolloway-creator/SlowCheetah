@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Shell } from '../../AccountViews';
 
-export const metadata = { title: 'Sign-in problem — IOI' };
+export const metadata = { title: 'Sign-in problem · IOI' };
 
 // Supabase's own error text ("Token has expired or is invalid", "Email
 // link is invalid or has expired", etc.) is undesigned copy from a

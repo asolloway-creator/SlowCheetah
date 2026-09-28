@@ -38,7 +38,7 @@ export default function ImportDemoPlan() {
     plan.quota_basis === 'arr'
       ? fmt(plan.quota)
       : `${plan.quota.toLocaleString('en-US')} unit${plan.quota === 1 ? '' : 's'}`;
-  const summary = `${plan.role_name || 'Account Executive'} — ${target} ${noun}ly quota. ${planSentence(plan)}.`;
+  const summary = `${plan.role_name || 'Account Executive'} with a ${noun}ly quota of ${target}. ${planSentence(plan)}.`;
 
   async function onImport() {
     setPending(true);

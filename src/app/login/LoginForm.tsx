@@ -49,7 +49,7 @@ export default function LoginForm() {
     <div className="auth-page">
       <h1 className="page-title">Sign in</h1>
       <p className="auth-copy">
-        Keep your plan, your deals and where you stand &mdash; on any device. We&rsquo;ll email you a link;
+        Keep your plan, your deals and where you stand, on any device. We&rsquo;ll email you a link;
         there&rsquo;s no password.
       </p>
       <form className="auth-form" onSubmit={onSubmit} noValidate={false}>

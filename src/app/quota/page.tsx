@@ -4,7 +4,7 @@ import { Shell } from '../AccountViews';
 import { DemoQuota } from '../demo/DemoViews';
 import QuotaView from '@/components/QuotaView';
 
-export const metadata = { title: 'Where you stand — IOI' };
+export const metadata = { title: 'Where you stand · IOI' };
 
 export default async function QuotaPage() {
   const { user } = await currentUser();

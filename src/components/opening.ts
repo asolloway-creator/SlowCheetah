@@ -444,8 +444,8 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
         sentence: retro
-          ? `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal you've already closed this ${noun}.`
-          : `A ${pct} discount is what's keeping this under your accelerator — crossing it would raise pay on every deal after this one.`,
+          ? `A ${pct} discount is what's keeping this under your accelerator. Crossing it would raise pay on every deal you've already closed this ${noun}.`
+          : `A ${pct} discount is what's keeping this under your accelerator. Crossing it would raise pay on every deal after this one.`,
         detail: null,
       };
     case 'crossed':
@@ -459,7 +459,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
               signed: true,
               caption: safeCaptionCrossed,
             },
-            sentence: `This deal crosses ${th} — every deal you’ve closed this ${noun} now pays ${bump} more.`,
+            sentence: `This deal crosses ${th}, so every deal you’ve closed this ${noun} now pays ${bump} more.`,
             detail: residual,
           }
         : {
@@ -480,7 +480,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
         // atStake is already the secondary figure above — no need to say
         // the dollar amount twice.
-        sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year — you’re paying for part of it.`,
+        sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year, and you’re paying for part of it.`,
         detail: null,
       };
     case 'past':
@@ -494,7 +494,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
       };
     case 'held': {
       const opener = r.hasDiscount
-        ? 'Full commission, full credit — that discount costs you nothing on this plan.'
+        ? 'That discount costs you nothing on this plan. Full commission, full credit.'
         : 'Full price, full credit.';
       const lands = `This lands the ${noun} at ${fmtCredit(plan, r.creditAfter)}`;
       const toGo = fmtCredit(plan, Math.max(0, plan.accelerator_threshold - r.creditAfter));
@@ -506,8 +506,8 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         plan.accelerator_style === 'none'
           ? `${opener} ${lands} of ${fmtCredit(plan, plan.quota)}.`
           : retro
-            ? `${opener} ${lands} — ${toGo} more unlocks ${fmtSigned(r.crossingWorth)} on deals you’ve already closed.`
-            : `${opener} ${lands} — ${toGo} more and every deal after that earns ${accelRate}.`;
+            ? `${opener} ${lands}. Another ${toGo} unlocks ${fmtSigned(r.crossingWorth)} on deals you’ve already closed.`
+            : `${opener} ${lands}. Another ${toGo} and every deal after that earns ${accelRate}.`;
       return { ...base, secondary: null, sentence, detail: null };
     }
   }
