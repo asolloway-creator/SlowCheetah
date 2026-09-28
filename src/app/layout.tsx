@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, Inter } from 'next/font/google';
 import SetTimeZoneCookie from '@/components/SetTimeZoneCookie';
+import Tracker from '@/components/Tracker';
 import './globals.css';
 
 // Bricolage for display and money (it carries true tabular figures), Inter
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${display.variable}`}>
       <body>
         <SetTimeZoneCookie />
+        <Tracker />
         {children}
       </body>
     </html>

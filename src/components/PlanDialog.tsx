@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import type { CompPlan } from '@/lib/calc';
 import PlanSentence from '@/components/PlanSentence';
+import type { TrackContext } from '@/lib/track';
 
 /**
  * The plan form, over the deal instead of instead of it. Same component,
@@ -15,10 +16,12 @@ export default function PlanDialog({
   plan,
   onSave,
   onClose,
+  trackAs,
 }: {
   plan: CompPlan;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
   onClose: () => void;
+  trackAs?: TrackContext;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,7 +43,7 @@ export default function PlanDialog({
         <button type="button" className="dialog-close" aria-label="Close" onClick={onClose}>
           &times;
         </button>
-        <PlanSentence plan={plan} demo onSave={onSave} compact />
+        <PlanSentence plan={plan} demo onSave={onSave} compact trackAs={trackAs} />
       </div>
     </div>
   );

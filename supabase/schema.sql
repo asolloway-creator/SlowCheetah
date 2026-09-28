@@ -1,4 +1,4 @@
--- IOI schema v8 (2026-09-18): comp_plans.industry / company_size_band.
+-- IOI schema v9 (2026-09-28): admin dashboard + anonymous product events.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -55,6 +55,20 @@
 --     check (company_size_band is null or company_size_band in (
 --       '1-50', '51-200', '201-500', '501-1000', '1001-5000', '5001+'
 --     ));
+--
+-- v9 (2026-09-28) adds the admin dashboard (/admin) and anonymous product
+-- events. Additive only, safe on a live v8 database as written at the end
+-- of this file:
+--   - public.admins (who is an admin) + public.is_admin(). Admin rights are
+--     data the database enforces, not app code: no service-role key exists
+--     anywhere in the app.
+--   - "admins read" select policies on comp_plans and deals (OR'd with the
+--     existing own-rows policies, so nothing changes for anyone else).
+--   - public.events: write-only for the public, readable only by admins.
+--     No names, emails or plan numbers. `context` keeps the stock sample
+--     deal ('sample') out of real usage ('own', 'account').
+--   - admin_accounts() and admin_traffic(): security-definer reads that
+--     refuse anyone but an admin.
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -153,3 +167,158 @@ create policy "users read own"   on public.users      for select using (auth.uid
 create policy "users update own" on public.users      for update using (auth.uid() = id) with check (auth.uid() = id);
 create policy "comp_plans own"   on public.comp_plans for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "deals own"        on public.deals      for all    using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------- v9: admin dashboard + events
+
+create table public.admins (
+  email text primary key check (email = lower(email))
+);
+alter table public.admins enable row level security;  -- no policies: readable only by the functions below
+insert into public.admins (email) values ('asolloway@gmail.com');
+
+-- Matched on the account's confirmed email in auth.users, not a JWT claim.
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1
+    from auth.users u
+    join public.admins a on a.email = lower(u.email)
+    where u.id = auth.uid() and u.email_confirmed_at is not null
+  );
+$$;
+revoke execute on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+create policy "admins read comp_plans" on public.comp_plans for select to authenticated using ((select public.is_admin()));
+create policy "admins read deals"      on public.deals      for select to authenticated using ((select public.is_admin()));
+
+create table public.events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  name text not null check (name in (
+    'visit', 'slider_drag', 'bonus_line_crossed', 'plan_form_opened', 'plan_saved', 'deal_booked', 'signin_started'
+  )),
+  context text not null check (context in ('site', 'sample', 'own', 'account')),
+  visitor_id uuid not null,
+  session_id uuid not null,
+  path text check (char_length(path) <= 200),
+  referrer_host text check (char_length(referrer_host) <= 200),
+  utm_source text check (char_length(utm_source) <= 100),
+  utm_medium text check (char_length(utm_medium) <= 100),
+  utm_campaign text check (char_length(utm_campaign) <= 100),
+  device text check (device in ('mobile', 'desktop')),
+  env text not null check (env in ('production', 'preview', 'development')),
+  internal boolean not null default false
+);
+create index events_created_at_idx on public.events (created_at);
+create index events_name_context_created_idx on public.events (name, context, created_at);
+alter table public.events enable row level security;
+create policy "anyone logs events" on public.events
+  for insert to anon with check (created_at between now() - interval '5 minutes' and now() + interval '1 minute');
+create policy "admins read events" on public.events
+  for select to authenticated using ((select public.is_admin()));
+
+create or replace function public.admin_accounts()
+returns table (
+  id uuid, email text, created_at timestamptz, last_sign_in_at timestamptz, is_admin boolean,
+  plan jsonb, deals integer, commission numeric, last_deal_at timestamptz
+)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  return query
+  select
+    u.id, u.email::text, u.created_at, u.last_sign_in_at,
+    exists (select 1 from public.admins a where a.email = lower(u.email)),
+    (select to_jsonb(cp) - 'user_id' - 'id' from public.comp_plans cp where cp.user_id = u.id),
+    coalesce(d.n, 0)::integer, coalesce(d.commission, 0)::numeric, d.last_at
+  from auth.users u
+  left join lateral (
+    select count(*) as n, sum(dd.commission_earned) as commission, max(dd.created_at) as last_at
+    from public.deals dd where dd.user_id = u.id
+  ) d on true
+  order by u.created_at;
+end;
+$$;
+revoke execute on function public.admin_accounts() from public, anon;
+grant execute on function public.admin_accounts() to authenticated;
+
+create or replace function public.admin_traffic(since timestamptz, tz text default 'UTC', env_filter text default 'production')
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  result jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  with e as (
+    select * from public.events ev
+    where ev.created_at >= since and ev.env = env_filter and not ev.internal
+  ),
+  firsts as (
+    select distinct on (e.visitor_id)
+      e.visitor_id,
+      e.device,
+      case
+        when nullif(e.utm_source, '') is not null then lower(e.utm_source)
+        when coalesce(e.referrer_host, '') = '' or e.referrer_host like '%tryioi.com' then 'direct'
+        when e.referrer_host like '%linkedin.com' or e.referrer_host = 'lnkd.in' then 'linkedin'
+        when e.referrer_host like '%google.%' then 'google'
+        when e.referrer_host like '%facebook.com' or e.referrer_host like '%instagram.com' then 'meta'
+        when e.referrer_host like '%x.com' or e.referrer_host = 't.co' or e.referrer_host like '%twitter.com' then 'x'
+        else e.referrer_host
+      end as source
+    from e
+    where e.name = 'visit'
+    order by e.visitor_id, e.created_at
+  )
+  select jsonb_build_object(
+    'visitors', (select count(distinct e.visitor_id) from e where e.name = 'visit'),
+    'sessions', (select count(distinct e.session_id) from e where e.name = 'visit'),
+    'page_views', (select count(*) from e where e.name = 'visit'),
+    -- Each step counts a visitor once, across contexts where a step spans more than one.
+    'journey', (
+      select jsonb_build_object(
+        'visited', count(distinct e.visitor_id) filter (where e.name = 'visit'),
+        'sample_drag', count(distinct e.visitor_id) filter (where e.name = 'slider_drag' and e.context = 'sample'),
+        'sample_cross', count(distinct e.visitor_id) filter (where e.name = 'bonus_line_crossed' and e.context = 'sample'),
+        'form_opened', count(distinct e.visitor_id) filter (where e.name = 'plan_form_opened' and e.context in ('sample', 'own')),
+        'own_saved', count(distinct e.visitor_id) filter (where e.name = 'plan_saved' and e.context = 'own'),
+        'signin_started', count(distinct e.visitor_id) filter (where e.name = 'signin_started')
+      )
+      from e
+    ),
+    'steps', (
+      select coalesce(jsonb_agg(jsonb_build_object('name', s.name, 'context', s.context, 'visitors', s.v, 'events', s.n)), '[]'::jsonb)
+      from (select e.name, e.context, count(distinct e.visitor_id) as v, count(*) as n from e group by e.name, e.context) s
+    ),
+    'sources', (
+      select coalesce(jsonb_agg(jsonb_build_object('source', s.source, 'visitors', s.v) order by s.v desc), '[]'::jsonb)
+      from (select f.source, count(*) as v from firsts f group by f.source) s
+    ),
+    'devices', (
+      select coalesce(jsonb_agg(jsonb_build_object('device', s.device, 'visitors', s.v) order by s.v desc), '[]'::jsonb)
+      from (select coalesce(f.device, 'unknown') as device, count(*) as v from firsts f group by 1) s
+    ),
+    'daily', (
+      select coalesce(jsonb_agg(jsonb_build_object('day', s.day, 'visitors', s.v, 'own', s.o) order by s.day), '[]'::jsonb)
+      from (
+        select (e.created_at at time zone tz)::date as day,
+          count(distinct e.visitor_id) filter (where e.name = 'visit') as v,
+          count(distinct e.visitor_id) filter (where e.context = 'own') as o
+        from e group by 1
+      ) s
+    ),
+    'last_event_at', (select max(ev.created_at) from public.events ev where ev.env = env_filter and not ev.internal),
+    'first_event_at', (select min(ev.created_at) from public.events ev where ev.env = env_filter and not ev.internal)
+  ) into result;
+
+  return result;
+end;
+$$;
+revoke execute on function public.admin_traffic(timestamptz, text, text) from public, anon;
+grant execute on function public.admin_traffic(timestamptz, text, text) to authenticated;

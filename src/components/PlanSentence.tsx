@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { trackOnce, type TrackContext } from '@/lib/track';
 import {
   COMPANY_SIZE_BANDS,
   PRESETS,
@@ -97,12 +98,23 @@ export default function PlanSentence({
   demo,
   onSave,
   compact = false,
+  trackAs,
 }: {
   plan: CompPlan | null;
   demo: boolean;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
   compact?: boolean;
+  /** Analytics context the form was opened from (see lib/track.ts). */
+  trackAs?: TrackContext;
 }) {
+  // Whatever context the form was opened from, fixed at mount: saving a plan
+  // flips the demo from 'sample' to 'own' while this is still on screen, and
+  // that isn't a second opening.
+  const openedAs = useRef<TrackContext>(trackAs ?? (demo ? 'sample' : 'account'));
+  useEffect(() => {
+    trackOnce('plan_form_opened', openedAs.current);
+  }, []);
+
   const [p, setP] = useState<CompPlan>(plan ?? (demo ? PRESETS[0].plan : BLANK_PLAN));
   const [preset, setPreset] = useState<string | null>(plan ? matchPreset(plan) : demo ? PRESETS[0].id : null);
   const [pending, setPending] = useState(false);

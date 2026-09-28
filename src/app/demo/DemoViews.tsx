@@ -45,6 +45,7 @@ export function DemoDeal() {
         onStartOver={d.reset}
         initialDeal={SAMPLE}
         intro={<LandingHero />}
+        sample={d.seeded}
       />
       <HowItWorks />
       <ClosingCta />
@@ -79,7 +80,7 @@ export function DemoPlan() {
   const d = useDemoStore();
   return (
     <Shell current="/plan" email={null} width="plan">
-      {d.ready && <PlanSentence plan={d.plan} demo onSave={d.savePlan} />}
+      {d.ready && <PlanSentence plan={d.plan} demo onSave={d.savePlan} trackAs={d.seeded ? 'sample' : 'own'} />}
     </Shell>
   );
 }

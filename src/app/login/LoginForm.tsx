@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { track } from '@/lib/track';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -24,6 +25,7 @@ export default function LoginForm() {
       setStatus('idle');
       return;
     }
+    track('signin_started', 'site');
     setStatus('sent');
   }
 

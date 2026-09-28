@@ -785,6 +785,134 @@ main { display: block; padding-bottom: 80px; }
 .state-page-actions { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
 @keyframes state-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 
+/* ---------- admin dashboard ---------------------------------------------- */
+/* One chart colour: a deep amber from the sunflower family that holds 3:1
+   against white (the brand yellow itself doesn't). Red and green stay money-only. */
+.admin { --chart: #B07800; --chart-hover: #8F6200; padding-bottom: 24px; }
+.admin-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px 32px; flex-wrap: wrap; }
+.admin-sub { margin-top: 10px; max-width: 60ch; font: 500 14.5px/1.5 var(--ui); color: var(--ink-2); }
+.admin-range { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.admin-range a { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 9px; font: 550 14px/1 var(--ui); color: var(--ink-2); text-decoration: none; }
+.admin-range a:hover { color: var(--ink); background: var(--cream); }
+.admin-range a[aria-current="page"] { background: var(--ink); color: var(--on-ink); }
+.admin-section { margin-top: 36px; padding: 28px; border-radius: 28px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
+.admin-section.is-sample { background: #FFF9EA; box-shadow: inset 0 0 0 1px #F0DFB0; }
+.admin-section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.admin-h { font: 750 28px/1.1 var(--display); letter-spacing: -0.02em; }
+.admin-section-note { flex-basis: 100%; font: 500 14.5px/1.5 var(--ui); color: var(--ink-2); }
+.admin-section-head + .stat-row { margin-top: 20px; }
+.admin-h3 { margin: 28px 0 12px; font: 700 17px/1.25 var(--display); letter-spacing: -0.01em; }
+.admin-card > .admin-h3:first-child { margin-top: 0; }
+.admin-h3-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.admin-small { font-size: 13.5px; }
+.admin-caption { margin: -4px 0 12px; font: 500 13.5px/1.5 var(--ui); color: var(--ink-3); }
+.admin-card .admin-caption:last-child { margin: 14px 0 0; }
+.admin-caption code { font: 500 12.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 5px; border-radius: 5px; background: var(--cream); color: var(--ink); }
+.admin-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; font: 650 11.5px/1 var(--ui); letter-spacing: 0.02em; white-space: nowrap; }
+.admin-tag.is-real { background: var(--ink); color: var(--on-ink); }
+.admin-tag.is-sample { background: var(--butter); color: #5C4300; box-shadow: inset 0 0 0 1px rgba(214, 150, 0, 0.35); }
+.admin-empty { padding: 18px; border-radius: 14px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); font: 500 14.5px/1.5 var(--ui); color: var(--ink-3); }
+.admin-muted { color: var(--ink-3); font-weight: 500; }
+.admin-foot { margin-top: 24px; font: 500 13px/1.5 var(--ui); color: var(--ink-3); }
+.admin-back { margin-top: 32px; font-size: 14.5px; }
+.admin-back + .page-title { margin-top: 12px; }
+
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat-tile { padding: 16px 18px; border-radius: 18px; background: var(--white); box-shadow: var(--shadow-card); }
+.stat-tile-label { font: 600 13px/1.3 var(--ui); color: var(--ink-2); }
+.stat-tile-value { margin-top: 8px; font: 750 34px/1 var(--display); letter-spacing: -0.02em; color: var(--ink); }
+.stat-tile-note { margin-top: 6px; font: 500 12.5px/1.3 var(--ui); color: var(--ink-3); }
+
+.admin-card { margin-top: 16px; padding: 22px; border-radius: 22px; background: var(--white); box-shadow: var(--shadow-card); }
+.admin-grid-2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; margin-top: 4px; }
+.admin-grid-2 > .admin-card { margin-top: 16px; }
+
+.admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 18px; background: var(--white); box-shadow: var(--shadow-card); }
+.admin-card .admin-table-wrap { box-shadow: inset 0 0 0 1px var(--line); }
+.admin-table { width: 100%; border-collapse: collapse; font: 500 14px/1.4 var(--ui); font-variant-numeric: tabular-nums; }
+.admin-table th { padding: 12px 14px 10px; text-align: left; white-space: nowrap; font: 600 12.5px/1.3 var(--ui); color: var(--ink-3); border-bottom: 1px solid var(--line); }
+.admin-table td { padding: 11px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+.admin-table tbody tr:last-child td { border-bottom: 0; }
+.admin-table .num { text-align: right; }
+.admin-table a { color: var(--ink); font-weight: 650; text-decoration-color: var(--sun-lo); text-underline-offset: 3px; }
+.admin-table tr.is-you td { background: #FBF8F1; color: var(--ink-3); }
+.admin-you { display: block; margin-top: 2px; font: 500 12px/1.3 var(--ui); color: var(--ink-3); }
+.admin-plan-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+
+.mix-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.mix-card { padding: 16px 18px; border-radius: 18px; background: var(--white); box-shadow: var(--shadow-card); }
+.mix-card-title { font: 600 13px/1.3 var(--ui); color: var(--ink-2); }
+.mix-card dl div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); font: 500 14px/1.35 var(--ui); }
+.mix-card dl div:last-child { border-bottom: 0; }
+.mix-card dd { font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* charts: thin marks, rounded data-ends, square at the baseline */
+.chart { margin: 8px 0 0; }
+.chart-plot { position: relative; height: 180px; margin: 22px 0 0 34px; }
+/* Each gridline is its value label followed by a hairline to the right edge. */
+.chart-grid span {
+  position: absolute; left: -34px; right: 0; bottom: var(--y); height: 0; display: flex; align-items: center; gap: 6px;
+  font: 500 11.5px/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.chart-grid span::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.chart-cols { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 2px; align-items: end; }
+.chart-col { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; border-radius: 4px; outline: none; cursor: default; }
+.chart-col:focus-visible { box-shadow: 0 0 0 2px var(--ink); }
+.chart-bar { position: relative; display: block; width: min(24px, 100%); height: var(--h); border-radius: 4px 4px 0 0; background: var(--chart); transition: background-color var(--dur-1) var(--ease-out); }
+.chart-col:hover .chart-bar, .chart-col:focus-visible .chart-bar { background: var(--chart-hover); }
+.chart-peak { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -4px); font: 650 12px/1 var(--ui); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chart-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 3; transform: translateX(-50%);
+  padding: 7px 10px; border-radius: 9px; background: var(--white); box-shadow: var(--shadow-float), inset 0 0 0 1px var(--line);
+  font: 500 12.5px/1.2 var(--ui); color: var(--ink-2); white-space: nowrap; pointer-events: none; opacity: 0; visibility: hidden;
+}
+.chart-tip b { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* :focus, not :focus-visible, so a tap on a phone shows the day's number too. */
+.chart-col:hover .chart-tip, .chart-col:focus .chart-tip { opacity: 1; visibility: visible; }
+.chart-col:focus .chart-bar { background: var(--chart-hover); }
+.chart-x { display: flex; justify-content: space-between; margin: 8px 0 0 34px; font: 500 12px/1 var(--ui); color: var(--ink-3); }
+.chart-table { margin-top: 14px; font: 500 13px/1.4 var(--ui); color: var(--ink-2); }
+.chart-table summary { cursor: pointer; width: fit-content; }
+.chart-table table { margin-top: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.chart-table th, .chart-table td { padding: 4px 18px 4px 0; text-align: left; border-bottom: 1px solid var(--line); }
+
+.bar-list li, .journey li { display: grid; align-items: center; gap: 12px; padding: 7px 0; }
+.bar-list li { grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) 3.5rem; }
+.bar-list-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 14px/1.3 var(--ui); color: var(--ink); }
+.bar-list-track { display: block; height: 12px; }
+.bar-list-bar { display: block; height: 100%; width: var(--w); min-width: 2px; border-radius: 0 4px 4px 0; background: var(--chart); }
+.bar-list-value { text-align: right; font: 650 14px/1 var(--ui); color: var(--ink); font-variant-numeric: tabular-nums; }
+.journey { list-style: none; margin: 0; padding: 0; }
+.journey li { grid-template-columns: 26px minmax(0, 20rem) minmax(0, 1fr) 6.5rem; border-bottom: 1px solid var(--line); padding: 10px 0; }
+.journey li:last-child { border-bottom: 0; }
+.journey-n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--cream); font: 650 12px/1 var(--ui); color: var(--ink-2); }
+.journey-label { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font: 500 14.5px/1.3 var(--ui); color: var(--ink); }
+.journey-note { font: 500 12px/1 var(--ui); color: var(--ink-3); }
+.journey-value { text-align: right; font: 500 13px/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.journey-value b { margin-right: 4px; font: 700 15px/1 var(--ui); color: var(--ink); }
+
+.admin-plan-sentence { font: 500 17px/1.55 var(--ui); color: var(--ink); max-width: 70ch; }
+.admin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 24px; margin-top: 16px; }
+.admin-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font: 500 14px/1.4 var(--ui); }
+.admin-facts dt { color: var(--ink-2); }
+.admin-facts dd { font-weight: 650; text-align: right; }
+
+@media (max-width: 900px) {
+  .admin-grid-2 { grid-template-columns: minmax(0, 1fr); }
+  .mix-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-section { padding: 20px 16px; border-radius: 22px; }
+}
+@media (max-width: 600px) {
+  .admin-range { width: 100%; }
+  .admin-range a { flex: 1; justify-content: center; padding: 0 8px; font-size: 13px; }
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-tile-value { font-size: 28px; }
+  .mix-grid { grid-template-columns: minmax(0, 1fr); }
+  .bar-list li { grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 3rem; }
+  .journey li { grid-template-columns: 26px minmax(0, 1fr) 5.5rem; }
+  .journey li .bar-list-track { grid-column: 2 / -1; grid-row: 2; }
+}
+
 /* ---------- responsive --------------------------------------------------- */
 /* "And what it costs." holds one line: roughly 7.6 × its font size wide, so
    the headline scales with whatever the intro column has left. */

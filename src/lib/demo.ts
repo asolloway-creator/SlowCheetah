@@ -14,10 +14,13 @@ import {
   type PeriodToDate,
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
+import { track } from '@/lib/track';
 
 /**
- * Demo mode: the whole app running against the visitor's browser.
- * Nothing leaves the machine. Signing in is the "keep this" upsell.
+ * Demo mode: the whole app running against the visitor's browser. The plan
+ * and deals never leave the machine; only anonymous usage events do (which
+ * moment happened, never its numbers, see lib/track.ts). Signing in is the
+ * "keep this" upsell.
  */
 
 const KEY = 'ioi-demo-v3';
@@ -280,6 +283,7 @@ export function useDemoStore() {
         rowFromDeal(plan, deal, opening, new Date(Math.max(quarterStart, now - (75 - i * 35) * DAY))),
       );
       update((s) => ({ ...s, plan, deals: [row, ...kickerRows], seeded: false }));
+      track('plan_saved', 'own');
       return {};
     },
     reset: () => update(() => fresh()),

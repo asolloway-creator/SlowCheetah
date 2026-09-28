@@ -15,7 +15,7 @@ import {
  *  own comment in calc.ts. Falls back to UTC only on a visitor's very
  *  first request of a session, before SetTimeZoneCookie has had a chance
  *  to set it; every request after is correct. */
-async function repTimeZone(): Promise<string> {
+export async function repTimeZone(): Promise<string> {
   const store = await cookies();
   return store.get('tz')?.value || 'UTC';
 }
@@ -77,14 +77,19 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
   // listDeals already does below) so it surfaces through error.tsx instead.
   if (error) throw new Error(error.message);
   if (!data) return null;
+  return toCompPlan(data);
+}
+
+/** A comp_plans row (or its jsonb twin) as a CompPlan. */
+export function toCompPlan(data: Record<string, unknown>): CompPlan {
   return {
     role_name: String(data.role_name),
-    period: data.period,
-    quota_basis: data.quota_basis,
+    period: data.period as CompPlan['period'],
+    quota_basis: data.quota_basis as CompPlan['quota_basis'],
     quota: num(data.quota),
-    commission_style: data.commission_style,
+    commission_style: data.commission_style as CompPlan['commission_style'],
     base_rate: num(data.base_rate),
-    accelerator_style: data.accelerator_style,
+    accelerator_style: data.accelerator_style as CompPlan['accelerator_style'],
     accelerator_threshold: num(data.accelerator_threshold),
     accelerator_rate: num(data.accelerator_rate),
     one_time_weight: num(data.one_time_weight),

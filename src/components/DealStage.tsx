@@ -14,6 +14,7 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
+import { track, trackOnce, type TrackContext } from '@/lib/track';
 import {
   EMPTY,
   OPENING_PTD,
@@ -52,6 +53,7 @@ export default function DealStage({
   onStartOver,
   initialDeal,
   intro,
+  sample = true,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -66,6 +68,10 @@ export default function DealStage({
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
+  /** Demo only: still on the stock sample plan (the store's own `seeded`
+   *  flag), as opposed to a plan the visitor saved. Keeps sample-deal play
+   *  out of real-usage analytics. */
+  sample?: boolean;
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
   const [planOpen, setPlanOpen] = useState(false);
@@ -134,6 +140,17 @@ export default function DealStage({
   // ahead, click this", exactly wrong while the page says this costs you.
   const isCostly = copy.secondary?.tone === 'red' || xCopy?.tone === 'red';
 
+  const ctx: TrackContext = !demo ? 'account' : sample ? 'sample' : 'own';
+  // The signature moment: a discount the rep chose just cost them a bonus
+  // tier. Only counted when their own edit caused it (dirty), never a deal
+  // that loads already past the line.
+  const crossed = Boolean(xEffect?.costsATier);
+  const wasCrossed = useRef(crossed);
+  useEffect(() => {
+    if (crossed && !wasCrossed.current && dirty) trackOnce('bonus_line_crossed', ctx);
+    wasCrossed.current = crossed;
+  }, [crossed, dirty, ctx]);
+
   const set = <K extends keyof DealInput>(k: K, v: DealInput[K]) => {
     setDeal((d) => ({ ...d, [k]: v }));
     setDirty(true);
@@ -157,6 +174,7 @@ export default function DealStage({
     if (res.error) {
       setMsg({ error: res.error });
     } else {
+      track('deal_booked', ctx);
       setBookedFigure(copy.figureText || null);
       setMsg({ booked: true });
       setDeal(EMPTY);
@@ -279,7 +297,10 @@ export default function DealStage({
                     id="subD"
                     label="Discount on the subscription"
                     value={deal.subscriptionDiscountPct}
-                    onChange={(v) => set('subscriptionDiscountPct', v)}
+                    onChange={(v) => {
+                      set('subscriptionDiscountPct', v);
+                      trackOnce('slider_drag', ctx);
+                    }}
                     costsYou={subCost}
                     valueText={`${fmtPctShort(deal.subscriptionDiscountPct)} off${subCost > 0 ? `, costs you ${fmtMoney(subCost)}` : ''}${xCopy?.tone === 'red' ? `. ${xCopy.label}` : ''}`}
                     caption={sliderCaption(deal, r)}
@@ -438,7 +459,7 @@ export default function DealStage({
       </section>
 
       {demo && planOpen && onSavePlan && (
-        <PlanDialog plan={plan} onSave={savePlan} onClose={() => setPlanOpen(false)} />
+        <PlanDialog plan={plan} onSave={savePlan} onClose={() => setPlanOpen(false)} trackAs={ctx} />
       )}
     </>
   );
