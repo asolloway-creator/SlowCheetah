@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CompPlan } from '@/lib/calc';
 import { track, trackOnce } from '@/lib/track';
@@ -17,7 +17,7 @@ import {
   type SignedRead,
 } from '@/lib/plan-record/client';
 import PlanSentence from '@/components/PlanSentence';
-import DescribeStep, { type Ask, type DescribeMessage } from './DescribeStep';
+import DescribeStep, { type DescribeMessage } from './DescribeStep';
 import CheckStep from './CheckStep';
 import SavedStep from './SavedStep';
 import PlanSummary from './PlanSummary';
@@ -44,12 +44,6 @@ const MESSAGES = {
   offline: 'You look offline. Check your connection and try again.',
 } as const;
 
-/** ?ask=open or ?ask=guided, for comparing the two ways of asking on a preview. */
-const askFromUrl = (): Ask | null => {
-  const v = new URLSearchParams(window.location.search).get('ask');
-  return v === 'open' || v === 'guided' ? v : null;
-};
-const noop = () => () => {};
 
 export default function PlanCapture({
   current,
@@ -70,8 +64,6 @@ export default function PlanCapture({
 }) {
   const ctx = account ? 'account' : 'own';
   const router = useRouter();
-  const askParam = useSyncExternalStore(noop, askFromUrl, () => null);
-  const ask: Ask = askParam ?? 'guided';
 
   const [step, setStep] = useState<Step>(current && !compact ? 'summary' : 'describe');
   const [record, setRecord] = useState<PlanRecord | null>(null);
@@ -264,7 +256,6 @@ export default function PlanCapture({
 
   return (
     <DescribeStep
-      ask={ask}
       busy={busy}
       message={message}
       onRead={describe}

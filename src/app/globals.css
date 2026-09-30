@@ -966,7 +966,6 @@ main { display: block; padding-bottom: 80px; }
 }
 .cap-box.is-small .cap-box-foot { margin-top: 8px; padding-top: 8px; }
 .cap-box-foot:not(:has(.mic)) { justify-content: flex-end; }
-.cap-count { margin-left: auto; font: 500 12.5px/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
 .mic {
   position: relative; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 10px;
@@ -982,15 +981,6 @@ main { display: block; padding-bottom: 80px; }
   background: var(--sun); box-shadow: 0 0 0 2px var(--paper); animation: mic-live 1.2s ease-in-out infinite;
 }
 @keyframes mic-live { 50% { transform: scale(1.35); opacity: 0.7; } }
-
-.cap-cover { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 14px; }
-.cap-cover-label { font: 650 11.5px/1 var(--ui); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
-.cap-cover ul { display: flex; flex-wrap: wrap; gap: 8px; }
-.cap-cover li {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 11px; border-radius: 9px;
-  background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); font: 550 13.5px/1.3 var(--ui); color: var(--ink-2);
-}
-.cap-cover li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--sun); box-shadow: inset 0 0 0 1.5px var(--ink); }
 
 .cap-guided { display: grid; gap: 22px; margin-top: 32px; list-style: none; padding: 0; }
 .cap-q-label { display: flex; align-items: center; gap: 12px; font: 700 18px/1.3 var(--display); letter-spacing: -0.01em; color: var(--ink); }

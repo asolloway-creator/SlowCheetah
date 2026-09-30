@@ -5,20 +5,11 @@ import { MAX_DESCRIPTION } from '@/lib/plan-record/limits';
 import { MicButton } from './Dictation';
 
 /**
- * Step one: how you get paid, in your own words. Two ways to ask, one
- * picked for launch:
- *  - 'open': one box, with what to cover listed underneath.
- *  - 'guided': three short questions and an optional fourth, each easy to
- *    answer out loud, which keeps people on the rules and away from pasting
- *    a plan document.
- * Either way it's the rules and numbers only. The page says so, and the
- * character limit leaves no room for a pasted document.
+ * Step one: how you get paid, in your own words. Three short questions and
+ * an optional fourth, each easy to answer out loud, which keeps people on
+ * the rules and away from pasting a plan document. The character limit
+ * leaves no room for one either.
  */
-
-export type Ask = 'open' | 'guided';
-
-const OPEN_EXAMPLE =
-  'For example: I’m an AE with a $150K quarterly quota on new ARR. I get 10% of first-year value. Once I pass quota, every deal after that pays 15%. Setup fees count at half, and there’s a 10% bonus on the quarter if I hit 110%.';
 
 const GUIDED = [
   { key: 'quota', label: 'What’s your quota, and what counts toward it?', example: 'For example: $150K of new ARR a quarter', required: true },
@@ -31,29 +22,25 @@ const PART_MAX = Math.floor(MAX_DESCRIPTION / GUIDED.length) - 20;
 export type DescribeMessage = { tone: 'info' | 'error'; text: string } | null;
 
 export default function DescribeStep({
-  ask,
   busy,
   message,
   onRead,
   onForm,
   titled = true,
 }: {
-  ask: Ask;
   busy: boolean;
   message: DescribeMessage;
   onRead: (text: string) => void;
   onForm: () => void;
   titled?: boolean;
 }) {
-  const [text, setText] = useState('');
   const [parts, setParts] = useState<Record<string, string>>({});
 
   const guidedText = GUIDED.filter((q) => (parts[q.key] ?? '').trim())
     .map((q) => `${q.label} ${parts[q.key].trim()}`)
     .join('\n');
-  const ready =
-    ask === 'open' ? text.trim().length > 0 : GUIDED.filter((q) => q.required).some((q) => (parts[q.key] ?? '').trim());
-  const submit = () => onRead(ask === 'open' ? text.trim() : guidedText);
+  const ready = GUIDED.filter((q) => q.required).some((q) => (parts[q.key] ?? '').trim());
+  const submit = () => onRead(guidedText);
   const append = (prev: string, said: string, max: number) => `${prev}${prev && !/\s$/.test(prev) ? ' ' : ''}${said}`.slice(0, max);
 
   return (
@@ -71,39 +58,6 @@ export default function DescribeStep({
         </>
       )}
 
-      {ask === 'open' ? (
-        <>
-          <div className="cap-box">
-            <label htmlFor="cap-text" className="sr-only">
-              How you get paid
-            </label>
-            <textarea
-              id="cap-text"
-              className="cap-text"
-              rows={6}
-              maxLength={MAX_DESCRIPTION}
-              placeholder={OPEN_EXAMPLE}
-              value={text}
-              disabled={busy}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <div className="cap-box-foot">
-              <MicButton onText={(said) => setText((t) => append(t, said, MAX_DESCRIPTION))} />
-              <span className="cap-count" aria-live="polite">
-                {text.length.toLocaleString('en-US')} / {MAX_DESCRIPTION.toLocaleString('en-US')}
-              </span>
-            </div>
-          </div>
-          <div className="cap-cover">
-            <span className="cap-cover-label">Cover</span>
-            <ul>
-              <li>What counts toward quota</li>
-              <li>What a deal pays you</li>
-              <li>What changes when you hit it</li>
-            </ul>
-          </div>
-        </>
-      ) : (
         <ol className="cap-guided">
           {GUIDED.map((q, i) => (
             <li key={q.key} className="cap-q">
@@ -135,7 +89,6 @@ export default function DescribeStep({
             </li>
           ))}
         </ol>
-      )}
 
       {message && (
         <p className={`cap-msg${message.tone === 'error' ? ' is-error' : ''}`} role={message.tone === 'error' ? 'alert' : 'status'}>
