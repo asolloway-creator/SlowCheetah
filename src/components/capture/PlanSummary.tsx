@@ -58,12 +58,11 @@ export default function PlanSummary({
       {(filed || forget === 'done') && (
         <div className="cap-forget">
           {forget === 'done' ? (
-            <p role="status">Done. The plans you shared are gone from IOI’s comparisons. Your working plan stays here.</p>
+            <p role="status">Done. The plans you shared are gone from IOI. Your working plan stays here.</p>
           ) : forget === 'confirm' || forget === 'busy' || forget === 'failed' ? (
             <>
               <p>
-                This removes every plan you’ve shared from IOI’s comparisons. Your working plan stays here so your deals still
-                calculate.
+                This removes every plan you’ve shared with IOI. Your working plan stays here so your deals still calculate.
               </p>
               {forget === 'failed' && <p className="is-red">That didn’t go through. Try again.</p>}
               <div className="cap-forget-actions">
@@ -85,7 +84,7 @@ export default function PlanSummary({
             </>
           ) : (
             <p>
-              You’ve shared this plan anonymously. <Link href="/plans-and-privacy">How IOI uses plans</Link> ·{' '}
+              You’ve shared this plan anonymously. <Link href="/plans-and-privacy">How IOI handles your plan</Link> ·{' '}
               <button type="button" className="btn-text" onClick={() => setForget('confirm')}>
                 Forget my plan
               </button>

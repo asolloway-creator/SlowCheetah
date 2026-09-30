@@ -9,7 +9,7 @@ const Body = z.object({
   context: PlanContext,
 });
 
-/** The optional "help the comparison" answers, added to a plan already confirmed. */
+/** The optional "a little more about you" answers, added to a plan already confirmed. */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await readJson(request, 4000));
   if (!parsed.success) return json({ error: 'bad_request' }, 400);

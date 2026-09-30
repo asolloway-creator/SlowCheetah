@@ -40,9 +40,9 @@ export default async function TermsPage() {
         <DocSection title="What IOI may do with confirmed plans">
           <p>
             Confirmed plans are kept as rules and numbers, without your words, your company or your deals, as described in{' '}
-            <Link href="/plans-and-privacy">how IOI uses plans</Link>. You give IOI a permanent, worldwide, royalty-free
-            right to use them in combined, anonymous form: to show comparisons and benchmarks, to improve IOI, and in reports
-            IOI may publish or sell.
+            <Link href="/plans-and-privacy">how IOI handles your plan</Link>. You give IOI a permanent, worldwide, royalty-free
+            right to use them in combined, anonymous form: to run and improve IOI, and in IOI’s products, services and
+            reports, including paid ones.
           </p>
           <p>
             IOI never sells or shares an individual plan and never shows a group of fewer than 10 plans. You can remove your

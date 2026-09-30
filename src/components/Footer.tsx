@@ -14,7 +14,7 @@ export default function Footer() {
               out loud.
             </p>
             <nav className="footer-links" aria-label="About IOI">
-              <Link href="/plans-and-privacy">How IOI uses plans</Link>
+              <Link href="/plans-and-privacy">How IOI handles your plan</Link>
               <Link href="/privacy">Privacy</Link>
               <Link href="/terms">Terms</Link>
             </nav>

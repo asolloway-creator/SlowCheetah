@@ -22,7 +22,7 @@ export default async function PrivacyPage() {
           <p>
             The plan and deals you enter on the deal page live in your browser. They aren’t sent to IOI unless you confirm
             your plan, which files its rules anonymously as described in{' '}
-            <Link href="/plans-and-privacy">how IOI uses plans</Link>.
+            <Link href="/plans-and-privacy">how IOI handles your plan</Link>.
           </p>
         </DocSection>
 

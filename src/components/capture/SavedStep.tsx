@@ -60,11 +60,10 @@ export default function SavedStep({
       {onContext && (
         <section className="cap-context" aria-labelledby="cap-context-h">
           <h2 id="cap-context-h" className="section-h">
-            Help the comparison
+            A little more about you
           </h2>
           <p className="cap-context-note">
-            Optional and anonymous. These put your plan next to others like it, and nothing is shown until at least 10 plans
-            match.
+            Optional. It helps IOI put your plan in context.
           </p>
 
           <ChipGroup label="Your role" options={CONTEXT_ROLE_LEVELS} value={c.role_level} onPick={(v) => set('role_level', v)} />
@@ -94,7 +93,6 @@ export default function SavedStep({
           </button>
         )}
       </div>
-      <p className="cap-privacy cap-privacy-plain">Comparisons unlock as more reps add their plans.</p>
     </div>
   );
 }

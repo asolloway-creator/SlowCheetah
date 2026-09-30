@@ -62,7 +62,7 @@ export default function CheckStep({
   return (
     <div className="cap">
       <h1 className="page-title">Here’s your plan.</h1>
-      <p className="plan-intro">Check it against a real paycheck. If anything’s off, fix it here. Nothing counts until you confirm.</p>
+      <p className="plan-intro">Make sure this is how you’re paid. If anything’s off, fix it here. Nothing counts until you confirm.</p>
 
       {asking.length > 0 && (
         <section className="cap-ask" aria-label="Questions">
@@ -132,7 +132,7 @@ export default function CheckStep({
         <section className="cap-example" aria-label="A worked example">
           <p className="eyebrow">
             <span className="mark-dot" aria-hidden="true" />
-            Check it against a paycheck
+            Your plan on one deal
           </p>
           <p className="cap-example-deal">On {example.deal}, your plan pays</p>
           <div className="cap-example-figs">
@@ -181,8 +181,8 @@ export default function CheckStep({
           <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.5" />
         </svg>
         <span>
-          This stays anonymous. IOI keeps your plan’s rules, never your words, your company or your deals, and only
-          ever counts it as one of at least 10. <Link href="/plans-and-privacy">How IOI uses plans</Link>
+          Your plan stays anonymous. IOI never keeps your words, your company or your deals.{' '}
+          <Link href="/plans-and-privacy">How IOI handles your plan</Link>
         </span>
       </p>
     </div>

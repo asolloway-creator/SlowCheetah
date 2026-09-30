@@ -223,8 +223,7 @@ export default function PlanCapture({
         </button>
         <PlanSentence plan={start} demo={!account} onSave={saveForm} trackAs={ctx} />
         <p className="cap-privacy">
-          Saving keeps your plan’s rules, anonymously, as one of at least 10 plans IOI compares. Never your company or your
-          deals.
+          Your plan stays anonymous. IOI never keeps your company or your deals.
         </p>
       </div>
     );

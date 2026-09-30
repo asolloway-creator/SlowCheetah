@@ -12,7 +12,7 @@ export function Doc({ title, lede, updated, children }: { title: string; lede: R
         Last updated {updated}. Questions: <a href="mailto:asolloway@gmail.com?subject=IOI%3A%20privacy">asolloway@gmail.com</a>
       </p>
       <nav className="doc-nav" aria-label="Related pages">
-        <Link href="/plans-and-privacy">How IOI uses plans</Link>
+        <Link href="/plans-and-privacy">How IOI handles your plan</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/terms">Terms</Link>
       </nav>
