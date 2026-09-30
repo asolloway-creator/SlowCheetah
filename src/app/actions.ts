@@ -116,16 +116,17 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   const n = (v: unknown, lo = 0) => (Number.isFinite(Number(v)) ? Math.max(lo, Number(v)) : NaN);
 
   // Optional and independent of accelerator_style — most plans send null
-  // here. When present, target and both tiers' attainment must be real
+  // here. When present, target and each tier's attainment must be real
   // numbers greater than zero; kickerPct is clamped like every other rate
-  // rather than rejected, same reasoning as base_rate above.
+  // rather than rejected, same reasoning as base_rate above. The stretch
+  // tier is optional: many plans have a single bonus level.
   let quarterly_kicker: CompPlan['quarterly_kicker'] = null;
   if (input.quarterly_kicker) {
     const target = n(input.quarterly_kicker.target);
     const [t0, t1] = input.quarterly_kicker.tiers ?? [];
     const tier0 = { attainmentPct: n(t0?.attainmentPct), kickerPct: clampPct(Number(t0?.kickerPct)) };
-    const tier1 = { attainmentPct: n(t1?.attainmentPct), kickerPct: clampPct(Number(t1?.kickerPct)) };
-    if (!(target > 0) || !(tier0.attainmentPct > 0) || !(tier1.attainmentPct > 0)) {
+    const tier1 = t1 ? { attainmentPct: n(t1.attainmentPct), kickerPct: clampPct(Number(t1.kickerPct)) } : null;
+    if (!(target > 0) || !(tier0.attainmentPct > 0) || (tier1 && !(tier1.attainmentPct > 0))) {
       return { error: 'Quarterly kicker target and tier attainment must be greater than zero.' };
     }
     // kickerTierAt/quarterlyKickerSummary (calc.ts) sort tiers by
@@ -133,10 +134,10 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     // or below the base tier wouldn't crash, it would just silently become
     // "Tier 1" everywhere the plan is actually used, contradicting its own
     // label on this form. Reject it here instead of letting that drift.
-    if (!(tier1.attainmentPct > tier0.attainmentPct)) {
+    if (tier1 && !(tier1.attainmentPct > tier0.attainmentPct)) {
       return { error: 'Quarterly Bonus (Stretch) attainment must be higher than the base tier’s.' };
     }
-    quarterly_kicker = { target, tiers: [tier0, tier1] };
+    quarterly_kicker = { target, tiers: tier1 ? [tier0, tier1] : [tier0] };
   }
 
   const plan: CompPlan = {

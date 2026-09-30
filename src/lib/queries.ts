@@ -57,13 +57,13 @@ function parseKicker(v: unknown): QuarterlyKicker | null {
   const k = v as { target?: unknown; tiers?: unknown };
   const target = num(k.target);
   const tiers = Array.isArray(k.tiers) ? k.tiers : [];
-  if (!(target > 0) || tiers.length !== 2) return null;
+  if (!(target > 0) || tiers.length < 1 || tiers.length > 2) return null;
   const parsed = tiers.map((t) => ({
     attainmentPct: num((t as { attainmentPct?: unknown })?.attainmentPct),
     kickerPct: num((t as { kickerPct?: unknown })?.kickerPct),
   }));
   if (parsed.some((t) => !(t.attainmentPct > 0) || !Number.isFinite(t.kickerPct))) return null;
-  return { target, tiers: [parsed[0], parsed[1]] };
+  return { target, tiers: parsed.length === 1 ? [parsed[0]] : [parsed[0], parsed[1]] };
 }
 
 export async function getCompPlan(userId: string): Promise<CompPlan | null> {

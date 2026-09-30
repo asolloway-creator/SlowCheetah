@@ -28,14 +28,14 @@ export type QuarterlyKickerTier = {
  * A second, independent incentive some real plans stack on top of whatever
  * `accelerator_style` already models — a tiered bonus on cumulative
  * quarterly SaaS attainment, always tracked against the calendar quarter
- * regardless of `plan.period`. Fixed at two tiers rather than an arbitrary
- * list: matches the shape of a confirmed real plan, not a guess at plans
- * nobody's shown us yet.
+ * regardless of `plan.period`. One or two tiers rather than an arbitrary
+ * list: a single bonus level is the common case, and two is the most any
+ * confirmed real plan has used.
  */
 export type QuarterlyKicker = {
   /** Quarterly SaaS ARR target — 100% attainment. */
   target: number;
-  tiers: [QuarterlyKickerTier, QuarterlyKickerTier];
+  tiers: [QuarterlyKickerTier] | [QuarterlyKickerTier, QuarterlyKickerTier];
 };
 
 export type CompPlan = {

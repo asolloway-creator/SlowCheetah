@@ -17,7 +17,9 @@ export type TrackEvent =
   | 'plan_form_opened'
   | 'plan_saved'
   | 'deal_booked'
-  | 'signin_started';
+  | 'signin_started'
+  | 'plan_read'
+  | 'plan_confirmed';
 
 export type TrackContext = 'site' | 'sample' | 'own' | 'account';
 
@@ -33,6 +35,16 @@ export type VisitDetail = {
 const VISITOR = 'ioi-vid';
 const SESSION = 'ioi-sid';
 const INTERNAL = 'ioi-internal';
+
+/** This browser's anonymous id: the same one analytics uses, and the key a
+ *  confirmed plan is filed under until its owner signs in. */
+export function visitorId(): string {
+  return storedId(() => localStorage, VISITOR);
+}
+
+export function internalDevice(): boolean {
+  return isInternal();
+}
 
 function storedId(store: () => Storage, key: string): string {
   try {

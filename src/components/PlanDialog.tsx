@@ -2,26 +2,20 @@
 
 import { useEffect } from 'react';
 import type { CompPlan } from '@/lib/calc';
-import PlanSentence from '@/components/PlanSentence';
-import type { TrackContext } from '@/lib/track';
+import PlanCapture from '@/components/capture/PlanCapture';
 
 /**
- * The plan form, over the deal instead of instead of it. Same component,
- * same `onSave` contract as the full `/plan` page — putting your plan in
- * shouldn't cost you the deal you were just looking at. Compact: shape, then
- * only the numbers that differ by shape — a full settings form defeats the
- * point of putting this in the header as the one quick thing to do.
+ * Putting your plan in, over the deal instead of instead of it: the same
+ * describe, check and confirm flow as the `/plan` page, with the same
+ * `onSave` contract. Putting your plan in shouldn't cost you the deal you
+ * were just looking at.
  */
 export default function PlanDialog({
-  plan,
   onSave,
   onClose,
-  trackAs,
 }: {
-  plan: CompPlan;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
   onClose: () => void;
-  trackAs?: TrackContext;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -43,7 +37,7 @@ export default function PlanDialog({
         <button type="button" className="dialog-close" aria-label="Close" onClick={onClose}>
           &times;
         </button>
-        <PlanSentence plan={plan} demo onSave={onSave} compact trackAs={trackAs} />
+        <PlanCapture current={null} onSave={onSave} account={false} compact onDone={onClose} doneLabel="Back to your deal" />
       </div>
     </div>
   );

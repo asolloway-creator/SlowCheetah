@@ -1,4 +1,4 @@
--- IOI schema v9 (2026-09-28): admin dashboard + anonymous product events.
+-- IOI schema v10 (2026-09-30): plan records, the anonymized plan data set.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -69,6 +69,22 @@
 --     deal ('sample') out of real usage ('own', 'account').
 --   - admin_accounts() and admin_traffic(): security-definer reads that
 --     refuse anyone but an admin.
+--
+-- v10 (2026-09-30) adds plan records: what people confirm when they describe
+-- their plan in their own words (or use the numbers form). Additive only,
+-- safe on a live v9 database as written at the end of this file:
+--   - public.plan_records: the rules of a plan (plan-record/schema.ts), the
+--     version IOI calculates with, how each rule fares in that math, and
+--     optional context from fixed lists. Never the words people typed, never
+--     a company, never deals, never exact pay. No policies: only the server
+--     writes (the ioi-server secret key, the one server-side key in the app,
+--     used for nothing else), and admins read through admin_plan_data().
+--   - public.rate_limits + take_rate_limit(): request counts for the paid AI
+--     reader, keyed by a keyed hash, never a raw network address, and
+--     deleted after a day. Callable only by the server.
+--   - events.name gains 'plan_read' and 'plan_confirmed'.
+--   - admin_plan_data(): the dashboard's plan-data section, one plan per
+--     person, same exclusions as admin_traffic().
 
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
@@ -322,3 +338,192 @@ end;
 $$;
 revoke execute on function public.admin_traffic(timestamptz, text, text) from public, anon;
 grant execute on function public.admin_traffic(timestamptz, text, text) to authenticated;
+
+-- ---------------------------------------------------------------- v10: plan records
+
+alter table public.events drop constraint if exists events_name_check;
+alter table public.events add constraint events_name_check check (name in (
+  'visit', 'slider_drag', 'bonus_line_crossed', 'plan_form_opened', 'plan_saved', 'deal_booked', 'signin_started',
+  'plan_read', 'plan_confirmed'
+));
+
+create table public.plan_records (
+  id                uuid primary key default gen_random_uuid(),
+  confirmed_at      timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  -- The contributor: an anonymous browser (the analytics visitor id) and,
+  -- once signed in, their account. Deleting an account deletes its plans.
+  visitor_id        uuid,
+  user_id           uuid references public.users (id) on delete cascade,
+  origin            text not null check (origin in ('described', 'form')),
+  format_version    smallint not null check (format_version >= 1),
+  -- Every rule described, calculable or not.
+  record            jsonb not null check (jsonb_typeof(record) = 'object' and pg_column_size(record) < 16384),
+  -- Conversions the person chose to see numbers now (annual run as quarterly, ...).
+  calc_choices      jsonb not null default '{}'::jsonb check (jsonb_typeof(calc_choices) = 'object'),
+  -- The version IOI calculates with, derived by fixed rules. Null when it can't run yet.
+  calc_plan         jsonb check (calc_plan is null or jsonb_typeof(calc_plan) = 'object'),
+  -- calculated / approximated / not_yet / recorded, per rule.
+  coverage          jsonb not null default '[]'::jsonb check (jsonb_typeof(coverage) = 'array'),
+  -- Why IOI couldn't run the numbers (period_year, measure_tcv, method_flat, ...).
+  limits            text[] not null default '{}',
+  -- What the AI reader produced before questions and corrections, kept only
+  -- when the server's signature on it checks out.
+  read_record       jsonb check (read_record is null or jsonb_typeof(read_record) = 'object'),
+  read_verified     boolean not null default false,
+  reader            jsonb check (reader is null or jsonb_typeof(reader) = 'object'),
+  questions         jsonb not null default '[]'::jsonb check (jsonb_typeof(questions) = 'array'),
+  corrections       jsonb not null default '[]'::jsonb check (jsonb_typeof(corrections) = 'array'),
+  -- Optional context, fixed lists only. Published figures need 10+ plans per group.
+  role_level        text check (role_level in ('sdr', 'ae', 'am', 'csm', 'se', 'manager', 'other')),
+  segment           text check (segment in ('smb', 'mid_market', 'enterprise', 'mixed')),
+  industry          text check (industry in (
+                      'software', 'fintech', 'security', 'devtools', 'healthcare', 'financial_services', 'insurance',
+                      'hospitality', 'retail', 'manufacturing', 'logistics', 'media', 'telecom', 'education',
+                      'real_estate', 'services', 'hr', 'other')),
+  company_size_band text check (company_size_band in ('1-50', '51-200', '201-500', '501-1000', '1001-5000', '5001+')),
+  tenure_band       text check (tenure_band in ('lt_1y', '1_2y', '2_4y', '4y_plus')),
+  region            text check (region in ('us', 'outside_us')),
+  ote_band          text check (ote_band in ('lt_100k', '100_150k', '150_200k', '200_250k', '250_300k', '300k_plus')),
+  env               text not null check (env in ('production', 'preview', 'development')),
+  internal          boolean not null default false,
+  constraint plan_records_contributor check (visitor_id is not null or user_id is not null)
+);
+create index plan_records_visitor_idx   on public.plan_records (visitor_id, confirmed_at desc);
+create index plan_records_user_idx      on public.plan_records (user_id, confirmed_at desc);
+create index plan_records_confirmed_idx on public.plan_records (confirmed_at);
+alter table public.plan_records enable row level security;  -- no policies
+revoke all on table public.plan_records from anon, authenticated;
+
+create table public.rate_limits (
+  bucket       text not null check (char_length(bucket) <= 120),
+  window_start timestamptz not null,
+  hits         integer not null default 0,
+  primary key (bucket, window_start)
+);
+create index rate_limits_window_idx on public.rate_limits (window_start);
+alter table public.rate_limits enable row level security;  -- no policies
+revoke all on table public.rate_limits from anon, authenticated;
+
+create or replace function public.take_rate_limit(p_bucket text, p_window_seconds integer, p_max integer)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  w timestamptz := to_timestamp(floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds);
+  n integer;
+begin
+  if random() < 0.05 then
+    delete from public.rate_limits where window_start < now() - interval '1 day';
+  end if;
+  insert into public.rate_limits as r (bucket, window_start, hits) values (p_bucket, w, 1)
+  on conflict (bucket, window_start) do update set hits = r.hits + 1
+  returning r.hits into n;
+  return n <= p_max;
+end;
+$$;
+revoke execute on function public.take_rate_limit(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.take_rate_limit(text, integer, integer) to service_role;
+
+
+-- The dashboard's plan-data section: admins only, same exclusions as
+-- admin_traffic (non-production, internal devices, admin accounts), one plan
+-- per person (their latest).
+create or replace function public.admin_plan_data(since timestamptz, tz text default 'UTC', env_filter text default 'production')
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  result jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  with admin_users as (
+    select u.id from auth.users u join public.admins a on a.email = lower(u.email)
+  ),
+  r as (
+    select pr.* from public.plan_records pr
+    where pr.env = env_filter and not pr.internal
+      and (pr.user_id is null or pr.user_id not in (select au.id from admin_users au))
+  ),
+  latest as (
+    select distinct on (coalesce(r.user_id::text, r.visitor_id::text)) r.*
+    from r
+    order by coalesce(r.user_id::text, r.visitor_id::text), r.confirmed_at desc
+  ),
+  p as (select * from r where r.confirmed_at >= since)
+  select jsonb_build_object(
+    'people', (select count(*) from latest),
+    'people_new', (select count(*) from latest where latest.confirmed_at >= since),
+    'confirmed', (select count(*) from p),
+    'described', (select count(*) from p where p.origin = 'described'),
+    'form', (select count(*) from p where p.origin = 'form'),
+    'calculable', (select count(*) from latest where latest.calc_plan is not null),
+    'with_context', (select count(*) from latest where coalesce(latest.role_level, latest.segment, latest.industry,
+      latest.company_size_band, latest.tenure_band, latest.region, latest.ote_band) is not null),
+    'verified_reads', (select count(*) from p where p.read_verified),
+    'corrected_reads', (select count(*) from p where p.read_verified and jsonb_array_length(p.corrections) > 0),
+    'shapes', (
+      select coalesce(jsonb_agg(jsonb_build_object('period', s.period, 'measure', s.measure, 'method', s.method, 'accel', s.accel, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (
+        select l.record->'quota'->>'period' as period,
+               l.record->'quota'->>'measure' as measure,
+               coalesce(l.record->'pay_rules'->0->>'method', 'unknown') as method,
+               coalesce(l.record->'accelerators'->0->>'kind', 'none') as accel,
+               count(*) as n
+        from latest l group by 1, 2, 3, 4
+      ) s
+    ),
+    'not_yet', (
+      select coalesce(jsonb_agg(jsonb_build_object('note', s.note, 'status', s.status, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (
+        select c->>'note' as note, c->>'status' as status, count(distinct l.id) as n
+        from latest l, jsonb_array_elements(l.coverage) c
+        where c->>'status' in ('not_yet', 'approximated', 'recorded')
+        group by 1, 2
+      ) s
+    ),
+    'limits', (
+      select coalesce(jsonb_agg(jsonb_build_object('limit', s.lim, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (select lim, count(*) as n from latest l, unnest(l.limits) lim group by lim) s
+    ),
+    'features', (
+      select coalesce(jsonb_agg(jsonb_build_object('feature', s.f, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (
+        select f, count(distinct l.id) as n
+        from latest l, jsonb_array_elements_text(l.record->'other_features') f
+        group by f
+      ) s
+    ),
+    'corrections', (
+      select coalesce(jsonb_agg(jsonb_build_object('path', s.path, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (
+        select regexp_replace(c->>'path', '\.\d+', '', 'g') as path, count(*) as n
+        from p, jsonb_array_elements(p.corrections) c
+        where p.read_verified
+        group by 1
+      ) s
+    ),
+    'questions', (
+      select coalesce(jsonb_agg(jsonb_build_object('topic', s.topic, 'how', s.how, 'n', s.n) order by s.n desc), '[]'::jsonb)
+      from (select q->>'topic' as topic, q->>'how' as how, count(*) as n from p, jsonb_array_elements(p.questions) q group by 1, 2) s
+    ),
+    'context', jsonb_build_object(
+      'role_level', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(role_level, 'unset') as k, count(*) as n from latest group by 1) s),
+      'segment', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(segment, 'unset') as k, count(*) as n from latest group by 1) s),
+      'industry', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(industry, 'unset') as k, count(*) as n from latest group by 1) s),
+      'company_size_band', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(company_size_band, 'unset') as k, count(*) as n from latest group by 1) s),
+      'tenure_band', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(tenure_band, 'unset') as k, count(*) as n from latest group by 1) s),
+      'region', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(region, 'unset') as k, count(*) as n from latest group by 1) s),
+      'ote_band', (select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (select coalesce(ote_band, 'unset') as k, count(*) as n from latest group by 1) s)
+    ),
+    'daily', (
+      select coalesce(jsonb_agg(jsonb_build_object('day', s.day, 'n', s.n) order by s.day), '[]'::jsonb)
+      from (select (p.confirmed_at at time zone tz)::date as day, count(*) as n from p group by 1) s
+    ),
+    'last_confirmed_at', (select max(r.confirmed_at) from r)
+  ) into result;
+
+  return result;
+end;
+$$;
+revoke execute on function public.admin_plan_data(timestamptz, text, text) from public, anon;
+grant execute on function public.admin_plan_data(timestamptz, text, text) to authenticated;

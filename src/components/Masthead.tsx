@@ -53,9 +53,12 @@ export default function Masthead({ current, email }: { current: string; email: s
             <Link className="nav-link" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
               Sign in
             </Link>
-            <Link className="btn btn-primary" href="/?plan=1" scroll={false}>
-              Put your plan in
-            </Link>
+            {/* Already on the page where you put your plan in. */}
+            {current !== '/plan' && (
+              <Link className="btn btn-primary" href="/?plan=1" scroll={false}>
+                Put your plan in
+              </Link>
+            )}
           </div>
         )}
       </div>

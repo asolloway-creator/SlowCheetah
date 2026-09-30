@@ -196,9 +196,10 @@ export default function DealStage({
   async function savePlan(p: CompPlan) {
     const res = await onSavePlan!(p);
     if (!res.error) {
-      setPlanOpen(false);
-      // A deal sized to close the gap to your own accelerator, the same
-      // "one deal from crossing" moment the sample opens on.
+      // The dialog stays open on its "saved" step and closes itself; the
+      // deal behind it updates now. A deal sized to close the gap to your
+      // own accelerator, the same "one deal from crossing" moment the
+      // sample opens on.
       setDeal(syntheticOpening(p).starter);
       setDirty(false);
       setMsg({});
@@ -459,7 +460,7 @@ export default function DealStage({
       </section>
 
       {demo && planOpen && onSavePlan && (
-        <PlanDialog plan={plan} onSave={savePlan} onClose={() => setPlanOpen(false)} trackAs={ctx} />
+        <PlanDialog onSave={savePlan} onClose={() => setPlanOpen(false)} />
       )}
     </>
   );

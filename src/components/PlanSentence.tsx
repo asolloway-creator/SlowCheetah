@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { trackOnce, type TrackContext } from '@/lib/track';
 import {
   COMPANY_SIZE_BANDS,
@@ -10,6 +9,7 @@ import {
   type CommissionStyle,
   type CompPlan,
   type Preset,
+  type QuarterlyKicker,
   type QuarterlyKickerTier,
   type QuotaBasis,
 } from '@/lib/calc';
@@ -86,24 +86,19 @@ function TextField({
  * English so you can check it at a glance; the form below it is what you
  * actually edit.
  *
- * `compact`: the inline dialog's version — shape, then only the numbers
- * that actually differ by shape (quota, base rate, accelerator threshold
- * and rate). Role name, period, and one-time weight stay at whatever the
- * chosen preset set them to; a link out to the full form covers anyone who
- * wants those too. Only makes sense against a real plan (demo/signed-in
- * with one already set) — never the from-scratch blank-plan path.
+ * Since plans are usually described in words now (components/capture),
+ * this is the "adjust the numbers" path: for anyone who'd rather type the
+ * numbers, or wants to fine-tune what was read.
  */
 export default function PlanSentence({
   plan,
   demo,
   onSave,
-  compact = false,
   trackAs,
 }: {
   plan: CompPlan | null;
   demo: boolean;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
-  compact?: boolean;
   /** Analytics context the form was opened from (see lib/track.ts). */
   trackAs?: TrackContext;
 }) {
@@ -179,9 +174,22 @@ export default function PlanSentence({
     setPreset(null);
     setMsg({});
     setP((x) => {
+      if (!x.quarterly_kicker || !x.quarterly_kicker.tiers[idx]) return x;
+      const tiers = [...x.quarterly_kicker.tiers] as QuarterlyKicker['tiers'];
+      tiers[idx] = { ...tiers[idx]!, [field]: v };
+      return { ...x, quarterly_kicker: { ...x.quarterly_kicker, tiers } };
+    });
+  };
+  // The stretch tier is optional: plenty of plans pay one bonus level.
+  const setStretch = (on: boolean) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => {
       if (!x.quarterly_kicker) return x;
-      const tiers = [...x.quarterly_kicker.tiers] as [QuarterlyKickerTier, QuarterlyKickerTier];
-      tiers[idx] = { ...tiers[idx], [field]: v };
+      const [t0] = x.quarterly_kicker.tiers;
+      const tiers: QuarterlyKicker['tiers'] = on
+        ? [t0, { attainmentPct: Math.max(t0.attainmentPct + 20, 140), kickerPct: 0 }]
+        : [t0];
       return { ...x, quarterly_kicker: { ...x.quarterly_kicker, tiers } };
     });
   };
@@ -208,7 +216,7 @@ export default function PlanSentence({
         return 'Set a quarterly SaaS target before saving. The kicker can’t be reached at $0.';
       }
       const [t0, t1] = plan.quarterly_kicker.tiers;
-      if (!(t1.attainmentPct > t0.attainmentPct)) {
+      if (t1 && !(t1.attainmentPct > t0.attainmentPct)) {
         return 'Quarterly Bonus (Stretch) attainment must be higher than the base tier’s.';
       }
     }
@@ -249,78 +257,12 @@ export default function PlanSentence({
     ? 'Pick a preset above, or start on the fields below. This line fills in as you go.'
     : `You're ${article} ${p.role_name || 'rep'} working toward a ${noun}ly quota of ${target}. ${planSentence(p)}.`;
 
-  const hasAccel = p.accelerator_style !== 'none';
   const kickerOn = p.quarterly_kicker !== null;
-  const kicker = p.quarterly_kicker ?? { target: 0, tiers: [{ attainmentPct: 110, kickerPct: 0 }, { attainmentPct: 140, kickerPct: 0 }] as [QuarterlyKickerTier, QuarterlyKickerTier] };
-
-  if (compact) {
-    return (
-      <div className="plan">
-        <h1 className="page-title">Your plan</h1>
-        <p className="plan-intro">Pick the shape closest to yours, then the numbers that matter.</p>
-
-        <PresetTiles selected={preset} onSelect={choose} />
-
-        <p className="plan-readout">{readout}</p>
-
-        <NumField
-          id="qk-quota"
-          label={`Quota per ${noun}`}
-          value={p.quota}
-          prefix={arr ? '$' : undefined}
-          suffix={arr ? undefined : 'units'}
-          integer={!arr}
-          onChange={(n) => set('quota', n)}
-        />
-        <div className="field-grid">
-          <NumField
-            id="qk-rate"
-            label="Base rate"
-            value={p.base_rate}
-            suffix={percent ? '%' : 'months of MRR'}
-            max={percent ? 100 : 36}
-            onChange={(n) => set('base_rate', n)}
-          />
-          {hasAccel && (
-            <NumField
-              id="qk-th"
-              label="Kicks in at"
-              value={p.accelerator_threshold}
-              prefix={arr ? '$' : undefined}
-              suffix={arr ? undefined : 'units'}
-              integer={!arr}
-              onChange={(n) => set('accelerator_threshold', n)}
-            />
-          )}
-        </div>
-        {hasAccel && (
-          <NumField
-            id="qk-arate"
-            label={p.accelerator_style === 'retro_bump' ? 'Bump, on everything closed' : 'Accelerated rate'}
-            value={p.accelerator_rate}
-            suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
-            max={p.accelerator_style === 'retro_bump' || percent ? 100 : 36}
-            onChange={(n) => set('accelerator_rate', n)}
-          />
-        )}
-
-        <div className="plan-save">
-          <p className={`plan-msg${msg.error ? ' is-error' : ''}`} aria-live="polite">
-            {msg.error ?? ''}
-          </p>
-          <button type="button" className="btn btn-primary" disabled={pending} onClick={submit}>
-            {pending ? 'Saving…' : 'Use this plan'}
-          </button>
-        </div>
-        <p className="plan-more">
-          Role, period, or how one-time products weigh in?{' '}
-          <Link className="btn-text" href="/plan">
-            Open the full form &rarr;
-          </Link>
-        </p>
-      </div>
-    );
-  }
+  const kicker: QuarterlyKicker = p.quarterly_kicker ?? {
+    target: 0,
+    tiers: [{ attainmentPct: 110, kickerPct: 0 }, { attainmentPct: 140, kickerPct: 0 }],
+  };
+  const stretch = kicker.tiers[1] ?? null;
 
   return (
     <div className="plan">
@@ -485,24 +427,35 @@ export default function PlanSentence({
               onChange={(n) => setKickerTier(0, 'kickerPct', n)}
             />
           </div>
-          <div className="field-grid">
-            <NumField
-              id="kk-t2-pct"
-              label="Quarterly Bonus (Stretch) attainment"
-              value={kicker.tiers[1].attainmentPct}
-              suffix="%"
-              max={1000}
-              onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
-            />
-            <NumField
-              id="kk-t2-kick"
-              label="Quarterly Bonus (Stretch) kicker"
-              value={kicker.tiers[1].kickerPct}
-              suffix="%"
-              max={200}
-              onChange={(n) => setKickerTier(1, 'kickerPct', n)}
-            />
-          </div>
+          {stretch ? (
+            <>
+              <div className="field-grid">
+                <NumField
+                  id="kk-t2-pct"
+                  label="Quarterly Bonus (Stretch) attainment"
+                  value={stretch.attainmentPct}
+                  suffix="%"
+                  max={1000}
+                  onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
+                />
+                <NumField
+                  id="kk-t2-kick"
+                  label="Quarterly Bonus (Stretch) kicker"
+                  value={stretch.kickerPct}
+                  suffix="%"
+                  max={200}
+                  onChange={(n) => setKickerTier(1, 'kickerPct', n)}
+                />
+              </div>
+              <button type="button" className="btn-text" onClick={() => setStretch(false)}>
+                Remove the stretch tier
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn-text" onClick={() => setStretch(true)}>
+              Add a stretch tier
+            </button>
+          )}
         </>
       )}
 

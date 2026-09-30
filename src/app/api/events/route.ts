@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const NAMES = new Set(['visit', 'slider_drag', 'bonus_line_crossed', 'plan_form_opened', 'plan_saved', 'deal_booked', 'signin_started']);
+const NAMES = new Set([
+  'visit', 'slider_drag', 'bonus_line_crossed', 'plan_form_opened', 'plan_saved', 'deal_booked', 'signin_started',
+  'plan_read', 'plan_confirmed',
+]);
 const CONTEXTS = new Set(['site', 'sample', 'own', 'account']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BOT = /bot|crawl|spider|slurp|facebookexternalhit|headless|lighthouse|preview/i;

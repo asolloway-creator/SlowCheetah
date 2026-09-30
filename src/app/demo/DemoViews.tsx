@@ -7,7 +7,7 @@ import { Shell } from '@/app/AccountViews';
 import DealStage from '@/components/DealStage';
 import QuotaView from '@/components/QuotaView';
 import HistoryView from '@/components/HistoryView';
-import PlanSentence from '@/components/PlanSentence';
+import PlanCapture from '@/components/capture/PlanCapture';
 import HowItWorks from '@/components/HowItWorks';
 import { ClosingCta, LandingHero } from '@/components/Landing';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
@@ -80,7 +80,9 @@ export function DemoPlan() {
   const d = useDemoStore();
   return (
     <Shell current="/plan" email={null} width="plan">
-      {d.ready && <PlanSentence plan={d.plan} demo onSave={d.savePlan} trackAs={d.seeded ? 'sample' : 'own'} />}
+      {/* The stock sample isn't anyone's plan: a visitor who hasn't put theirs
+          in yet starts by describing it, not by editing the sample. */}
+      {d.ready && <PlanCapture current={d.seeded ? null : d.plan} onSave={d.savePlan} account={false} />}
     </Shell>
   );
 }

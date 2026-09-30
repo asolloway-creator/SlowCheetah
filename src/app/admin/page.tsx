@@ -1,5 +1,5 @@
 import { Shell } from '@/app/AccountViews';
-import { adminTimeZone, daysAgo, getAccounts, getTraffic, parseEnv, parseRange, requireAdmin, sinceOf } from '@/lib/admin';
+import { adminTimeZone, daysAgo, getAccounts, getPlanData, getTraffic, parseEnv, parseRange, requireAdmin, sinceOf } from '@/lib/admin';
 import DashboardView from '@/components/admin/DashboardView';
 
 export const metadata = { title: 'Dashboard · IOI', robots: { index: false, follow: false } };
@@ -15,13 +15,18 @@ export default async function AdminPage({
   const env = parseEnv(sp.env);
   const since = sinceOf(range);
   const tz = await adminTimeZone();
-  const [accounts, traffic] = await Promise.all([getAccounts(supabase), getTraffic(supabase, since, tz, env)]);
+  const [accounts, traffic, plans] = await Promise.all([
+    getAccounts(supabase),
+    getTraffic(supabase, since, tz, env),
+    getPlanData(supabase, since, tz, env),
+  ]);
 
   return (
     <Shell current="/admin" email={user.email ?? ''} width="wide">
       <DashboardView
         accounts={accounts}
         traffic={traffic}
+        plans={plans}
         range={range}
         env={env}
         showEmails={sp.emails === '1'}

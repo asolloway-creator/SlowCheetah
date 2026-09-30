@@ -87,11 +87,20 @@ export function DailyChart({ points, unit, emptyText }: { points: { label: strin
 }
 
 /** A short ranked list: label, bar, value at the tip. */
-export function BarList({ rows, emptyText }: { rows: { label: string; value: number }[]; emptyText: string }) {
+export function BarList({
+  rows,
+  emptyText,
+  stacked = false,
+}: {
+  rows: { label: string; value: number }[];
+  emptyText: string;
+  /** Long labels: each on its own line above its bar. */
+  stacked?: boolean;
+}) {
   const max = Math.max(0, ...rows.map((r) => r.value));
   if (max === 0) return <p className="admin-empty">{emptyText}</p>;
   return (
-    <ul className="bar-list">
+    <ul className={stacked ? 'bar-list is-stacked' : 'bar-list'}>
       {rows.map((r) => (
         <li key={r.label}>
           <span className="bar-list-label">{r.label}</span>

@@ -137,3 +137,54 @@ export async function getTraffic(supabase: SupabaseClient, since: Date, tz: stri
 export function stepOf(t: Traffic, name: string, context: string) {
   return t.steps.find((s) => s.name === name && s.context === context) ?? { name, context, visitors: 0, events: 0 };
 }
+
+type Count<K extends string> = { [P in K]: string } & { n: number };
+export type PlanData = {
+  people: number;
+  peopleNew: number;
+  confirmed: number;
+  described: number;
+  form: number;
+  calculable: number;
+  withContext: number;
+  verifiedReads: number;
+  correctedReads: number;
+  shapes: (Count<'period' | 'measure' | 'method' | 'accel'>)[];
+  notYet: (Count<'note' | 'status'>)[];
+  limits: Count<'limit'>[];
+  features: Count<'feature'>[];
+  corrections: Count<'path'>[];
+  questions: (Count<'topic' | 'how'>)[];
+  context: Record<string, Record<string, number>>;
+  daily: { day: string; n: number }[];
+  lastConfirmedAt: string | null;
+};
+
+/** Confirmed plan records, one per person, under the same exclusions as traffic. */
+export async function getPlanData(supabase: SupabaseClient, since: Date, tz: string, env: Env): Promise<PlanData> {
+  const { data, error } = await supabase.rpc('admin_plan_data', { since: since.toISOString(), tz, env_filter: env });
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as Record<string, unknown>;
+  const n = (v: unknown) => Number(v ?? 0);
+  const list = <T,>(v: unknown) => ((v ?? []) as Record<string, unknown>[]).map((x) => ({ ...x, n: n(x.n) }) as T);
+  return {
+    people: n(d.people),
+    peopleNew: n(d.people_new),
+    confirmed: n(d.confirmed),
+    described: n(d.described),
+    form: n(d.form),
+    calculable: n(d.calculable),
+    withContext: n(d.with_context),
+    verifiedReads: n(d.verified_reads),
+    correctedReads: n(d.corrected_reads),
+    shapes: list(d.shapes),
+    notYet: list(d.not_yet),
+    limits: list(d.limits),
+    features: list(d.features),
+    corrections: list(d.corrections),
+    questions: list(d.questions),
+    context: (d.context ?? {}) as Record<string, Record<string, number>>,
+    daily: ((d.daily ?? []) as Record<string, unknown>[]).map((x) => ({ day: String(x.day), n: n(x.n) })),
+    lastConfirmedAt: d.last_confirmed_at ? String(d.last_confirmed_at) : null,
+  };
+}

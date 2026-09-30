@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { COMPANY_SIZE_BANDS } from '@/lib/calc';
 import { fmtMoney, planSentence } from '@/lib/format';
-import { RANGES, stepOf, type Account, type Env, type Range, type Traffic } from '@/lib/admin';
+import { RANGES, stepOf, type Account, type Env, type PlanData, type Range, type Traffic } from '@/lib/admin';
+import PlanDataSection from '@/components/admin/PlanDataSection';
 import { BarList, DailyChart, Journey, MixCard, StatTile, Tag } from '@/components/admin/AdminParts';
+import { daySeries, when } from '@/components/admin/series';
 
-const DAY = 86_400_000;
 const SIZE_LABEL = Object.fromEntries(COMPANY_SIZE_BANDS);
 const SOURCE_LABEL: Record<string, string> = {
   direct: 'Direct',
@@ -13,32 +14,6 @@ const SOURCE_LABEL: Record<string, string> = {
   meta: 'Facebook / Instagram',
   x: 'X',
 };
-
-const dayKey = (d: Date, tz: string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-const keyToUtc = (k: string) => {
-  const [y, m, d] = k.split('-').map(Number);
-  return Date.UTC(y, m - 1, d);
-};
-const dayLabel = (k: string) =>
-  new Date(keyToUtc(k)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-
-function when(iso: string | null, tz: string) {
-  if (!iso) return 'Never';
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: tz });
-}
-
-/** Every day in range, zero-filled, capped at the most recent 60. */
-function daySeries(daily: { day: string; visitors: number }[], range: Range, tz: string) {
-  const today = dayKey(new Date(), tz);
-  const byDay = new Map(daily.map((d) => [d.day, d.visitors]));
-  const span = range === '7d' ? 7 : range === '30d' ? 30 : daily.length ? Math.round((keyToUtc(today) - keyToUtc(daily[0].day)) / DAY) + 1 : 1;
-  const n = Math.min(60, Math.max(1, span));
-  return Array.from({ length: n }, (_, i) => {
-    const k = new Date(keyToUtc(today) - (n - 1 - i) * DAY).toISOString().slice(0, 10);
-    return { label: dayLabel(k), value: byDay.get(k) ?? 0 };
-  });
-}
 
 function countBy<T>(items: T[], key: (t: T) => string): [string, number][] {
   const m = new Map<string, number>();
@@ -51,6 +26,7 @@ function countBy<T>(items: T[], key: (t: T) => string): [string, number][] {
 export default function DashboardView({
   accounts,
   traffic,
+  plans,
   range,
   env,
   showEmails,
@@ -60,6 +36,7 @@ export default function DashboardView({
 }: {
   accounts: Account[];
   traffic: Traffic;
+  plans: PlanData;
   range: Range;
   env: Env;
   showEmails: boolean;
@@ -214,6 +191,9 @@ export default function DashboardView({
           )}
         </section>
 
+        {/* ---------------------------------------------------------------- plan data */}
+        <PlanDataSection d={plans} range={range} tz={tz} rangeLabel={rangeLabel} />
+
         {/* ---------------------------------------------------------------- traffic + sample */}
         <section className="admin-section is-sample" aria-labelledby="sample-h">
           <div className="admin-section-head">
@@ -256,7 +236,9 @@ export default function DashboardView({
                 { label: 'Visited the site', value: traffic.journey.visited },
                 { label: 'Dragged the sample discount', value: traffic.journey.sampleDrag, tag: 'sample' },
                 { label: 'Crossed the bonus line on the sample', value: traffic.journey.sampleCross, tag: 'sample' },
-                { label: 'Opened the plan form', value: traffic.journey.formOpened },
+                { label: 'Started putting their plan in', value: traffic.journey.formOpened },
+                { label: 'Had their plan read', value: stepOf(traffic, 'plan_read', 'own').visitors, tag: 'real' },
+                { label: 'Confirmed their plan', value: stepOf(traffic, 'plan_confirmed', 'own').visitors, tag: 'real' },
                 { label: 'Saved their own plan', value: traffic.journey.ownSaved, tag: 'real' },
                 { label: 'Asked for a sign-in link', value: traffic.journey.signinStarted, tag: 'real' },
                 { label: 'Created an account', value: newInRange, tag: 'real', note: 'from accounts' },
