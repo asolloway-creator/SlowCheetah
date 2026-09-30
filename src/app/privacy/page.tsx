@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { currentUser } from '@/lib/queries';
 import { Shell } from '../AccountViews';
 import { Doc, DocSection } from '@/components/Doc';
+import DeleteAccount from '@/components/DeleteAccount';
 
 export const metadata = {
   title: 'Privacy · IOI',
@@ -77,12 +78,14 @@ export default async function PrivacyPage() {
               <b>Forget my plan</b> on <Link href="/plan">your plan page</Link> removes every plan you’ve shared.
             </li>
             <li>
-              To delete your account and everything saved with it, email{' '}
+              <b>Delete my account</b>, below when you’re signed in, removes your account and everything saved with it,
+              including every plan you’ve shared. You can also email{' '}
               <a href="mailto:asolloway@gmail.com?subject=IOI%3A%20delete%20my%20account">asolloway@gmail.com</a> from the
-              address you sign in with. It’s done within 30 days.
+              address you sign in with, and it’s done within 30 days.
             </li>
             <li>Clearing this site’s data in your browser removes the plan and deals kept there.</li>
           </ul>
+          {user && <DeleteAccount />}
         </DocSection>
 
         <DocSection title="The rest">

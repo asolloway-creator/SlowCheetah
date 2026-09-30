@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
 import { calc, COMPANY_SIZE_BANDS, type CompPlan, type DealInput } from '@/lib/calc';
+import { serviceClient } from '@/lib/supabase/service';
 
 export type Result = { error?: string };
 
@@ -206,3 +207,28 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
 export async function importDemoPlanAction(input: CompPlan): Promise<Result> {
   return savePlanAction(input);
 }
+
+const VISITOR = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Deletes the signed-in account and everything saved with it: the working
+ * plan and deals (they cascade from the account), every plan it shared, and
+ * any plans this browser shared before signing in. Needs the server key,
+ * since only the server may remove an account.
+ */
+export async function deleteAccountAction(visitorId: string): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to delete your account.' };
+  const db = serviceClient();
+  if (!db) return { error: 'Deleting accounts isn’t available right now. Email asolloway@gmail.com and it’ll be done within 30 days.' };
+  if (VISITOR.test(visitorId)) await db.from('plan_records').delete().eq('visitor_id', visitorId);
+  await db.from('plan_records').delete().eq('user_id', user.id);
+  const { error } = await db.auth.admin.deleteUser(user.id);
+  if (error) return { error: 'That didn’t go through. Try again, or email asolloway@gmail.com.' };
+  try {
+    await supabase.auth.signOut();
+  } catch {}
+  revalidatePath('/', 'layout');
+  return {};
+}
+
