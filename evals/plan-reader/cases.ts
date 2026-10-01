@@ -143,7 +143,9 @@ export const CASES: Case[] = [
     checks: [
       ['record.floors.0.kind', 'no_commission_below'],
       ['record.floors.0.below_pct', 50],
-      ['plan.base_rate', 9],
+      ['record.pay_rules.0.rate', 9],
+      // "$90K quarterly quota" never says what it counts, so IOI should ask rather than guess.
+      ['gaps', ['quota_measure']],
     ],
   },
   {

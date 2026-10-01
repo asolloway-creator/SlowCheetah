@@ -51,23 +51,27 @@ async function run(id: string, text: string, checks: Check[], current?: PlanReco
   for (const m of misses) console.log(`        ${m}`);
 }
 
-const todo = CASES.filter((c) => only.size === 0 || only.has(c.id));
-// A few at a time: fast, and gentle on rate limits.
-for (let i = 0; i < todo.length; i += 4) {
-  await Promise.all(todo.slice(i, i + 4).map((c) => run(c.id, c.text, c.checks, c.current)));
-}
-if (only.size === 0 || only.has('correction')) {
-  const base = records.get(CORRECTION.from);
-  if (base) await run('correction', CORRECTION.text, CORRECTION.checks, base);
+async function main() {
+  const todo = CASES.filter((c) => only.size === 0 || only.has(c.id));
+  // A few at a time: fast, and gentle on rate limits.
+  for (let i = 0; i < todo.length; i += 4) {
+    await Promise.all(todo.slice(i, i + 4).map((c) => run(c.id, c.text, c.checks, c.current)));
+  }
+  if (only.size === 0 || only.has('correction')) {
+    const base = records.get(CORRECTION.from);
+    if (base) await run('correction', CORRECTION.text, CORRECTION.checks, base);
+  }
+
+  const total = rows.reduce((n, r) => n + r.checks, 0);
+  const missed = rows.reduce((n, r) => n + r.misses.length, 0);
+  const times = rows.map((r) => r.ms).filter(Boolean).sort((a, b) => a - b);
+  const pct = (p: number) => times[Math.min(times.length - 1, Math.floor((times.length * p) / 100))] ?? 0;
+  console.log(
+    `\n${READER.model} effort=${effort}: ${rows.filter((r) => !r.misses.length).length}/${rows.length} cases clean, ` +
+      `${total - missed}/${total} checks (${((100 * (total - missed)) / Math.max(1, total)).toFixed(1)}%). ` +
+      `Latency p50 ${(pct(50) / 1000).toFixed(1)}s, p90 ${(pct(90) / 1000).toFixed(1)}s. ` +
+      `Cost $${rows.reduce((n, r) => n + r.cost, 0).toFixed(3)} total, $${(rows.reduce((n, r) => n + r.cost, 0) / Math.max(1, rows.length)).toFixed(4)} a read.`,
+  );
 }
 
-const total = rows.reduce((n, r) => n + r.checks, 0);
-const missed = rows.reduce((n, r) => n + r.misses.length, 0);
-const times = rows.map((r) => r.ms).filter(Boolean).sort((a, b) => a - b);
-const pct = (p: number) => times[Math.min(times.length - 1, Math.floor((times.length * p) / 100))] ?? 0;
-console.log(
-  `\n${READER.model} effort=${effort}: ${rows.filter((r) => !r.misses.length).length}/${rows.length} cases clean, ` +
-    `${total - missed}/${total} checks (${((100 * (total - missed)) / Math.max(1, total)).toFixed(1)}%). ` +
-    `Latency p50 ${(pct(50) / 1000).toFixed(1)}s, p90 ${(pct(90) / 1000).toFixed(1)}s. ` +
-    `Cost $${rows.reduce((n, r) => n + r.cost, 0).toFixed(3)} total, $${(rows.reduce((n, r) => n + r.cost, 0) / Math.max(1, rows.length)).toFixed(4)} a read.`,
-);
+main();

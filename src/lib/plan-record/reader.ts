@@ -53,11 +53,11 @@ Accelerators (anything that pays more past a point)
 - If an accelerator is mentioned but how it applies to earlier deals is genuinely unclear, use kind "unknown". A plain "12% after quota" is forward_rate, marked "assumed".
 
 Other rules
-- Pays less or nothing below a level ("no commission under 50% attainment", "half rate below 75%"): floors.
-- Discount rules ("deals over 20% off pay half rate", "over 30% off pays nothing"): discount_rules. Ordinary "commission is on what the customer actually pays" is not a discount rule.
-- Bonuses: a percent boost on a period's commission for hitting attainment levels is period_kicker. A fixed dollar bonus at an attainment level is attainment_bonus. A bonus for selling a particular product, multi-year deals, prepaid deals, new logos or an activity is spiff. Record each level as a tier.
-- "Capped at 2x target": caps total_commission, pct_of_target 200. "Uncapped": no caps.
-- "If a customer churns in the first 6 months I lose the commission": clawbacks, within_months 6, share_pct 100.
+- Pays less or nothing below a level ("no commission under 50% attainment", "half rate below 75%"): a limits entry, floor_no_commission or floor_reduced_rate, pct 50.
+- Discount rules ("deals over 20% off pay half rate", "over 30% off pays nothing"): a limits entry, discount_reduced_rate or discount_no_commission, pct 20. Ordinary "commission is on what the customer actually pays" is not a discount rule.
+- Bonuses: a percent boost on a period's commission for hitting attainment levels is period_kicker. A fixed dollar bonus at an attainment level is attainment_bonus. A bonus for selling a particular product, multi-year deals, prepaid deals, new logos or an activity is spiff. Each level is its own bonus_levels entry.
+- "Capped at 2x target": a limits entry, cap_total, pct 200. "Uncapped": no cap entry.
+- "If a customer churns in the first 6 months I lose the commission": a limits entry, clawback, months 6, pct 100.
 - Draws: recoverable (paid back from future commission) or non_recoverable (guaranteed).
 - paid_when: booking, invoice, collection (when the customer pays), go_live, or unknown.
 - other_features only for things mentioned that have no field above: a ramped quota, split deals, extra credit for multi-year deals, a team bonus, goals-based bonuses (MBOs), territory rules, an overlay role, separate renewal rules, a windfall clause.
@@ -69,9 +69,9 @@ What kind of input this is
 - "too_vague": about pay but with almost nothing to go on, such as "I get commission" or "decent accelerators".
 
 Examples of the reading, not of the output format
-- "Enterprise AE, $900K annual quota on new ARR. 8% of first-year ACV, 12% on everything over quota. Uncapped. Paid when the customer pays." Quota year, new_arr, 900000, stated. One pay rule: all, percent_of_value, first_year_value, 8. One accelerator: marginal_tier, starts_at_pct 100, rate 12. No caps. paid_when collection. one_time_counts_pct -1.
+- "Enterprise AE, $900K annual quota on new ARR. 8% of first-year ACV, 12% on everything over quota. Uncapped. Paid when the customer pays." Quota year, new_arr, 900000, stated. One pay rule: all, percent_of_value, first_year_value, 8. One accelerator: marginal_tier, starts_at_pct 100, rate 12. No limits entries. paid_when collection. one_time_counts_pct -1.
 - "2 months of MRR per deal, and once I pass $100K new ARR in a quarter I get a 25% bump on the whole quarter. Quota is $100K a quarter." Quota quarter, new_arr, 100000. Pay rule months_of_mrr, rate 2. Accelerator retroactive_bump, starts_at_amount 100000, starts_at_pct -1, rate 25, stated.
-- "8 units a month. 7% of deal value, 9.5% once I've closed 8. Setup fees count at 40%. Plus a quarterly SaaS bonus: 25% extra on the quarter's SaaS commission at 105% of a $540K target, 30% at 130%." Quota month, units, 8. Pay rule percent_of_value, value_basis unknown, 7. one_time_counts_pct 40. Accelerator forward_rate, starts_at_amount 8, rate 9.5, assumed. Bonus period_kicker, quarter, new_arr, target 540000, tiers (105, 25) and (130, 30).`;
+- "8 units a month. 7% of deal value, 9.5% once I've closed 8. Setup fees count at 40%. Plus a quarterly SaaS bonus: 25% extra on the quarter's SaaS commission at 105% of a $540K target, 30% at 130%." Quota month, units, 8. Pay rule percent_of_value, value_basis unknown, 7. one_time_counts_pct 40. Accelerator forward_rate, starts_at_amount 8, rate 9.5, assumed. Two bonus_levels entries, both period_kicker, quarter, new_arr, target 540000: (at 105, pays 25) and (at 130, pays 30).`;
 
 export type ReadResult =
   | { ok: true; kind: Extract<InputKind, 'plan' | 'too_vague'>; record: PlanRecord; meta: ReaderMeta & { served_by: string }; usage: Usage; ms: number }
@@ -147,7 +147,7 @@ function fixtureRead(text: string, current?: PlanRecord): ReadResult {
   const meta = { model: 'fixture', effort: 'none', prompt: READER.prompt, served_by: 'fixture' };
   const usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
   if (/section \d|participant|the company shall|confidential/i.test(text)) return { ok: true, kind: 'document', meta, usage, ms: 0 };
-  if (text.length < 25) return { ok: true, kind: 'too_vague', record: recordFromWire({ ...FIXTURE, quota: { ...FIXTURE.quota, amount: -1 } }), meta, usage, ms: 0 };
+  if (text.length < 25) return { ok: true, kind: 'too_vague', record: recordFromWire({ ...FIXTURE, quota_amount: -1 }), meta, usage, ms: 0 };
   const wire: WireRead = current ? { ...wireFromRecord(current), input_kind: 'plan' } : FIXTURE;
   return { ok: true, kind: 'plan', record: recordFromWire(wire), meta, usage, ms: 0 };
 }
@@ -156,22 +156,24 @@ const FIXTURE: WireRead = {
   input_kind: 'plan',
   role_level: 'ae',
   role_title: 'Mid-Market AE',
-  quota: { period: 'quarter', measure: 'new_arr', amount: 150000, source: 'stated' },
+  quota_period: 'quarter',
+  quota_measure: 'new_arr',
+  quota_amount: 150000,
+  quota_source: 'stated',
   pay_rules: [{ applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 10, source: 'stated' }],
   one_time_counts_pct: -1,
   one_time_source: 'stated',
   accelerators: [{ kind: 'unknown', starts_at_pct: 100, starts_at_amount: -1, rate: 15, source: 'stated' }],
-  floors: [],
-  discount_rules: [],
-  bonuses: [
+  bonus_levels: [
     {
       kind: 'period_kicker', period: 'quarter', measure: 'new_arr', target_amount: -1, spiff_for: 'not_applicable',
-      tiers: [{ at_pct: 110, pays_pct: 10, pays_amount: -1 }], source: 'stated',
+      at_pct: 110, pays_pct: 10, pays_amount: -1, source: 'stated',
     },
   ],
-  caps: [{ kind: 'total_commission', pct_of_target: 200, amount: -1, source: 'stated' }],
-  clawbacks: [{ within_months: 6, share_pct: 100, source: 'stated' }],
-  draws: [],
+  limits: [
+    { kind: 'cap_total', pct: 200, amount: -1, rate: -1, months: -1, source: 'stated' },
+    { kind: 'clawback', pct: 100, amount: -1, rate: -1, months: 6, source: 'stated' },
+  ],
   paid_when: 'collection',
   other_features: [],
 };

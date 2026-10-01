@@ -2,7 +2,7 @@
 // Run from ioi-app/:  npx tsx scripts/test-plan-record.ts
 import assert from 'node:assert/strict';
 import { calc, DEMO_PLAN, PRESETS, type CompPlan } from '@/lib/calc';
-import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, type WireRead } from '@/lib/plan-record/schema';
+import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
 import { mapRecord, recordFromPlan } from '@/lib/plan-record/map';
 import { applyAnswer, assumedText, limitCopy, question, readback, workedExample } from '@/lib/plan-record/copy';
 
@@ -28,17 +28,16 @@ const wire = (over: Partial<WireRead>): WireRead => ({
   input_kind: 'plan',
   role_level: 'ae',
   role_title: '',
-  quota: { period: 'quarter', measure: 'new_arr', amount: 150000, source: 'stated' },
+  quota_period: 'quarter',
+  quota_measure: 'new_arr',
+  quota_amount: 150000,
+  quota_source: 'stated',
   pay_rules: [{ applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 10, source: 'stated' }],
   one_time_counts_pct: 0,
   one_time_source: 'stated',
   accelerators: [],
-  floors: [],
-  discount_rules: [],
-  bonuses: [],
-  caps: [],
-  clawbacks: [],
-  draws: [],
+  bonus_levels: [],
+  limits: [],
   paid_when: 'unknown',
   other_features: [],
   ...over,
@@ -62,7 +61,7 @@ for (const p of [...PRESETS.map((x) => x.plan), DEMO_PLAN]) {
 
 // ── Conversions ────────────────────────────────────────────────────────────
 test('annual quota is a limit until the person chooses quarterly', () => {
-  const r = recordFromWire(wire({ quota: { period: 'year', measure: 'new_arr', amount: 800000, source: 'stated' } }));
+  const r = recordFromWire(wire({ quota_period: 'year', quota_amount: 800000 }));
   const blocked = mapRecord(r);
   assert.equal(blocked.plan, null);
   assert.deepEqual(blocked.limits, ['period_year']);
@@ -74,7 +73,7 @@ test('annual quota is a limit until the person chooses quarterly', () => {
 });
 
 test('an MRR quota runs as ARR, exactly', () => {
-  const r = recordFromWire(wire({ quota: { period: 'month', measure: 'mrr', amount: 5000, source: 'stated' } }));
+  const r = recordFromWire(wire({ quota_period: 'month', quota_measure: 'mrr', quota_amount: 5000 }));
   const m = mapRecord(r);
   assert.equal(m.plan?.quota_basis, 'arr');
   assert.equal(m.plan?.quota, 60000);
@@ -82,7 +81,7 @@ test('an MRR quota runs as ARR, exactly', () => {
 });
 
 test('a deal-count quota runs as units and never scales by 12', () => {
-  const r = recordFromWire(wire({ quota: { period: 'year', measure: 'deals', amount: 40, source: 'stated' } }));
+  const r = recordFromWire(wire({ quota_period: 'year', quota_measure: 'deals', quota_amount: 40 }));
   const m = mapRecord(r, { ...NO_CHOICES, as_quarterly: true });
   assert.equal(m.plan?.quota_basis, 'units');
   assert.equal(m.plan?.quota, 10);
@@ -144,7 +143,8 @@ test('a second accelerator step is kept but not calculated', () => {
 test('missing essentials become questions, and answers fill them', () => {
   let r = recordFromWire(
     wire({
-      quota: { period: 'unknown', measure: 'new_arr', amount: -1, source: 'stated' },
+      quota_period: 'unknown',
+      quota_amount: -1,
       accelerators: [{ kind: 'unknown', starts_at_pct: 100, starts_at_amount: -1, rate: 15, source: 'stated' }],
     }),
   );
@@ -176,10 +176,10 @@ test('one-time charges default to 0% and say so', () => {
 test('a single-tier quarterly bonus runs against the quota by default', () => {
   const r = recordFromWire(
     wire({
-      bonuses: [
+      bonus_levels: [
         {
           kind: 'period_kicker', period: 'quarter', measure: 'unknown', target_amount: -1, spiff_for: 'not_applicable',
-          tiers: [{ at_pct: 110, pays_pct: 10, pays_amount: -1 }], source: 'stated',
+          at_pct: 110, pays_pct: 10, pays_amount: -1, source: 'stated',
         },
       ],
     }),
@@ -193,9 +193,11 @@ test('a single-tier quarterly bonus runs against the quota by default', () => {
 test('caps, clawbacks and draws are kept with the right status', () => {
   const r = recordFromWire(
     wire({
-      caps: [{ kind: 'total_commission', pct_of_target: 200, amount: -1, source: 'stated' }],
-      clawbacks: [{ within_months: 6, share_pct: 100, source: 'stated' }],
-      draws: [{ kind: 'recoverable', monthly_amount: 3000, months: 3, source: 'stated' }],
+      limits: [
+        { kind: 'cap_total', pct: 200, amount: -1, rate: -1, months: -1, source: 'stated' },
+        { kind: 'clawback', pct: 100, amount: -1, rate: -1, months: 6, source: 'stated' },
+        { kind: 'draw_recoverable', pct: -1, amount: 3000, rate: -1, months: 3, source: 'stated' },
+      ],
       paid_when: 'collection',
     }),
   );
@@ -216,6 +218,33 @@ test('flat per-deal pay is described but blocks the numbers', () => {
   const m = mapRecord(r);
   assert.equal(m.plan, null);
   assert.deepEqual(m.limits, ['method_flat']);
+});
+
+test('record -> wire -> record keeps everything (corrections start from this)', () => {
+  const rich = recordFromWire(
+    wire({
+      bonus_levels: [
+        { kind: 'period_kicker', period: 'quarter', measure: 'new_arr', target_amount: 540000, spiff_for: 'not_applicable', at_pct: 105, pays_pct: 25, pays_amount: -1, source: 'stated' },
+        { kind: 'period_kicker', period: 'quarter', measure: 'new_arr', target_amount: 540000, spiff_for: 'not_applicable', at_pct: 130, pays_pct: 30, pays_amount: -1, source: 'stated' },
+        { kind: 'spiff', period: 'unknown', measure: 'unknown', target_amount: -1, spiff_for: 'multi_year', at_pct: -1, pays_pct: -1, pays_amount: 500, source: 'stated' },
+      ],
+      limits: [
+        { kind: 'floor_reduced_rate', pct: 50, amount: -1, rate: 5, months: -1, source: 'stated' },
+        { kind: 'discount_no_commission', pct: 30, amount: -1, rate: -1, months: -1, source: 'assumed' },
+        { kind: 'cap_per_deal', pct: -1, amount: 20000, rate: -1, months: -1, source: 'stated' },
+        { kind: 'draw_non_recoverable', pct: -1, amount: 2500, rate: -1, months: 2, source: 'stated' },
+      ],
+    }),
+  );
+  assert.equal(rich.bonuses.length, 2, 'two kicker levels group into one bonus, the spiff stays separate');
+  assert.equal(rich.bonuses[0].tiers.length, 2);
+  assert.equal(rich.floors[0].rate, 5);
+  assert.equal(rich.discount_rules[0].effect, 'no_commission');
+  assert.equal(rich.caps[0].kind, 'per_deal');
+  assert.equal(rich.draws[0].kind, 'non_recoverable');
+  for (const r of [rich, ...[...PRESETS.map((x) => x.plan), DEMO_PLAN].map(recordFromPlan)]) {
+    assert.deepEqual(recordFromWire({ ...wireFromRecord(r), input_kind: 'plan' }), { ...r, role: { ...r.role, title: cleanTitle(r.role.title) } });
+  }
 });
 
 // ── Titles never carry a company or a name ─────────────────────────────────
