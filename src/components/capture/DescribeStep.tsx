@@ -117,8 +117,8 @@ export default function DescribeStep({
           <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.5" />
         </svg>
         <span>
-          Leave out your company and anything that identifies you. Your words go to Claude to be read, then they’re
-          discarded. IOI keeps only your plan’s rules.
+          Leave out your company and anything that identifies you. An AI reads your words, then they’re discarded. IOI
+          keeps only your plan’s rules.
         </span>
       </p>
     </form>

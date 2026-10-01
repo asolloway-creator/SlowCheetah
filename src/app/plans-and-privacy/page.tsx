@@ -49,8 +49,7 @@ export default async function PlansAndPrivacyPage() {
             </li>
           </ul>
           <p>
-            When you describe your plan, your words go to Claude, Anthropic’s AI, to be read into those rules. Then
-            they’re discarded.
+            When you describe your plan, an AI service reads your words into those rules. Then they’re discarded.
           </p>
         </DocSection>
 

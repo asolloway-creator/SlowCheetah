@@ -28,9 +28,9 @@ export default async function PrivacyPage() {
 
         <DocSection title="When you describe your plan">
           <p>
-            What you type or say is sent to Anthropic’s Claude to be read into your plan’s rules, then discarded. IOI doesn’t
-            store it or write it to logs. If you use the mic, your browser turns your speech into text first (in Chrome,
-            that’s Google’s speech service), and IOI only receives the text.
+            What you type or say is sent to an AI service that reads it into your plan’s rules, then it’s discarded. IOI
+            doesn’t store it or write it to logs. If you use the mic, your browser turns your speech into text first, and IOI
+            only receives the text.
           </p>
         </DocSection>
 
@@ -57,16 +57,16 @@ export default async function PrivacyPage() {
         <DocSection title="Who helps run IOI">
           <ul>
             <li>
-              <b>Anthropic</b> reads plan descriptions.
+              <b>An AI service</b> reads plan descriptions.
             </li>
             <li>
-              <b>Supabase</b> stores accounts, saved plans and deals, and anonymous plan rules.
+              <b>A database service</b> stores accounts, saved plans and deals, and anonymous plan rules.
             </li>
             <li>
-              <b>Vercel</b> hosts the site.
+              <b>A hosting service</b> runs the site.
             </li>
             <li>
-              <b>Resend</b> sends sign-in emails.
+              <b>An email service</b> sends sign-in emails.
             </li>
           </ul>
           <p>IOI doesn’t sell personal information, and doesn’t share it except with these services to run IOI.</p>
