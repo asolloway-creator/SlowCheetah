@@ -11,12 +11,14 @@ const KEYS = [
   {
     name: 'ANTHROPIC_API_KEY',
     label: 'Anthropic API key (console.anthropic.com, starts with sk-ant-)',
-    ok: (v) => v.startsWith('sk-ant-'),
+    ok: (v) => v.startsWith('sk-ant-') && v.length >= 80 && v.length <= 250,
+    expect: 'about 110 characters, starting with sk-ant-',
   },
   {
     name: 'SUPABASE_SECRET_KEY',
     label: 'Supabase secret key (Project Settings > API Keys, starts with sb_secret_)',
-    ok: (v) => v.startsWith('sb_secret_') || v.startsWith('eyJ'),
+    ok: (v) => (v.startsWith('sb_secret_') && v.length >= 30 && v.length <= 120) || (v.startsWith('eyJ') && v.length > 100),
+    expect: 'about 40 characters, starting with sb_secret_ (use the copy button, not the shortened text)',
   },
 ];
 
@@ -43,13 +45,13 @@ function askHidden(question) {
 
 let env = existsSync(FILE) ? readFileSync(FILE, 'utf8') : '';
 for (const k of KEYS) {
-  const value = await askHidden(`${k.label}\nPaste it and press Enter (leave empty to skip): `);
+  const value = (await askHidden(`${k.label}\nPaste it and press Enter (leave empty to skip): `)).replace(/\s+/g, '');
   if (!value) {
     console.log(`Skipped ${k.name}.\n`);
     continue;
   }
   if (!k.ok(value)) {
-    console.log(`That doesn't look like a ${k.name}. Skipped; run this again to retry.\n`);
+    console.log(`That doesn't look like a ${k.name}: got ${value.length} characters, expected ${k.expect}. Skipped; run this again to retry.\n`);
     continue;
   }
   const line = `${k.name}=${value}`;
