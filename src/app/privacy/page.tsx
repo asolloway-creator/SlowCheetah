@@ -80,7 +80,7 @@ export default async function PrivacyPage() {
             <li>
               <b>Delete my account</b>, below when you’re signed in, removes your account and everything saved with it,
               including every plan you’ve shared. You can also email{' '}
-              <a href="mailto:asolloway@gmail.com?subject=IOI%3A%20delete%20my%20account">asolloway@gmail.com</a> from the
+              <a href="mailto:privacy@tryioi.com?subject=IOI%3A%20delete%20my%20account">privacy@tryioi.com</a> from the
               address you sign in with, and it’s done within 30 days.
             </li>
             <li>Clearing this site’s data in your browser removes the plan and deals kept there.</li>

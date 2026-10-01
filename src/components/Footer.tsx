@@ -19,7 +19,7 @@ export default function Footer() {
               <Link href="/terms">Terms</Link>
             </nav>
           </div>
-          <a className="footer-tell" href="mailto:asolloway@gmail.com?subject=IOI%3A%20my%20comp%20plan">
+          <a className="footer-tell" href="mailto:hello@tryioi.com?subject=IOI%3A%20my%20comp%20plan">
             Does this match your comp plan? Tell me &rarr;
           </a>
         </div>

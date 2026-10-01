@@ -220,11 +220,11 @@ export async function deleteAccountAction(visitorId: string): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to delete your account.' };
   const db = serviceClient();
-  if (!db) return { error: 'Deleting accounts isn’t available right now. Email asolloway@gmail.com and it’ll be done within 30 days.' };
+  if (!db) return { error: 'Deleting accounts isn’t available right now. Email privacy@tryioi.com and it’ll be done within 30 days.' };
   if (VISITOR.test(visitorId)) await db.from('plan_records').delete().eq('visitor_id', visitorId);
   await db.from('plan_records').delete().eq('user_id', user.id);
   const { error } = await db.auth.admin.deleteUser(user.id);
-  if (error) return { error: 'That didn’t go through. Try again, or email asolloway@gmail.com.' };
+  if (error) return { error: 'That didn’t go through. Try again, or email privacy@tryioi.com.' };
   try {
     await supabase.auth.signOut();
   } catch {}
