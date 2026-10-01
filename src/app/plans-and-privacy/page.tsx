@@ -58,9 +58,6 @@ export default async function PlansAndPrivacyPage() {
             It runs your numbers in IOI. Plans are also combined anonymously to improve IOI and in its products and
             reports. No one ever sees yours, and IOI never shares or sells an individual plan.
           </p>
-        </DocSection>
-
-        <DocSection title="Remove or delete">
           <p>
             <b>Remove my plan</b>, on <Link href="/plan">your plan page</Link>, removes every plan you’ve shared. Signed in,
             you can also delete your account from the <Link href="/privacy">privacy page</Link>.
