@@ -72,10 +72,10 @@ export default async function PrivacyPage() {
           <p>IOI doesn’t sell personal information, and doesn’t share it except with these services to run IOI.</p>
         </DocSection>
 
-        <DocSection title="Removing what you’ve shared">
+        <DocSection title="Remove or delete">
           <ul>
             <li>
-              <b>Forget my plan</b> on <Link href="/plan">your plan page</Link> removes every plan you’ve shared.
+              <b>Remove my plan</b> on <Link href="/plan">your plan page</Link> removes every plan you’ve shared.
             </li>
             <li>
               <b>Delete my account</b>, below when you’re signed in, removes your account and everything saved with it,

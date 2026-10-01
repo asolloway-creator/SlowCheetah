@@ -46,7 +46,7 @@ export default async function TermsPage() {
           </p>
           <p>
             IOI never sells or shares an individual plan and never shows a group of fewer than 10 plans. You can remove your
-            plan from future use at any time with <b>Forget my plan</b>.
+            plan from future use at any time with <b>Remove my plan</b>.
           </p>
         </DocSection>
 

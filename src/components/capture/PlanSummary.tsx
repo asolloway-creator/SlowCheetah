@@ -9,7 +9,7 @@ import { hasContributed } from '@/lib/plan-record/client';
 
 const noop = () => () => {};
 
-/** The plan IOI runs every deal on, read back, with ways to change it or take it back. */
+/** The plan IOI runs every deal on, read back, with ways to change, remove or delete it. */
 export default function PlanSummary({
   plan,
   onDescribe,
@@ -58,7 +58,7 @@ export default function PlanSummary({
       {(filed || forget === 'done') && (
         <div className="cap-forget">
           {forget === 'done' ? (
-            <p role="status">Done. The plans you shared are gone from IOI. Your working plan stays here.</p>
+            <p role="status">Removed. The plans you shared are gone from IOI. Your working plan stays here.</p>
           ) : forget === 'confirm' || forget === 'busy' || forget === 'failed' ? (
             <>
               <p>
@@ -75,10 +75,10 @@ export default function PlanSummary({
                     setForget((await onForget()) === null ? 'failed' : 'done');
                   }}
                 >
-                  {forget === 'busy' ? 'Removing' : 'Remove my shared plans'}
+                  {forget === 'busy' ? 'Removing' : 'Remove'}
                 </button>
                 <button type="button" className="btn-text" onClick={() => setForget('idle')}>
-                  Keep them
+                  Cancel
                 </button>
               </div>
             </>
@@ -86,7 +86,7 @@ export default function PlanSummary({
             <p>
               You’ve shared this plan anonymously. <Link href="/plans-and-privacy">How IOI handles your plan</Link> ·{' '}
               <button type="button" className="btn-text" onClick={() => setForget('confirm')}>
-                Forget my plan
+                Remove my plan
               </button>
             </p>
           )}

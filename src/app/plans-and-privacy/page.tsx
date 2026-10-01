@@ -5,7 +5,7 @@ import { Doc, DocSection } from '@/components/Doc';
 
 export const metadata = {
   title: 'How IOI handles your plan · IOI',
-  description: 'What IOI keeps when you put your plan in, what it never asks for, and how to take it back.',
+  description: 'What IOI keeps when you put your plan in, what it never asks for, and how to remove or delete it.',
 };
 
 export default async function PlansAndPrivacyPage() {
@@ -60,9 +60,9 @@ export default async function PlansAndPrivacyPage() {
           </p>
         </DocSection>
 
-        <DocSection title="Taking it back">
+        <DocSection title="Remove or delete">
           <p>
-            <b>Forget my plan</b>, on <Link href="/plan">your plan page</Link>, removes every plan you’ve shared. Signed in,
+            <b>Remove my plan</b>, on <Link href="/plan">your plan page</Link>, removes every plan you’ve shared. Signed in,
             you can also delete your account from the <Link href="/privacy">privacy page</Link>.
           </p>
         </DocSection>
