@@ -1,18 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import {
   needsQuarterArr,
   periodLabel,
   periodSummary,
+  quarterlyKickerSummary,
   type CompPlan,
   type Opening,
   type OpeningInput,
   type PeriodToDate,
+  type QuarterToDate,
+  type QuarterlyKickerTier,
 } from '@/lib/calc';
+import { tierName } from '@/components/opening';
 import type { DealRow } from '@/lib/queries';
-import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
 import OpeningFields from '@/components/OpeningFields';
@@ -29,10 +33,13 @@ export default function QuotaView({
   deals,
   opening = null,
   onOpening,
+  qtd = null,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
   deals: DealRow[];
+  /** The calendar quarter so far, for a plan with a quarterly bonus. */
+  qtd?: QuarterToDate | null;
   /** The starting point for this period, when there is one. */
   opening?: Opening | null;
   onOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
@@ -131,8 +138,74 @@ export default function QuotaView({
         </>
       )}
 
+      {plan.quarterly_kicker && qtd && <BonusStanding plan={plan} qtd={qtd} />}
+
       {onOpening && <StartingPoint plan={plan} opening={opening} started={started} label={label} onSave={onOpening} />}
     </div>
+  );
+}
+
+const pct = (f: number) => `${(Math.min(1, Math.max(0, f)) * 100).toFixed(3)}%`;
+const vars = (o: Record<string, string>) => o as CSSProperties;
+
+/**
+ * The quarter against the Quarterly Bonus: new ARR booked toward its target,
+ * a line with each tier marked, and one sentence on what it's worth so far or
+ * what it takes to get there.
+ */
+function BonusStanding({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate }) {
+  const kicker = plan.quarterly_kicker!;
+  const s = quarterlyKickerSummary(plan, qtd);
+  if (!s) return null;
+  const tiers = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
+  const name = (t: QuarterlyKickerTier) => tierName(tiers.indexOf(t) + 1);
+  const top = Math.max(tiers[tiers.length - 1].attainmentPct * 1.08, s.attainmentPct * 1.04, 110);
+  const x = (attainment: number) => attainment / top;
+  const attained = Math.round(s.attainmentPct * 10) / 10;
+  const worth = (t: QuarterlyKickerTier) => `+${fmtPctShort(t.kickerPct)} on the quarter’s SaaS commission`;
+  const sentence = s.tier
+    ? `${name(s.tier)} unlocked: ${worth(s.tier)}, ${fmtMoney(s.bumpValue)} so far.${
+        s.nextTier ? ` ${fmt(s.toNextTierArr)} more new ARR reaches the ${name(s.nextTier)}.` : ''
+      }`
+    : s.nextTier
+      ? `${fmt(s.toNextTierArr)} more new ARR this quarter unlocks your ${name(s.nextTier)}: ${worth(s.nextTier)}.`
+      : '';
+
+  return (
+    <section className="bonus-standing" aria-labelledby="bonus-h">
+      <h2 id="bonus-h" className="section-h">
+        Your Quarterly Bonus · {periodLabel('quarter')}
+      </h2>
+      <p className="bonus-figure">
+        <b>{fmtMoney(qtd.saasArrBooked)}</b> new ARR, {fmtPctShort(attained)} of your {fmt(kicker.target)} target
+      </p>
+      <figure
+        className={`line bonus-line${s.tier ? ' is-accelerated' : ''}`}
+        aria-label={`New ARR this quarter: ${fmtPctShort(attained)} of the Quarterly Bonus target`}
+      >
+        <div className="line-mid">
+          <span className="line-track" />
+          <span className="line-post" />
+          <span className="line-bar" style={vars({ '--w': pct(x(s.attainmentPct)) })} />
+          {tiers.map((t) => (
+            <span key={t.attainmentPct} className="line-post line-post-quota" style={vars({ '--x': pct(x(t.attainmentPct)) })} />
+          ))}
+        </div>
+        <div className="line-bottom">
+          <span className="line-origin">$0</span>
+          {tiers.map((t) => (
+            <span
+              key={t.attainmentPct}
+              className={`line-quota-label is-${x(t.attainmentPct) > 0.9 ? 'right' : 'centre'}`}
+              style={vars({ '--x': pct(x(t.attainmentPct)) })}
+            >
+              {fmtPctShort(t.attainmentPct)}
+            </span>
+          ))}
+        </div>
+      </figure>
+      {sentence && <p className="bonus-sentence">{sentence}</p>}
+    </section>
   );
 }
 

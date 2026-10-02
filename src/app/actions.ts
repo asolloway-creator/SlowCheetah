@@ -13,6 +13,7 @@ import {
   type Opening,
   type OpeningInput,
   type PeriodToDate,
+  type Quote,
 } from '@/lib/calc';
 import { serviceClient } from '@/lib/supabase/service';
 
@@ -257,6 +258,61 @@ export async function saveOpeningAction(input: OpeningInput): Promise<Result> {
   return {};
 }
 
+const QUOTE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const quoteName = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+const quoteRow = (name: unknown, deal: DealInput) => ({
+  name: quoteName(name),
+  one_time_amount: deal.oneTime,
+  subscription_amount: deal.subscription,
+  subscription_mode: deal.subMode,
+  units: deal.units,
+  one_time_discount_pct: deal.oneTimeDiscountPct,
+  subscription_discount_pct: deal.subscriptionDiscountPct,
+});
+
+/**
+ * Saves a deal the rep is still working as an open quote: a new one, or the
+ * one they reopened (`id`). Returns its id so the page can keep it open.
+ */
+export async function saveQuoteAction(input: {
+  id?: string | null;
+  name: string;
+  deal: DealInput;
+}): Promise<Result & { id?: string }> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to save quotes.' };
+  const deal = cleanDeal(input.deal);
+  if (deal.oneTime === 0 && deal.subscription === 0) return { error: 'Enter at least one line item before saving.' };
+  const row = quoteRow(input.name, deal);
+  if (input.id && QUOTE_ID.test(input.id)) {
+    const { data, error } = await supabase
+      .from('quotes')
+      .update({ ...row, updated_at: new Date().toISOString() })
+      .eq('id', input.id)
+      .eq('user_id', user.id)
+      .select('id')
+      .maybeSingle();
+    if (error) return { error: 'That didn’t save. Try again in a moment.' };
+    if (data) {
+      revalidatePath('/', 'layout');
+      return { id: String(data.id) };
+    }
+  }
+  const { data, error } = await supabase.from('quotes').insert({ user_id: user.id, ...row }).select('id').single();
+  if (error || !data) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return { id: String(data.id) };
+}
+
+export async function deleteQuoteAction(id: string): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to remove quotes.' };
+  const { error } = await supabase.from('quotes').delete().eq('id', id).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t go through. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
 export type ImportedDeal = { deal: DealInput; createdAt: string };
 
 /**
@@ -271,6 +327,7 @@ export async function importDemoPlanAction(
   input: CompPlan,
   opening?: OpeningInput | null,
   deals: ImportedDeal[] = [],
+  quotes: Quote[] = [],
 ): Promise<Result> {
   const res = await savePlanAction(input);
   if (res.error) return res;
@@ -278,7 +335,7 @@ export async function importDemoPlanAction(
     const saved = await saveOpeningAction(opening);
     if (saved.error) return saved;
   }
-  if (!deals.length) return {};
+  if (!deals.length && !quotes.length) return {};
 
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to save deals.' };
@@ -328,6 +385,20 @@ export async function importDemoPlanAction(
   if (rows.length) {
     const { error } = await supabase.from('deals').insert(rows);
     if (error) return { error: 'Your plan is in, but your deals didn’t come across. Try again in a moment.' };
+  }
+  const quoteRows = quotes
+    .slice(0, 50)
+    .map((q) => ({ q, deal: cleanDeal(q.deal) }))
+    .filter(({ deal }) => deal.oneTime > 0 || deal.subscription > 0)
+    .map(({ q, deal }) => ({
+      user_id: user.id,
+      ...quoteRow(q.name, deal),
+      created_at: new Date(Math.min(now, Date.parse(q.createdAt) || now)).toISOString(),
+      updated_at: new Date(Math.min(now, Date.parse(q.updatedAt) || now)).toISOString(),
+    }));
+  if (quoteRows.length) {
+    const { error } = await supabase.from('quotes').insert(quoteRows);
+    if (error) return { error: 'Your plan and deals are in, but your quotes didn’t come across. Try again in a moment.' };
   }
   revalidatePath('/', 'layout');
   return {};

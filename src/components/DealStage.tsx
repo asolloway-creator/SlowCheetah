@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DEMO_PLAN, periodLabel, starterDeal, type CompPlan, type DealInput, type OpeningInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
+import {
+  DEMO_PLAN,
+  periodLabel,
+  starterDeal,
+  type CompPlan,
+  type DealInput,
+  type OpeningInput,
+  type PeriodToDate,
+  type QuarterToDate,
+  type Quote,
+} from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
@@ -14,6 +24,7 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
+import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import {
   EMPTY,
@@ -93,6 +104,10 @@ export default function DealStage({
   initialDeal,
   intro,
   sample = true,
+  quotes = [],
+  onSaveQuote,
+  onDeleteQuote,
+  initialQuoteId = null,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -113,8 +128,22 @@ export default function DealStage({
    *  flag), as opposed to a plan the visitor saved. Keeps sample-deal play
    *  out of real-usage analytics. */
   sample?: boolean;
+  /** The rep's open quotes, most recently worked first. */
+  quotes?: Quote[];
+  onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
+  onDeleteQuote?: (id: string) => Promise<{ error?: string }>;
+  /** The quote the page opens on (signed in: the most recent one). */
+  initialQuoteId?: string | null;
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
+  // The open quote on the card, if the deal on it is one. Quotes are deals the
+  // rep is still working: saved to come back to, booked when they close.
+  const [activeQuote, setActiveQuote] = useState<string | null>(initialQuoteId);
+  const [naming, setNaming] = useState(false);
+  const [quoteName, setQuoteName] = useState('');
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const [planSaved, setPlanSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -140,6 +169,12 @@ export default function DealStage({
     setDiscount,
     targetId: 'deal-card',
   });
+
+  const quotesOn = !showcase && Boolean(onSaveQuote);
+  const active = quotes.find((q) => q.id === activeQuote) ?? null;
+  // A starter deal nobody has touched is IOI's suggestion, not the rep's deal:
+  // nothing to book or save until they make it theirs (or open a quote).
+  const starterOnly = !showcase && !active && !dirty;
 
   // The header's "Put your plan in" works from any page — it links here with
   // ?plan=1 to open the same inline dialog. A client-side nav to the same
@@ -174,12 +209,23 @@ export default function DealStage({
     if (!caughtUpToSavedState.current) {
       if (dirty || JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
       caughtUpToSavedState.current = true;
+      // A returning visitor with open quotes comes back to the latest one.
+      const latest = quotes[0];
+      if (latest) {
+        starterAt.current = null;
+        // Catching up to the browser store once it has loaded (an external
+        // system), the same as the starter below.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveQuote(latest.id);
+        setDeal(latest.deal);
+        return;
+      }
     } else if (dirty || starterAt.current === null || starterAt.current === ptd.creditBooked) {
       return;
     }
     starterAt.current = ptd.creditBooked;
     setDeal(starterDeal(plan, ptd.creditBooked));
-  }, [demo, plan, dirty, ptd.creditBooked]);
+  }, [demo, plan, dirty, ptd.creditBooked, quotes]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
@@ -239,6 +285,13 @@ export default function DealStage({
       setMsg({ error: res.error });
     } else {
       track('deal_booked', ctx);
+      // A booked quote is a closed deal now: off the open list.
+      if (activeQuote && onDeleteQuote) {
+        try {
+          await onDeleteQuote(activeQuote);
+        } catch {}
+      }
+      setActiveQuote(null);
       setMsg({ booked: true });
       starterAt.current = null;
       setDeal(EMPTY);
@@ -246,12 +299,75 @@ export default function DealStage({
     }
   }
 
-  // On the sample: put the whole sample back. On your own plan: only the deal
-  // goes back to a fresh starter. Your plan and booked deals stay.
-  const ownPlan = demo && (!sample || planSaved);
+  function openQuote(q: Quote) {
+    starterAt.current = null;
+    setActiveQuote(q.id);
+    setDeal(q.deal);
+    setDirty(false);
+    setMsg({});
+    setNaming(false);
+    setRemoving(false);
+    setQuoteError(null);
+  }
+
+  function newDeal() {
+    starterAt.current = demo ? ptd.creditBooked : null;
+    setActiveQuote(null);
+    setDeal(starterDeal(plan, ptd.creditBooked));
+    setDirty(false);
+    setMsg({});
+    setNaming(false);
+    setRemoving(false);
+    setQuoteError(null);
+  }
+
+  async function saveQuote(asNew: boolean) {
+    if (!onSaveQuote) return;
+    setQuoteBusy(true);
+    setQuoteError(null);
+    let res: { error?: string; id?: string };
+    try {
+      res = await onSaveQuote({ id: asNew ? null : activeQuote, name: asNew ? quoteName : (active?.name ?? ''), deal });
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setQuoteBusy(false);
+    if (res.error) return setQuoteError(res.error);
+    if (asNew) track('quote_saved', ctx);
+    starterAt.current = null;
+    if (res.id) setActiveQuote(res.id);
+    setDirty(false);
+    setNaming(false);
+    setQuoteName('');
+    setMsg({});
+  }
+
+  async function removeQuote() {
+    if (!activeQuote || !onDeleteQuote) return;
+    setQuoteBusy(true);
+    let res: { error?: string };
+    try {
+      res = await onDeleteQuote(activeQuote);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setQuoteBusy(false);
+    setRemoving(false);
+    if (res.error) return setQuoteError(res.error);
+    // The deal stays on the card, unsaved, to book or save again.
+    setActiveQuote(null);
+    setDirty(true);
+  }
+
+  // On the sample: put the whole sample back. On your own plan: an open quote
+  // goes back to how it was saved, anything else to a fresh starter. Your plan
+  // and booked deals stay.
+  const ownPlan = !showcase;
   function startOver() {
-    if (ownPlan) {
-      starterAt.current = ptd.creditBooked;
+    if (active) {
+      setDeal(active.deal);
+    } else if (ownPlan) {
+      starterAt.current = demo ? ptd.creditBooked : null;
       setDeal(starterDeal(plan, ptd.creditBooked));
     } else {
       onStartOver?.();
@@ -308,7 +424,22 @@ export default function DealStage({
   const introBlock = intro ?? (
     <div className="ds-title">
       <h1 className="page-title">New deal · {label}</h1>
-      <p className="ds-title-sub">Drag the discount before you quote it. Book it when it&rsquo;s right.</p>
+      <p className="ds-title-sub">
+        {quotesOn
+          ? 'Drag the discount before you quote it. Save it while it’s open, and book it when it closes.'
+          : 'Drag the discount before you quote it. Book it when it’s right.'}
+      </p>
+      {quotesOn && (
+        <QuotesRail
+          plan={plan}
+          ptd={ptd}
+          qtd={qtd ?? null}
+          quotes={quotes}
+          activeId={active?.id ?? null}
+          onOpen={openQuote}
+          onNew={newDeal}
+        />
+      )}
     </div>
   );
 
@@ -374,18 +505,41 @@ export default function DealStage({
                     <b>Sample deal.</b> Real math on made-up numbers.
                   </p>
                 )}
-                {demo && !showcase && (
+                {active ? (
                   <p className="dc-note">
-                    <b>{planSaved ? 'Your plan is in.' : 'Your plan.'}</b>{' '}
-                    <Link className="btn-text" href="/login">
-                      Sign in to keep it on any device &rarr;
-                    </Link>
+                    <b>{quoteLabel(active)}</b> · open quote ·{' '}
+                    {removing ? (
+                      <>
+                        Remove it?{' '}
+                        <button type="button" className="btn-text" disabled={quoteBusy} onClick={removeQuote}>
+                          Remove
+                        </button>{' '}
+                        <button type="button" className="btn-text" onClick={() => setRemoving(false)}>
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="btn-text" onClick={() => setRemoving(true)}>
+                        Remove
+                      </button>
+                    )}
                   </p>
-                )}
-                {!demo && (
-                  <p className="dc-note">
-                    <b>{plan.role_name}</b> · {label}
-                  </p>
+                ) : (
+                  <>
+                    {demo && !showcase && (
+                      <p className="dc-note">
+                        <b>{planSaved ? 'Your plan is in.' : 'Your plan.'}</b>{' '}
+                        <Link className="btn-text" href="/login">
+                          Sign in to keep it on any device &rarr;
+                        </Link>
+                      </p>
+                    )}
+                    {!demo && (
+                      <p className="dc-note">
+                        <b>{plan.role_name}</b> · {label}
+                      </p>
+                    )}
+                  </>
                 )}
                 {showcase && (show.beat === 'done' || show.beat === 'free') ? (
                   <button type="button" className="dc-replay" onClick={() => void show.play()}>
@@ -450,21 +604,68 @@ export default function DealStage({
                 <div className="dc-sec">
                   {copy.detail && <p className="dc-detail">{copy.detail}</p>}
                   {!empty && <Ledger className="dc-ledger" rows={rows} />}
-                  <div className="book-row">
-                    {/* Encouragement only when there's nothing to warn about. */}
-                    {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
-                      <span className="nudge-ring book-nudge-ring" aria-hidden="true" />
-                    )}
-                    <button
-                      type="button"
-                      className={`btn btn-block ${demo ? 'btn-secondary' : 'btn-primary'}`}
-                      disabled={pending || empty}
-                      onClick={book}
-                    >
-                      {pending ? 'Booking…' : 'Book this deal'}
-                    </button>
-                  </div>
+                  {naming ? (
+                    <div className="quote-naming">
+                      <label className="field-label" htmlFor="quote-name">
+                        Name this quote
+                      </label>
+                      <div className="quote-naming-row">
+                        <div className="field-box">
+                          <input
+                            id="quote-name"
+                            className="field-input"
+                            maxLength={80}
+                            placeholder="Optional, like Q4 expansion"
+                            value={quoteName}
+                            autoFocus
+                            onChange={(e) => setQuoteName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void saveQuote(true);
+                              if (e.key === 'Escape') setNaming(false);
+                            }}
+                          />
+                        </div>
+                        <button type="button" className="btn btn-primary" disabled={quoteBusy} onClick={() => void saveQuote(true)}>
+                          {quoteBusy ? 'Saving…' : 'Save'}
+                        </button>
+                      </div>
+                      <button type="button" className="btn-text quote-naming-cancel" onClick={() => setNaming(false)}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={`book-row${quotesOn ? ' has-quote' : ''}`}>
+                      {/* Encouragement only when there's nothing to warn about. */}
+                      {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
+                        <span className="nudge-ring book-nudge-ring" aria-hidden="true" />
+                      )}
+                      {quotesOn && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={quoteBusy || empty || starterOnly || (active !== null && !dirty)}
+                          onClick={() => (active ? void saveQuote(false) : setNaming(true))}
+                        >
+                          {active ? (quoteBusy ? 'Saving…' : dirty ? 'Save changes' : 'Saved') : 'Save as a quote'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={`btn btn-block ${showcase ? 'btn-secondary' : 'btn-primary'}`}
+                        disabled={pending || empty || starterOnly}
+                        onClick={book}
+                      >
+                        {pending ? 'Booking…' : 'Book this deal'}
+                      </button>
+                    </div>
+                  )}
+                  {starterOnly && !empty && !msg.booked && (
+                    <p className="after-note">
+                      A starting point, sized from where you stand. Change it to match your deal, then save it or book it.
+                    </p>
+                  )}
 
+                  {quoteError && <p className="after is-error">{quoteError}</p>}
                   {msg.error && <p className="after is-error">{msg.error}</p>}
                   {msg.booked && (
                     <>
@@ -531,13 +732,13 @@ export default function DealStage({
                 deal={deal}
                 set={set}
                 footer={
-                  demo && (dirty || Boolean(msg.booked)) ? (
+                  dirty || Boolean(msg.booked) ? (
                     <p className="deal-start-over">
                       <button type="button" className="btn btn-secondary deal-reset" onClick={startOver}>
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                           <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                        Reset this deal
+                        {active && dirty ? 'Undo changes' : 'Reset this deal'}
                       </button>
                     </p>
                   ) : null

@@ -13,6 +13,7 @@ import {
   type PeriodToDate,
   type QuarterToDate,
   type QuarterlyKicker,
+  type Quote,
   type SubscriptionMode,
 } from '@/lib/calc';
 
@@ -130,6 +131,39 @@ export async function listDeals(userId: string, opts?: { since?: Date }): Promis
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []).map(toDealRow);
+}
+
+/**
+ * The rep's open quotes, most recently worked first. Never throws: where
+ * they can't be read the page opens without them rather than failing.
+ */
+export async function listQuotes(userId: string): Promise<Quote[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(50);
+    if (error || !data) return [];
+    return data.map((d: Record<string, unknown>) => ({
+      id: String(d.id),
+      name: String(d.name ?? ''),
+      deal: {
+        oneTime: num(d.one_time_amount),
+        subscription: num(d.subscription_amount),
+        subMode: d.subscription_mode === 'acv' ? 'acv' : 'mrr',
+        units: Math.max(1, num(d.units)),
+        oneTimeDiscountPct: num(d.one_time_discount_pct),
+        subscriptionDiscountPct: num(d.subscription_discount_pct),
+      },
+      createdAt: String(d.created_at),
+      updatedAt: String(d.updated_at),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 const KEY = /^\d{4}-(0[1-9]|1[0-2]|Q[1-4])$/;

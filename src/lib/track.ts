@@ -19,7 +19,8 @@ export type TrackEvent =
   | 'deal_booked'
   | 'signin_started'
   | 'plan_read'
-  | 'plan_confirmed';
+  | 'plan_confirmed'
+  | 'quote_saved';
 
 export type TrackContext = 'site' | 'sample' | 'own' | 'account';
 

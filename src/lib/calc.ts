@@ -445,6 +445,72 @@ export function starterDeal(plan: CompPlan, creditBooked: number): DealInput {
   return { oneTime: mrr, subscription: mrr, subMode: 'mrr', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
 }
 
+// ── Quotes ───────────────────────────────────────────────────────────────────
+
+/**
+ * A deal the rep is still working: saved so they can come back to it, and
+ * counted in what their open quotes would add up to. Not booked; booking one
+ * turns it into a deal and takes it off the list.
+ */
+export type Quote = {
+  id: string;
+  /** The rep's own label; may be empty. */
+  name: string;
+  deal: DealInput;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Pipeline = {
+  count: number;
+  /** Everything they'd pay, each landing on top of the ones before. */
+  commission: number;
+  /** The part of `commission` that's a retroactive bump on deals already
+   *  closed (retro_bump plans), rather than commission on the quotes. */
+  unlocked: number;
+  creditAfter: number;
+  /** Past the accelerator once they all land. */
+  accelerated: boolean;
+  /** ...and not before. */
+  crossesAccelerator: boolean;
+  /** The quarterly bonus once they all land, when the plan has one. */
+  kicker: ReturnType<typeof quarterlyKickerSummary>;
+};
+
+/**
+ * What a set of open quotes adds up to if they all close as quoted, in the
+ * order given, each against the position the ones before it leave: so a later
+ * quote that crosses the accelerator pays (and unlocks) what it really would.
+ */
+export function pipeline(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate | null, deals: DealInput[]): Pipeline {
+  let p = ptd;
+  let q = qtd;
+  let commission = 0;
+  let unlocked = 0;
+  for (const deal of deals) {
+    const r = calc(plan, deal, p);
+    commission += r.totalPayoutImpact;
+    unlocked += r.retroBump;
+    p = {
+      creditBooked: p.creditBooked + r.credit,
+      commissionBooked: p.commissionBooked + r.commissionBase,
+      earnedBooked: p.earnedBooked + r.commissionEffective,
+    };
+    if (q) q = { saasArrBooked: q.saasArrBooked + r.subAnnual, saasCommissionBooked: q.saasCommissionBooked + r.saasCommissionEffective };
+  }
+  const hasAccel = plan.accelerator_style !== 'none';
+  const accelerated = hasAccel && p.creditBooked >= plan.accelerator_threshold;
+  return {
+    count: deals.length,
+    commission,
+    unlocked,
+    creditAfter: p.creditBooked,
+    accelerated,
+    crossesAccelerator: accelerated && ptd.creditBooked < plan.accelerator_threshold,
+    kicker: q ? quarterlyKickerSummary(plan, q) : null,
+  };
+}
+
 // ── Period helpers ───────────────────────────────────────────────────────────
 
 export function startOfPeriod(period: Period, now = new Date()): Date {

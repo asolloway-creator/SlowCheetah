@@ -20,7 +20,7 @@ export default async function PrivacyPage() {
       >
         <DocSection title="Without an account">
           <p>
-            The plan and deals you enter, and what you tell IOI you’d already booked, live in your browser. They aren’t sent to IOI unless you confirm
+            The plan, deals and quotes you enter, and what you tell IOI you’d already booked, live in your browser. They aren’t sent to IOI unless you confirm
             your plan, which files its rules anonymously as described in{' '}
             <Link href="/plans-and-privacy">how IOI handles your plan</Link>.
           </p>
@@ -36,7 +36,7 @@ export default async function PrivacyPage() {
 
         <DocSection title="With an account">
           <p>
-            Signing in keeps your email address, your plan, the deals you save and what you’d already booked, so they’re there on any device. Sign-in
+            Signing in keeps your email address, your plan, the deals and quotes you save and what you’d already booked, so they’re there on any device. Sign-in
             works by emailed link; there’s no password.
           </p>
         </DocSection>

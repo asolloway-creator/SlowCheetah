@@ -18,6 +18,7 @@ import {
   type Opening,
   type OpeningInput,
   type PeriodToDate,
+  type Quote,
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { track } from '@/lib/track';
@@ -39,7 +40,7 @@ const KEY = 'ioi-demo-v3';
 /** v4: no seeded or synthetic deals; `opening` instead. */
 const VERSION = 4;
 
-type DemoState = { v?: number; plan: CompPlan; deals: DealRow[]; seeded: boolean; opening?: Opening | null };
+type DemoState = { v?: number; plan: CompPlan; deals: DealRow[]; seeded: boolean; opening?: Opening | null; quotes?: Quote[] };
 
 function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, createdAt: Date, id?: string): DealRow {
   const r = calc(plan, deal, ptd);
@@ -169,6 +170,12 @@ export function demoDealsForImport(): { deal: DealInput; createdAt: string }[] {
   return s && !s.seeded ? s.deals.map((d) => ({ deal: dealFromRow(d), createdAt: d.created_at })) : [];
 }
 
+/** The visitor's open quotes, for carrying into an account on sign-in. */
+export function demoQuotesForImport(): Quote[] {
+  const s = peekDemoState();
+  return s && !s.seeded ? (s.quotes ?? []) : [];
+}
+
 /** Drops the demo entirely — used once its plan has been imported into a
  * real account, or the visitor declines, so a later sign-out starts clean
  * instead of resurrecting an orphaned customized demo. */
@@ -189,6 +196,7 @@ export function useDemoStore() {
   const seeded = state?.seeded ?? true;
   const plan = state?.plan ?? DEMO_PLAN;
   const deals = seeded ? [] : (state?.deals ?? []);
+  const quotes = seeded ? [] : [...(state?.quotes ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const since = startOfPeriod(plan.period).getTime();
   const periodDeals = deals.filter((d) => new Date(d.created_at).getTime() >= since);
   // Only while it applies: a starting point entered last month means nothing now.
@@ -217,6 +225,7 @@ export function useDemoStore() {
     deals,
     periodDeals,
     opening,
+    quotes,
     ptd,
     qtd,
     saveDeal: async (deal: DealInput) => {
@@ -239,7 +248,7 @@ export function useDemoStore() {
     // month or a quarter) changed.
     savePlan: async (plan: CompPlan) => {
       update((s) => {
-        if (s.seeded) return { v: VERSION, plan, deals: [], seeded: false, opening: null };
+        if (s.seeded) return { v: VERSION, plan, deals: [], seeded: false, opening: null, quotes: [] };
         const sameMeasure = s.plan.quota_basis === plan.quota_basis && s.plan.period === plan.period;
         const opening = sameMeasure ? (s.opening ?? null) : null;
         return { ...s, v: VERSION, plan, opening, deals: rerun(plan, s.deals, opening) };
@@ -257,6 +266,29 @@ export function useDemoStore() {
         };
         return { ...s, opening, deals: rerun(s.plan, s.deals, opening) };
       });
+      return {};
+    },
+    // A quote is the deal as typed, plus a label: nothing in it depends on the
+    // plan, so plan edits leave quotes alone and they re-price on the page.
+    saveQuote: async (q: { id?: string | null; name: string; deal: DealInput }) => {
+      const now = new Date().toISOString();
+      const id = q.id ?? `q-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      update((s) => {
+        const list = s.quotes ?? [];
+        const before = list.find((x) => x.id === id);
+        const saved: Quote = {
+          id,
+          name: q.name.replace(/\s+/g, ' ').trim().slice(0, 80),
+          deal: q.deal,
+          createdAt: before?.createdAt ?? now,
+          updatedAt: now,
+        };
+        return { ...s, quotes: [saved, ...list.filter((x) => x.id !== id)] };
+      });
+      return { id };
+    },
+    deleteQuote: async (id: string) => {
+      update((s) => ({ ...s, quotes: (s.quotes ?? []).filter((q) => q.id !== id) }));
       return {};
     },
     reset: () => update(() => fresh()),

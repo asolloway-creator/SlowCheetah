@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { currentOpening, DEMO_PLAN, periodKey, type CompPlan, type OpeningInput } from '@/lib/calc';
 import { fmt, periodNoun, planSentence } from '@/lib/format';
-import { peekDemoState, clearDemoState, demoDealsForImport } from '@/lib/demo';
+import { peekDemoState, clearDemoState, demoDealsForImport, demoQuotesForImport } from '@/lib/demo';
 import { importDemoPlanAction } from '@/app/actions';
 
 function customizedDemoPlan(): CompPlan | null {
@@ -19,12 +19,22 @@ function demoOpening(): OpeningInput | null {
   return o ? { credit: o.credit, quarterArr: o.quarterArr } : null;
 }
 
+const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+/** "We found the plan, 2 deals and 1 quote you set up before signing in." */
+function foundTitle(deals: number, quotes: number): string {
+  const parts = ['the plan', ...(deals ? [count(deals, 'deal')] : []), ...(quotes ? [count(quotes, 'quote')] : [])];
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+  return `We found ${list} you set up before signing in.`;
+}
+
 /**
  * Shown above the blank plan form the first time a signed-in user with no
  * saved plan also has a plan of their own sitting in this browser's
  * localStorage — otherwise signing in silently discards what they set up
- * before it. Carries over the plan, their starting point for this period and
- * the deals they booked (re-run on the server, see importDemoPlanAction).
+ * before it. Carries over the plan, their starting point for this period, the
+ * deals they booked (re-run on the server, see importDemoPlanAction) and their
+ * open quotes.
  */
 export default function ImportDemoPlan() {
   const router = useRouter();
@@ -35,6 +45,7 @@ export default function ImportDemoPlan() {
   // `localStorage` not existing in Node.
   const [plan, setPlan] = useState<CompPlan | null>(customizedDemoPlan);
   const [deals] = useState(demoDealsForImport);
+  const [quotes] = useState(demoQuotesForImport);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +61,7 @@ export default function ImportDemoPlan() {
   async function onImport() {
     setPending(true);
     setError(null);
-    const res = await importDemoPlanAction(plan!, demoOpening(), deals);
+    const res = await importDemoPlanAction(plan!, demoOpening(), deals, quotes);
     if (res.error) {
       setError(res.error);
       setPending(false);
@@ -67,11 +78,7 @@ export default function ImportDemoPlan() {
 
   return (
     <div className="import-banner">
-      <p className="import-banner-title">
-        {deals.length > 0
-          ? `We found the plan and ${deals.length} deal${deals.length === 1 ? '' : 's'} you set up before signing in.`
-          : 'We found the plan you set up before signing in.'}
-      </p>
+      <p className="import-banner-title">{foundTitle(deals.length, quotes.length)}</p>
       <p className="import-banner-copy">{summary}</p>
       {error && <p className="plan-msg is-error">{error}</p>}
       <div className="import-banner-actions">

@@ -568,6 +568,35 @@ main { display: block; padding-bottom: 80px; }
 .book-row { position: relative; margin-top: 14px; }
 .book-row .btn { height: 50px; }
 .book-nudge-ring { inset: -4px; border-radius: 17px; border: 1.5px solid var(--ink); animation-name: nudge-pulse-soft; }
+/* Save a quote beside Book: two equal buttons, the nudge on Book alone. */
+.book-row.has-quote { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.book-row.has-quote .book-nudge-ring { left: calc(50% + 1px); }
+.quote-naming { margin-top: 14px; }
+.quote-naming-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 8px; }
+.quote-naming-row .btn { height: 50px; }
+.quote-naming-cancel { margin-top: 10px; font-size: 14px; }
+
+/* Open quotes, under the deal page's title. */
+.quotes { margin-top: 26px; }
+.quotes-h { font: 650 12px/1 var(--ui); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+.quotes-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.quote-pill {
+  display: inline-flex; align-items: baseline; gap: 10px; max-width: 100%; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--line-2); text-align: left;
+  transition: box-shadow var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.quote-pill:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.quote-pill.is-active { background: var(--sun-wash); box-shadow: inset 0 0 0 2px var(--ink); }
+.quote-pill.is-new { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); font: 600 14px/1.2 var(--ui); color: var(--ink-2); }
+.quote-pill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/1.2 var(--ui); color: var(--ink); }
+.quote-pill-pay { font: 750 14px/1.2 var(--display); color: var(--green); font-variant-numeric: tabular-nums; }
+.quotes-sum { margin-top: 12px; max-width: 34em; font: 500 14.5px/1.5 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* Where you stand: the quarter against the Quarterly Bonus. */
+.bonus-figure { font: 500 17px/1.5 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bonus-figure b { font: 750 26px/1.2 var(--display); letter-spacing: -0.02em; color: var(--ink); margin-right: 6px; }
+.bonus-line { margin-top: 14px; padding: 6px 22px 2px; border-radius: 22px; background: var(--white); box-shadow: var(--shadow-card); }
+.bonus-sentence { margin-top: 16px; max-width: 40em; font: 600 17px/1.45 var(--ui); color: var(--ink); font-variant-numeric: tabular-nums; }
 @keyframes nudge-pulse-soft {
   0% { transform: scale(1); opacity: 0.5; }
   60% { transform: scale(1.04, 1.2); opacity: 0; }

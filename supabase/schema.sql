@@ -1,4 +1,4 @@
--- IOI schema v11 (2026-10-02): a rep's starting point on their working plan.
+-- IOI schema v12 (2026-10-02): open quotes.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -86,6 +86,14 @@
 --   - admin_plan_data(): the dashboard's plan-data section, one plan per
 --     person, same exclusions as admin_traffic().
 
+-- v12 (2026-10-02) adds public.quotes: deals a rep is still working, saved
+-- so they can come back to them and see what their open quotes add up to.
+-- Same deal columns as public.deals plus the rep's own label. Owner-only RLS
+-- like deals, and no admin read policy (a label can hold anything). Booking
+-- a quote inserts a deal and deletes the quote. events.name gains
+-- 'quote_saved'. Additive, safe on a live v11 database; see the block at the
+-- end of this file.
+--
 -- v11 (2026-10-02) adds comp_plans.opening: what the rep had already booked
 -- this period before they started using IOI (calc.ts Opening), so where they
 -- stand starts from their real position instead of zero, or, as the demo
@@ -538,3 +546,29 @@ end;
 $$;
 revoke execute on function public.admin_plan_data(timestamptz, text, text) from public, anon;
 grant execute on function public.admin_plan_data(timestamptz, text, text) to authenticated;
+
+-- ---------------------------------------------------------------- v12: open quotes
+
+create table if not exists public.quotes (
+  id                         uuid primary key default gen_random_uuid(),
+  user_id                    uuid not null references public.users (id) on delete cascade,
+  name                       text not null default '' check (char_length(name) <= 80),
+  one_time_amount            numeric(14,2) not null default 0 check (one_time_amount >= 0),
+  subscription_amount        numeric(14,2) not null default 0 check (subscription_amount >= 0),
+  subscription_mode          text not null default 'mrr' check (subscription_mode in ('mrr','acv')),
+  units                      integer not null default 1 check (units >= 1),
+  one_time_discount_pct      numeric(5,2) not null default 0 check (one_time_discount_pct between 0 and 100),
+  subscription_discount_pct  numeric(5,2) not null default 0 check (subscription_discount_pct between 0 and 100),
+  created_at                 timestamptz not null default now(),
+  updated_at                 timestamptz not null default now()
+);
+create index if not exists quotes_user_updated_idx on public.quotes (user_id, updated_at desc);
+alter table public.quotes enable row level security;
+drop policy if exists "quotes own" on public.quotes;
+create policy "quotes own" on public.quotes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+alter table public.events drop constraint if exists events_name_check;
+alter table public.events add constraint events_name_check check (name in (
+  'visit', 'slider_drag', 'bonus_line_crossed', 'plan_form_opened', 'plan_saved', 'deal_booked', 'signin_started',
+  'plan_read', 'plan_confirmed', 'quote_saved'
+));

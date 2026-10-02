@@ -37,6 +37,9 @@ export function DemoDeal() {
         onSavePlan={d.savePlan}
         onSaveOpening={d.setOpening}
         onStartOver={d.reset}
+        quotes={d.quotes}
+        onSaveQuote={d.saveQuote}
+        onDeleteQuote={d.deleteQuote}
         initialDeal={SAMPLE}
         intro={pitch ? <LandingHero /> : undefined}
         sample={d.seeded}
@@ -55,7 +58,14 @@ export function DemoQuota() {
         (d.seeded ? (
           <PlanFirst page="quota" />
         ) : (
-          <QuotaView plan={d.plan} ptd={d.ptd} deals={d.periodDeals} opening={d.opening} onOpening={d.setOpening} />
+          <QuotaView
+            plan={d.plan}
+            ptd={d.ptd}
+            qtd={d.qtd}
+            deals={d.periodDeals}
+            opening={d.opening}
+            onOpening={d.setOpening}
+          />
         ))}
     </Shell>
   );
