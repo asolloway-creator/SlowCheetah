@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
 import { DEMO_PLAN } from '@/lib/calc';
-import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort } from '@/lib/format';
+import { fmt, fmtMoney, fmtPctShort } from '@/lib/format';
+import { mapRecord, recordFromPlan } from '@/lib/plan-record/map';
+import { readback } from '@/lib/plan-record/copy';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 import { SAMPLE_BONUS_LINE, sampleAt } from '@/components/sampleFigures';
 import { showcaseScript } from '@/components/showcase';
@@ -23,31 +25,34 @@ function StillSlider({ pct, line, lost }: { pct: number; line: number; lost: boo
   );
 }
 
-const StepIcon = () => (
-  <span className="dc-icon" aria-hidden="true">
-    <svg viewBox="0 0 20 20" fill="none">
-      <path d="M3 15.5h3.2v-4H9.4v-3.5h3.2V4.5H17" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  </span>
+const MicIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none">
+    <rect x="7" y="2.5" width="6" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
 );
 
 /**
- * Three beats, each illustrated with a still of the real card on the sample
- * deal: what it pays, what a discount costs, what it puts at stake.
+ * How you use IOI, in three steps, each with a still of the real screen on
+ * the sample plan: say how you're paid (the plan reader), drag before you
+ * quote (the card), hold the line (the most you can give and keep the
+ * bonus). The landing card above already plays what one discount does; this
+ * is how a visitor gets the same on their own plan. Every figure is computed
+ * from the sample, and the plan read back is IOI's own readback of it.
  */
 export default function HowItWorks() {
-  // The same ask and hold the landing card's story plays, so the two agree.
   const story = showcaseScript(DEMO_PLAN, SAMPLE, OPENING_PTD, OPENING_QTD);
-  const rest = sampleAt(0);
   const mid = sampleAt(15);
+  const held = sampleAt(story?.hold ?? 24);
   const over = sampleAt(story?.ask ?? 25);
   const line = SAMPLE_BONUS_LINE ?? 0;
-  const accelRate = fmtRateShort(DEMO_PLAN, DEMO_PLAN.accelerator_rate);
-  const threshold = fmtCredit(DEMO_PLAN, DEMO_PLAN.accelerator_threshold);
-  const booked = OPENING_PTD.creditBooked;
-  const adds = rest.creditAfter - booked;
-  const kicker = DEMO_PLAN.quarterly_kicker!;
-  const bonusLine = fmtPctShort(Math.min(...kicker.tiers.map((t) => t.attainmentPct)));
+
+  // What a rep might say for "What does a deal pay you?", and what IOI reads back.
+  const said = `${fmtPctShort(DEMO_PLAN.base_rate)} of first-year value. Setup fees count at ${fmtPctShort(DEMO_PLAN.one_time_weight)}.`;
+  const record = recordFromPlan(DEMO_PLAN);
+  const groups = readback(record, mapRecord(record));
+  const shown = groups.filter((g) => g.title === 'Each deal' || g.title === 'As you sell more');
+  const readbackGroups = shown.length ? shown : groups.slice(1, 3);
 
   return (
     <section className="how" id="how" aria-labelledby="how-h">
@@ -57,8 +62,14 @@ export default function HowItWorks() {
             <span className="mark-dot" aria-hidden="true" />
             How it works
           </p>
-          <h2 id="how-h">No tool tells you what a deal costs. IOI does.</h2>
-          <p>Every offer moves three numbers. IOI shows all three while the offer is still yours to change.</p>
+          <h2 id="how-h">
+            Tell it once. <br />
+            Use it on every deal.
+          </h2>
+          <p>
+            Say how you&rsquo;re paid, once. From then on, every deal you&rsquo;re about to quote shows what it pays, what it
+            costs and where your line is.
+          </p>
         </div>
 
         <div className="beats">
@@ -66,48 +77,43 @@ export default function HowItWorks() {
             <div className="beat-copy">
               <p className="beat-label">
                 <span className="sq sq-pays" aria-hidden="true" />
-                Pays
+                Step 1
               </p>
-              <h3>What the deal pays you</h3>
+              <h3>Say how you&rsquo;re paid</h3>
               <p>
-                Your commission at the rate you&rsquo;ll actually earn. The sample deal lands the month at {threshold}, so
-                it crosses the accelerator and pays {rest.rate} on <b>{fmtMoney(rest.commissionable)}</b> commissionable:{' '}
-                <span className="is-green">{fmtMoney(rest.commission)}</span>.
+                Type it or talk it through, the way you&rsquo;d explain it to a friend: your quota, what a deal pays, what
+                changes past quota. IOI reads it back so you can check every rule before it counts.
               </p>
             </div>
             <div className="beat-stage is-sun" aria-hidden="true">
               <span className="beat-ring" />
               <div className="still-card still-a">
-                <p className="still-label">
-                  <span className="sq sq-pays" />
-                  Commission on this deal
+                <p className="still-q">
+                  <span className="cap-q-num">2</span>
+                  What does a deal pay you?
                 </p>
-                <p className="still-money is-green">{fmtMoney(rest.commission)}</p>
-                <p className="still-sub">
-                  {fmtMoney(rest.commissionable)} commissionable · {rest.rate}, accelerated
-                </p>
-                <hr />
-                <div className="dc-sentence has-icon">
-                  <StepIcon />
-                  <p>
-                    <b>This deal triggers your accelerator.</b> Every deal after this one earns {accelRate}.
-                  </p>
+                <div className="still-box">
+                  <p className="still-said">{said}</p>
+                  <div className="still-box-foot">
+                    <span className="mic is-listening">
+                      <MicIcon />
+                      Listening. Tap to stop
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="still-card still-b">
-                <div className="still-row">
-                  <p className="still-label">Month to date</p>
-                  <p className="still-note">
-                    <b>{Math.round(rest.creditAfter)}</b> of {threshold}
-                  </p>
-                </div>
-                <div className="still-units" style={vars({ '--booked': `${booked}fr`, '--adds': `${adds}fr` })}>
-                  <span className="is-booked" />
-                  <span className="is-deal" />
-                </div>
-                <p className="still-note">
-                  {booked} booked + {adds} from this deal. <b>{accelRate} from here.</b>
-                </p>
+              <div className="still-card still-b still-readback">
+                <p className="still-readback-h">Here&rsquo;s your plan.</p>
+                {readbackGroups.map((g) => (
+                  <div key={g.title} className="still-group">
+                    <p className="cap-group-h">{g.title}</p>
+                    {g.lines.map((l) => (
+                      <p key={`${l.area}:${l.index}`} className="still-line">
+                        {l.text}
+                      </p>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
           </article>
@@ -116,13 +122,13 @@ export default function HowItWorks() {
             <div className="beat-copy">
               <p className="beat-label">
                 <span className="sq sq-costs" aria-hidden="true" />
-                Costs
+                Step 2
               </p>
-              <h3>What each point of discount costs you</h3>
+              <h3>Drag before you quote</h3>
               <p>
-                Drag the discount and watch it come out of your side too. At {fmtPctShort(mid.pct)} off, this
-                deal&rsquo;s discounts cost you <span className="is-red">{fmtMoney(mid.discountsCost)}</span> and the
-                deal pays <span className="is-green">{fmtMoney(mid.commission)}</span>. The Quarterly Bonus still holds.
+                Every point of discount shows what it costs you, and whether it moves your accelerator or your bonus. At{' '}
+                {fmtPctShort(mid.pct)} off, this sample deal costs you{' '}
+                <span className="is-red">{fmtMoney(mid.discountsCost)}</span> and the Quarterly Bonus still holds.
               </p>
             </div>
             <div className="beat-stage is-butter" aria-hidden="true">
@@ -160,15 +166,19 @@ export default function HowItWorks() {
             <div className="beat-copy">
               <p className="beat-label">
                 <span className="sq sq-stake" aria-hidden="true" />
-                Puts at stake
+                Step 3
               </p>
-              <h3>What it puts at stake</h3>
+              <h3>Hold the line</h3>
               <p>
-                Some discounts cost more than the deal. At {fmtPctShort(over.pct)} off, the quarter drops below{' '}
-                {bonusLine} SaaS attainment and the Quarterly Bonus is gone:{' '}
-                <span className="is-red">{over.bonus ? fmtMoney(over.bonus.value) : ''}</span>, on top of{' '}
-                <span className="is-red">{fmtMoney(over.discountsCost)}</span> off this deal.
-                {story && <> IOI shows you the line: hold at {fmtPctShort(story.hold)} and you keep it.</>}
+                When a discount would cost you a bonus or an accelerator, IOI shows the most you can give and keep it.
+                {story && over.bonus && held.bonus && (
+                  <>
+                    {' '}
+                    On this sample deal that&rsquo;s {fmtPctShort(story.hold)}: your prospect still saves{' '}
+                    {fmt(held.prospectSaves)} a year, and you keep a{' '}
+                    <span className="is-green">{fmt(held.bonus.value)}</span> Quarterly Bonus.
+                  </>
+                )}
               </p>
             </div>
             <div className="beat-stage is-ink" aria-hidden="true">
@@ -180,25 +190,35 @@ export default function HowItWorks() {
                     Discount on the subscription
                   </p>
                 </div>
-                <StillSlider pct={over.pct} line={line} lost />
+                <StillSlider pct={held.pct} line={line} lost={false} />
                 <p className="still-sub">
-                  This deal&rsquo;s discounts cost you <span className="is-red">{fmtMoney(over.discountsCost)}</span>.
+                  This deal&rsquo;s discounts cost you <span className="is-red">{fmtMoney(held.discountsCost)}</span>.
                 </p>
-                {story && <p className="still-prompt">Hold the line at {fmtPctShort(story.hold)} &rarr;</p>}
                 <hr />
                 <div className="still-row">
                   <p className="still-label">
                     <span className="sq sq-pays" />
                     Commission on this deal
                   </p>
-                  <p className="still-money-md is-green">{fmtMoney(over.commission)}</p>
+                  <p className="still-money-md is-green">{fmtMoney(held.commission)}</p>
                 </div>
               </div>
-              {over.bonus && over.bonus.tone === 'red' && (
-                <div className="still-card still-b kicker-outcome is-red">
-                  <p className="kicker-outcome-label">{over.bonus.label}:</p>
-                  <p className="kicker-outcome-figure">{fmtMoney(over.bonus.value)}</p>
-                  <p className="kicker-outcome-sentence">{over.bonus.sentence}</p>
+              {story && over.bonus && held.bonus && (
+                <div className="still-card still-b still-compare">
+                  <div className="still-compare-row">
+                    <span className="still-compare-left">
+                      <span className="still-compare-pct">{fmtPctShort(story.ask)} off</span>
+                      <span className="still-compare-what">Quarterly Bonus lost</span>
+                    </span>
+                    <span className="still-compare-fig is-red">&minus;{fmt(over.bonus.value)}</span>
+                  </div>
+                  <div className="still-compare-row">
+                    <span className="still-compare-left">
+                      <span className="still-compare-pct">{fmtPctShort(story.hold)} off</span>
+                      <span className="still-compare-what">Quarterly Bonus kept</span>
+                    </span>
+                    <span className="still-compare-fig is-green">{fmt(held.bonus.value)}</span>
+                  </div>
                 </div>
               )}
             </div>

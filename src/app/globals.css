@@ -750,10 +750,29 @@ main { display: block; padding-bottom: 80px; }
 .still-money-md { font: 750 30px/1 var(--display); letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
 .still-money.is-green, .still-money-md.is-green { color: var(--green); }
 .still-sub { margin-top: 10px; font: 500 13.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.still-prompt {
-  margin-top: 8px; font: 650 13px/1.3 var(--ui); color: var(--ink);
-  text-decoration: underline; text-decoration-thickness: 1.5px; text-decoration-color: var(--sun-lo); text-underline-offset: 3px;
-}
+/* Step 1: a question being answered out loud, and IOI's readback of it. */
+.still-q { display: flex; align-items: center; gap: 10px; font: 700 15.5px/1.3 var(--display); letter-spacing: -0.01em; }
+.still-q .cap-q-num { width: 23px; height: 23px; font-size: 12px; }
+.still-box { margin-top: 12px; padding: 12px 14px 10px; border-radius: 14px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line-2); }
+.still-said { font: 500 15px/1.5 var(--ui); color: var(--ink); }
+.still-box-foot { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.still-box-foot .mic { height: 30px; font-size: 12.5px; }
+.still-box-foot .mic svg { width: 16px; height: 16px; }
+.still-readback-h { font: 750 18px/1.2 var(--display); letter-spacing: -0.015em; }
+.still-group { margin-top: 12px; }
+.still-group .cap-group-h { margin-bottom: 6px; font-size: 10.5px; }
+.still-line { font: 500 13.5px/1.45 var(--ui); color: var(--ink); }
+.still-line + .still-line { margin-top: 4px; }
+/* Step 3: the same deal at the ask and at the line. */
+.still-card.still-compare { padding: 6px 20px; }
+.still-compare-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; }
+.still-compare-row + .still-compare-row { border-top: 1px solid var(--line); }
+.still-compare-left { display: grid; gap: 5px; }
+.still-compare-pct { font: 700 16px/1 var(--display); letter-spacing: -0.01em; }
+.still-compare-what { font: 500 13px/1.2 var(--ui); color: var(--ink-3); }
+.still-compare-fig { font: 750 22px/1 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.still-compare-fig.is-red { color: var(--red); }
+.still-compare-fig.is-green { color: var(--green); }
 .still-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .still-note { margin-top: 10px; font: 500 13px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .still-row .still-note { margin-top: 0; }

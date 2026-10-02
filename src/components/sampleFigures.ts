@@ -26,6 +26,8 @@ export function sampleAt(pct: number) {
     rate: effectiveRateLabel(DEMO_PLAN, o.r),
     discountsCost: o.atStake,
     creditAfter: o.r.creditAfter,
+    /** What this discount saves the prospect in a year, on the subscription. */
+    prospectSaves: (o.r.subAnnualList * pct) / 100,
     bonus,
   };
 }

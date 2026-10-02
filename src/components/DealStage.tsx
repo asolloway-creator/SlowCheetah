@@ -45,14 +45,15 @@ function leadSentence(s: string): [string, string] {
  */
 function Narration({ beat, crossed, s }: { beat: Beat; crossed: boolean; s: ShowcaseScript }) {
   let line: ReactNode;
-  if (beat === 'ready') line = 'Your customer wants a discount.';
-  else if (beat === 'ask') line = crossed ? <>Past {fmtPctShort(s.line)}, your bonus is gone.</> : <>They ask for {fmtPctShort(s.ask)} off.</>;
+  if (beat === 'ready') line = 'A prospect wants a discount.';
+  else if (beat === 'ask')
+    line = crossed ? <>Past {fmtPctShort(s.line)}, your Quarterly&nbsp;Bonus is gone.</> : <>Prospect asks for {fmtPctShort(s.ask)} off.</>;
   else if (beat === 'hold') line = 'IOI shows you where to stop.';
   else {
     line = (
       <>
-        At {fmtPctShort(s.ask)}, you lose a <span className="is-red">{fmt(s.lost)}</span> bonus. At {fmtPctShort(s.hold)},
-        you keep it.
+        At {fmtPctShort(s.ask)}, you lose a <span className="is-red">{fmt(s.lost)}</span> Quarterly&nbsp;Bonus. At{' '}
+        {fmtPctShort(s.hold)}, you keep it.
       </>
     );
   }
@@ -68,7 +69,7 @@ function Narration({ beat, crossed, s }: { beat: Beat; crossed: boolean; s: Show
 
 /** The other side of the story's last point, under the slider once it holds. */
 const customerSide = (s: ShowcaseScript) =>
-  `${s.ask - s.hold === 1 ? 'That last point is' : 'The difference is'} worth ${fmt(s.customerYear)} a year to your customer.`;
+  `${s.ask - s.hold === 1 ? 'That last point is' : 'The difference is'} worth ${fmt(s.customerYear)} a year to your prospect.`;
 
 /**
  * The deal page. Left: the intro (a title, or the landing hero), then the

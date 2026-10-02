@@ -18,7 +18,7 @@ export type ShowcaseScript = {
   hold: number;
   /** The bonus this deal costs at `ask`. */
   lost: number;
-  /** What the points between `hold` and `ask` save the customer in a year. */
+  /** What the points between `hold` and `ask` would save the prospect in a year. */
   customerYear: number;
 };
 
