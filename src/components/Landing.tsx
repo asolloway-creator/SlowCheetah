@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Sculpture from '@/components/Sculpture';
+import { SHOWCASE_EVENT } from '@/components/useShowcase';
 
 const Arrow = () => (
   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -9,11 +10,9 @@ const Arrow = () => (
   </svg>
 );
 
-/** Brings the sample deal's discount slider into view and puts focus on it. */
-function toSlider() {
-  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
-  window.setTimeout(() => document.getElementById('subD')?.focus({ preventScroll: true }), reduced ? 0 : 400);
+/** Brings the sample deal into view and plays its story from the start. */
+function watchSample() {
+  window.dispatchEvent(new Event(SHOWCASE_EVENT));
 }
 
 /** The landing page's intro, beside the live result card. */
@@ -38,11 +37,12 @@ export function LandingHero() {
             <Arrow />
           </span>
         </Link>
-        <button type="button" className="hero-try" onClick={toSlider}>
-          Or drag the sample discount
+        <button type="button" className="hero-try" onClick={watchSample}>
+          Or watch a sample deal
           <Arrow />
         </button>
       </div>
+      <p className="hero-note">Free. No sign-up. Your plan stays anonymous.</p>
     </div>
   );
 }

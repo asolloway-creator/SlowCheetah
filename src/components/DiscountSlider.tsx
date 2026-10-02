@@ -13,7 +13,8 @@ const MINOR = Array.from({ length: 21 }, (_, i) => i * 5);
 const MAJOR = [0, 25, 50, 75, 100];
 
 /**
- * A native range with a click-to-type value bubble and a "try 0%" tween.
+ * A native range with a click-to-type value bubble and a "Hold the line"
+ * tween: back to the line when the discount is past one, otherwise to 0%.
  * Keyboard: ←/→ 0.5, Shift 5, Home/End 0/max.
  * `size="lg"` is the promoted control on the result card: a tall track
  * with a scale, and, when a quarterly bonus is at stake, the exact line
@@ -32,6 +33,9 @@ export default function DiscountSlider({
   disabled = false,
   kickerBreakpointPct = null,
   costsATier = false,
+  holdAt = null,
+  hint = '',
+  zeroPrompt = true,
 }: {
   id: string;
   label: string;
@@ -54,6 +58,16 @@ export default function DiscountSlider({
    *  source of truth for every red state drawn here (fill, line, bubble,
    *  thumb, pulse), so none can disagree with the bonus card. lg only. */
   costsATier?: boolean;
+  /** opening.ts's holdLinePct: once the discount is past a line (bonus or
+   *  accelerator), the most it can be and still keep what's being lost.
+   *  The prompt pulls the slider back there instead of to 0%. lg only. */
+  holdAt?: number | null;
+  /** The landing card's story pointing at the prompt ('glow'), then
+   *  pressing it ('press'). lg only. */
+  hint?: '' | 'glow' | 'press';
+  /** "Hold the line. Try 0%" when nothing's past a line. Off on the landing
+   *  card, whose story ends holding at the line on purpose. */
+  zeroPrompt?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -260,10 +274,22 @@ export default function DiscountSlider({
       </div>
       <div className="slider-foot">
         {caption && <p className="slider-caption">{caption}</p>}
-        {value > 0 && !disabled && (
-          <button type="button" className="btn-text slider-prompt" onClick={() => animateTo(0)}>
-            Hold the line. Try 0% &rarr;
+        {holdAt !== null && value > holdAt && !disabled ? (
+          <button
+            type="button"
+            className={`btn-text slider-prompt is-hold${hint ? ` is-${hint}` : ''}`}
+            onClick={() => animateTo(holdAt)}
+          >
+            Hold the line at {fmtPctShort(holdAt)} &rarr;
           </button>
+        ) : (
+          zeroPrompt &&
+          value > 0 &&
+          !disabled && (
+            <button type="button" className="btn-text slider-prompt" onClick={() => animateTo(0)}>
+              Hold the line. Try 0% &rarr;
+            </button>
+          )
         )}
       </div>
     </div>

@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import { DEMO_PLAN } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort } from '@/lib/format';
-import { OPENING_PTD } from '@/components/opening';
+import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 import { SAMPLE_BONUS_LINE, sampleAt } from '@/components/sampleFigures';
+import { showcaseScript } from '@/components/showcase';
 
 const vars = (o: Record<string, string>) => o as CSSProperties;
 
@@ -35,9 +36,11 @@ const StepIcon = () => (
  * deal: what it pays, what a discount costs, what it puts at stake.
  */
 export default function HowItWorks() {
+  // The same ask and hold the landing card's story plays, so the two agree.
+  const story = showcaseScript(DEMO_PLAN, SAMPLE, OPENING_PTD, OPENING_QTD);
   const rest = sampleAt(0);
   const mid = sampleAt(15);
-  const over = sampleAt(25);
+  const over = sampleAt(story?.ask ?? 25);
   const line = SAMPLE_BONUS_LINE ?? 0;
   const accelRate = fmtRateShort(DEMO_PLAN, DEMO_PLAN.accelerator_rate);
   const threshold = fmtCredit(DEMO_PLAN, DEMO_PLAN.accelerator_threshold);
@@ -165,6 +168,7 @@ export default function HowItWorks() {
                 {bonusLine} SaaS attainment and the Quarterly Bonus is gone:{' '}
                 <span className="is-red">{over.bonus ? fmtMoney(over.bonus.value) : ''}</span>, on top of{' '}
                 <span className="is-red">{fmtMoney(over.discountsCost)}</span> off this deal.
+                {story && <> IOI shows you the line: hold at {fmtPctShort(story.hold)} and you keep it.</>}
               </p>
             </div>
             <div className="beat-stage is-ink" aria-hidden="true">
@@ -180,6 +184,7 @@ export default function HowItWorks() {
                 <p className="still-sub">
                   This deal&rsquo;s discounts cost you <span className="is-red">{fmtMoney(over.discountsCost)}</span>.
                 </p>
+                {story && <p className="still-prompt">Hold the line at {fmtPctShort(story.hold)} &rarr;</p>}
                 <hr />
                 <div className="still-row">
                   <p className="still-label">

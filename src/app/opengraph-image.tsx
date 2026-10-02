@@ -26,8 +26,10 @@ import {
  * split across elements is laid out as separate flex items with a gap.
  */
 
-export const alt =
-  'IOI. Know what a deal pays. And what it costs. On the sample deal: $2,216.16 commission, and it unlocks a $10,780.92 Quarterly Bonus.';
+// Computed like everything else on the card, so it can't drift from the image.
+const altOutcome = outcome(DEMO_PLAN, SAMPLE, OPENING_PTD);
+const altBonus = kickerOutcomeCopy(DEMO_PLAN, crossEffect(DEMO_PLAN, altOutcome, OPENING_QTD), OPENING_QTD);
+export const alt = `IOI. Know what a deal pays. And what it costs. On the sample deal: ${fmtMoney(altOutcome.r.commissionEffective)} commission, and it unlocks a ${fmtMoney(altBonus?.value ?? 0)} Quarterly Bonus.`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

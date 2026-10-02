@@ -9,9 +9,10 @@ import type { KickerOutcomeCopy } from '@/components/opening';
  * a tier, red when it costs one (with the mechanism spelled out). Renders
  * nothing when this deal isn't decisive either way. Flipping from one to the
  * other plays a short shake (to red) or settle (back to green), never on
- * first paint.
+ * first paint. `compact` drops the red card's mechanism sentence, for the
+ * landing card, where the story's own narration carries it.
  */
-export default function KickerOutcome({ copy }: { copy: KickerOutcomeCopy | null }) {
+export default function KickerOutcome({ copy, compact = false }: { copy: KickerOutcomeCopy | null; compact?: boolean }) {
   const tone = copy?.tone ?? null;
   const prev = useRef(tone);
   const [anim, setAnim] = useState<'' | 'is-flipping' | 'is-settling'>('');
@@ -34,7 +35,7 @@ export default function KickerOutcome({ copy }: { copy: KickerOutcomeCopy | null
       <p className="kicker-outcome-figure">
         <TweenedMoney value={copy.value} />
       </p>
-      {copy.tone === 'red' && <p className="kicker-outcome-sentence">{copy.sentence}</p>}
+      {copy.tone === 'red' && !compact && <p className="kicker-outcome-sentence">{copy.sentence}</p>}
     </div>
   );
 }

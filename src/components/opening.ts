@@ -30,15 +30,15 @@ export const EMPTY: DealInput = {
 
 /**
  * The seeded deal: 2 units, $1,800 MRR, $5,400 one-time (hardware/setup)
- * at 20% off. Landing this deal is what pushes the rep from 6 to 8 units —
- * exactly the monthly accelerator threshold — so it crosses on its own,
- * at the accelerated rate, the moment it's booked. The 20% is deliberately
- * on the one-time side, not the subscription: one-time products count at
- * only 40% toward commission here, so a discount that looks steep to the
- * customer barely touches the rep's paycheck. That gap — a discount's
- * sticker cost vs. what it actually costs in commission — is the thing
- * worth noticing, and it only exists because the plan weights revenue
- * types differently. A flat single-metric plan has no such gap to find.
+ * at full price. Landing this deal is what pushes the rep from 6 to 8
+ * units — exactly the monthly accelerator threshold — so it crosses on its
+ * own, at the accelerated rate, the moment it's booked.
+ *
+ * No discount anywhere at the start: the landing card plays one story, the
+ * subscription discount against the Quarterly Bonus line, and any cost on
+ * screen has to be one that story caused. (It used to open with 20% off the
+ * one-time products, which put a cost on the card at 0% off with nothing
+ * visible causing it.)
  *
  * Sized (together with demo.ts's seeded history) so a 50% subscription
  * discount drops quarterly SaaS attainment from ~106% to ~104% against
@@ -53,7 +53,7 @@ export const EMPTY: DealInput = {
  */
 export const SAMPLE: DealInput = {
   oneTime: 5400, subscription: 1800, subMode: 'mrr', units: 2,
-  oneTimeDiscountPct: 20, subscriptionDiscountPct: 0,
+  oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
 };
 
 /**
@@ -228,6 +228,37 @@ export function kickerCrossDiscountPct(plan: CompPlan, o: Outcome, qtd: QuarterT
   const roomDollars = requiredArr - qtd.saasArrBooked;
   if (roomDollars <= 0) return null;
   return Math.min(100, Math.max(0, round2(100 * (1 - roomDollars / listAnnual))));
+}
+
+/**
+ * "Hold the line": the steepest subscription discount, on the slider's own
+ * half-point steps, that still keeps what this discount is costing. The
+ * quarterly bonus tier when that's what's being lost, otherwise the
+ * accelerator the discount is keeping the deal under. Null when the
+ * discount isn't past either line. It's where the slider's prompt moves
+ * back to, so the fix is the most the customer can still get, not 0%.
+ *
+ * Starts from the closed-form line and confirms against the engine itself
+ * (crossEffect / outcome state), stepping down if rounding left it a hair
+ * on the wrong side, so the spot it lands on can never still read as lost.
+ */
+export function holdLinePct(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, qtd: QuarterToDate | null): number | null {
+  const at = (pct: number) => outcome(plan, { ...deal, subscriptionDiscountPct: pct }, ptd);
+  const step = (x: number) => Math.floor(x * 2 + 1e-9) / 2;
+  const o = at(deal.subscriptionDiscountPct);
+  if (qtd && crossEffect(plan, o, qtd)?.costsATier) {
+    const kx = kickerCrossDiscountPct(plan, o, qtd);
+    if (kx === null) return null;
+    let p = Math.min(step(kx), deal.subscriptionDiscountPct);
+    while (p > 0 && crossEffect(plan, at(p), qtd)?.costsATier) p -= 0.5;
+    return Math.max(0, p);
+  }
+  if (o.state === 'blocked' && o.safeDiscountPct !== null) {
+    let p = Math.min(step(o.safeDiscountPct), deal.subscriptionDiscountPct);
+    while (p > 0 && at(p).state === 'blocked') p -= 0.5;
+    return Math.max(0, p);
+  }
+  return null;
 }
 
 /** "Tier 1"/"Tier 2" is engine language — nobody talks about their comp

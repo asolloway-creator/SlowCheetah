@@ -21,16 +21,19 @@ export function Shell({
   current,
   email,
   width = 'wide',
+  own = false,
   children,
 }: {
   current: string;
   email: string | null;
   width?: ShellWidth;
+  /** Signed out, with a plan of their own in this browser (the demo store). */
+  own?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <>
-      <Masthead current={current} email={email} />
+      <Masthead current={current} email={email} own={own} />
       <main className={width === 'full' ? 'main-full' : `container ${WIDTH[width]}`}>{children}</main>
       <Footer />
     </>

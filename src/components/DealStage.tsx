@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
-import { fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
 import Outcome from '@/components/Outcome';
@@ -17,10 +17,10 @@ import KickerOutcome from '@/components/KickerOutcome';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import {
   EMPTY,
-  OPENING_PTD,
   SAMPLE,
   costOf,
   crossEffect,
+  holdLinePct,
   kickerCrossDiscountPct,
   kickerGroundingDetail,
   kickerOutcomeCopy,
@@ -29,6 +29,8 @@ import {
   outcomeCopy,
   sliderCaption,
 } from '@/components/opening';
+import { showcaseScript, type ShowcaseScript } from '@/components/showcase';
+import { useShowcase, type Beat } from '@/components/useShowcase';
 
 /** Splits "This deal triggers your accelerator. Every deal after..." into a bold lead and the rest. */
 function leadSentence(s: string): [string, string] {
@@ -37,11 +39,46 @@ function leadSentence(s: string): [string, string] {
 }
 
 /**
- * The deal page. Left: the intro (the landing hero in the demo, a title
- * signed in), then the deal builder on a panel that rises under the result.
- * Right: the result card on a sunflower block, then where the period stands.
- * Works against the browser store (demo) and the server actions (signed in)
- * alike.
+ * The landing card's narration, one line per beat of its story: the ask,
+ * the loss the moment the bonus line is crossed, IOI pointing at where to
+ * stop, then both outcomes side by side. Every figure comes from the script.
+ */
+function Narration({ beat, crossed, s }: { beat: Beat; crossed: boolean; s: ShowcaseScript }) {
+  let line: ReactNode;
+  if (beat === 'ready') line = 'Your customer wants a discount.';
+  else if (beat === 'ask') line = crossed ? <>Past {fmtPctShort(s.line)}, your bonus is gone.</> : <>They ask for {fmtPctShort(s.ask)} off.</>;
+  else if (beat === 'hold') line = 'IOI shows you where to stop.';
+  else {
+    line = (
+      <>
+        At {fmtPctShort(s.ask)}, you lose a <span className="is-red">{fmt(s.lost)}</span> bonus. At {fmtPctShort(s.hold)},
+        you keep it.
+      </>
+    );
+  }
+  const key = beat === 'ask' && crossed ? 'lost' : beat === 'free' ? 'done' : beat;
+  return (
+    <div className="dc-narration">
+      <p key={key} className="dc-narration-line fade-up">
+        {line}
+      </p>
+    </div>
+  );
+}
+
+/** The other side of the story's last point, under the slider once it holds. */
+const customerSide = (s: ShowcaseScript) =>
+  `${s.ask - s.hold === 1 ? 'That last point is' : 'The difference is'} worth ${fmt(s.customerYear)} a year to your customer.`;
+
+/**
+ * The deal page. Left: the intro (a title, or the landing hero), then the
+ * deal builder on a panel that rises under the result. Right: the result
+ * card on a sunflower block, then where the period stands. Works against
+ * the browser store (demo) and the server actions (signed in) alike.
+ *
+ * On the landing page, before a visitor has a plan of their own, it's the
+ * showcase instead: the hero and the card alone, the card playing its story
+ * (useShowcase). The builder comes with their own plan.
  */
 export default function DealStage({
   plan,
@@ -79,10 +116,26 @@ export default function DealStage({
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
-  // Captured at the moment of booking, before `deal` resets to EMPTY below —
-  // the post-booking plan-bridge names this exact figure, and
-  // `copy.figureText` stops being that number the instant the reset happens.
-  const [bookedFigure, setBookedFigure] = useState<string | null>(null);
+
+  // The landing page's card: the stock sample, before the visitor has a plan
+  // of their own. No deal builder and no booking. The card plays its one
+  // story by itself (useShowcase), then hands the slider over. The builder
+  // arrives with their own plan, where its numbers mean something.
+  const showcase = demo && sample && !planSaved;
+  const script = useMemo(() => (showcase ? showcaseScript(plan, SAMPLE, ptd, qtd ?? null) : null), [showcase, plan, ptd, qtd]);
+  // The story's own moves are never the visitor's input: never dirty, so
+  // they can't count as a drag or a bonus-line crossing.
+  const setDiscount = useCallback((pct: number) => {
+    setDeal((d) => ({ ...d, subscriptionDiscountPct: pct }));
+    setDirty(false);
+  }, []);
+  const show = useShowcase({
+    enabled: showcase,
+    ask: script?.ask ?? null,
+    hold: script?.hold ?? null,
+    setDiscount,
+    targetId: 'deal-card',
+  });
 
   // The header's "Put your plan in" works from any page — it links here with
   // ?plan=1 to open the same inline dialog. A client-side nav to the same
@@ -128,6 +181,8 @@ export default function DealStage({
   // slider's line. xEffect.costsATier at the live discount is still the only
   // thing that decides red vs. not.
   const kickerCrossPct = useMemo(() => kickerCrossDiscountPct(plan, o, qtd ?? null), [plan, o, qtd]);
+  // Past a line, the most the discount can be and still keep what it's costing.
+  const holdAt = useMemo(() => holdLinePct(plan, deal, ptd, qtd ?? null), [plan, deal, ptd, qtd]);
   const groundingDetail = kickerGroundingDetail(plan, qtd ?? null);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -173,7 +228,6 @@ export default function DealStage({
       setMsg({ error: res.error });
     } else {
       track('deal_booked', ctx);
-      setBookedFigure(copy.figureText || null);
       setMsg({ booked: true });
       setDeal(EMPTY);
       setDirty(false);
@@ -212,12 +266,6 @@ export default function DealStage({
     return res;
   }
 
-  const changed =
-    dirty ||
-    Boolean(msg.booked) ||
-    JSON.stringify(ptd) !== JSON.stringify(OPENING_PTD) ||
-    JSON.stringify(plan) !== JSON.stringify(DEMO_PLAN);
-
   const { r } = o;
   // The commission's base is in the figure's own caption; months_of_mrr
   // plans have no such base to fold in, so New ARR stays here for them.
@@ -242,8 +290,6 @@ export default function DealStage({
 
   const [lead, rest] = leadSentence(copy.sentence);
   const accelMoment = o.state === 'crossed' || o.state === 'past';
-  const showPromoLive = demo && !planSaved && !msg.booked && !empty;
-  const showPromoBooked = demo && !planSaved && Boolean(msg.booked) && Boolean(bookedFigure);
 
   const introBlock = intro ?? (
     <div className="ds-title">
@@ -252,9 +298,50 @@ export default function DealStage({
     </div>
   );
 
+  const slider = (
+    <DiscountSlider
+      size="lg"
+      id="subD"
+      label="Discount on the subscription"
+      value={deal.subscriptionDiscountPct}
+      onChange={(v) => {
+        if (showcase) show.takeOver();
+        set('subscriptionDiscountPct', v);
+        trackOnce('slider_drag', ctx);
+      }}
+      costsYou={subCost}
+      valueText={`${fmtPctShort(deal.subscriptionDiscountPct)} off${subCost > 0 ? `, costs you ${fmtMoney(subCost)}` : ''}${xCopy?.tone === 'red' ? `. ${xCopy.label}` : ''}`}
+      caption={
+        !showcase || show.beat === 'free'
+          ? sliderCaption(deal, r)
+          : show.beat === 'done' && script
+            ? customerSide(script)
+            : undefined
+      }
+      aside={
+        // On the landing card the line is always there, just invisible at
+        // $0, so the slider never jumps down when the first cost appears.
+        (o.atStake > 0 || showcase) && !empty ? (
+          <p className={`slider-cost${o.atStake > 0 ? '' : ' is-zero'}`} aria-hidden={o.atStake > 0 ? undefined : true}>
+            {showcase ? 'Costs you' : 'This deal’s discounts cost you'}{' '}
+            <b>
+              <TweenedMoney value={o.atStake} />
+            </b>
+          </p>
+        ) : null
+      }
+      disabled={empty || r.subMrrList <= 0}
+      kickerBreakpointPct={kickerCrossPct}
+      costsATier={Boolean(xEffect?.costsATier)}
+      holdAt={holdAt}
+      hint={showcase ? show.hint : ''}
+      zeroPrompt={!showcase}
+    />
+  );
+
   return (
     <>
-      <section className={`ds${demo ? ' is-demo' : ''}`} aria-label="Deal">
+      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}`} aria-label="Deal">
         <div className="ds-grid">
           <div className="ds-intro">{introBlock}</div>
 
@@ -262,20 +349,18 @@ export default function DealStage({
             <span className="ds-block-ring" />
             <span className="ds-block-ring is-two" />
           </div>
-          <div className="ds-panel" aria-hidden="true" />
+          {!showcase && <div className="ds-panel" aria-hidden="true" />}
 
           <div className="ds-aside">
-            {/* Sticky on desktop: the result stays beside the inputs while you
-                edit the deal below. Phones get the pinned bar instead. */}
             <div className="ds-aside-inner">
-            <article className="deal-card" id="deal-card" aria-labelledby="outcome-h">
+            <article className="deal-card" id="deal-card" aria-labelledby="outcome-h" aria-busy={show.playing || undefined}>
               <header className="dc-head">
-                {demo && sample && !planSaved && (
+                {showcase && (
                   <p className="dc-note">
-                    <b>This is a sample {noun}.</b> Try the numbers.
+                    <b>Sample deal.</b> Real math on made-up numbers.
                   </p>
                 )}
-                {demo && (planSaved || !sample) && (
+                {demo && !showcase && (
                   <p className="dc-note">
                     <b>{planSaved ? 'Your plan is in.' : 'Your plan.'}</b>{' '}
                     <Link className="btn-text" href="/login">
@@ -288,47 +373,40 @@ export default function DealStage({
                     <b>{plan.role_name}</b> · {label}
                   </p>
                 )}
-                <span className="live-pill">
-                  <i aria-hidden="true" />
-                  Live
-                </span>
+                {showcase && (show.beat === 'done' || show.beat === 'free') ? (
+                  <button type="button" className="dc-replay" onClick={() => void show.play()}>
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Replay
+                  </button>
+                ) : (
+                  <span className="live-pill">
+                    <i aria-hidden="true" />
+                    Live
+                  </span>
+                )}
               </header>
 
               <div className="dc-body">
+                {showcase && script && (
+                  <div className="dc-sec">
+                    <Narration beat={show.beat} crossed={crossed} s={script} />
+                  </div>
+                )}
+
                 <div className="dc-sec">
-                  <Outcome copy={copy} state={o.state} />
+                  {/* The landing card's story is the bonus line; the commission's
+                      own arithmetic would only push the bonus below the fold. */}
+                  <Outcome copy={showcase ? { ...copy, caption: null } : copy} state={o.state} />
                 </div>
 
                 <div className="dc-sec">
-                  <DiscountSlider
-                    size="lg"
-                    id="subD"
-                    label="Discount on the subscription"
-                    value={deal.subscriptionDiscountPct}
-                    onChange={(v) => {
-                      set('subscriptionDiscountPct', v);
-                      trackOnce('slider_drag', ctx);
-                    }}
-                    costsYou={subCost}
-                    valueText={`${fmtPctShort(deal.subscriptionDiscountPct)} off${subCost > 0 ? `, costs you ${fmtMoney(subCost)}` : ''}${xCopy?.tone === 'red' ? `. ${xCopy.label}` : ''}`}
-                    caption={sliderCaption(deal, r)}
-                    aside={
-                      o.atStake > 0 && !empty ? (
-                        <p className="slider-cost">
-                          This deal&rsquo;s discounts cost you{' '}
-                          <b>
-                            <TweenedMoney value={o.atStake} />
-                          </b>
-                        </p>
-                      ) : null
-                    }
-                    disabled={empty || r.subMrrList <= 0}
-                    kickerBreakpointPct={kickerCrossPct}
-                    costsATier={Boolean(xEffect?.costsATier)}
-                  />
+                  {slider}
+                  {showcase && <KickerOutcome copy={xCopy} compact />}
                 </div>
 
-                {!empty && (
+                {!showcase && !empty && (
                   <div className="dc-sec">
                     <div className={`dc-sentence${accelMoment ? ' has-icon' : ''}`}>
                       {accelMoment && (
@@ -354,6 +432,7 @@ export default function DealStage({
                   </div>
                 )}
 
+                {!showcase && (
                 <div className="dc-sec">
                   {copy.detail && <p className="dc-detail">{copy.detail}</p>}
                   {!empty && <Ledger className="dc-ledger" rows={rows} />}
@@ -407,24 +486,13 @@ export default function DealStage({
                     </p>
                   )}
                 </div>
+                )}
               </div>
 
-              {/* After the decision, never between a verdict and the button that acts on it. */}
-              {(showPromoLive || showPromoBooked) && (
+              {/* After the story, never between a verdict and the control that acts on it. */}
+              {showcase && (
                 <footer className="dc-promo">
-                  <p>
-                    {showPromoLive ? (
-                      <>
-                        <b>{copy.figureText}</b> on a sample plan. Put your own numbers in and every figure here becomes
-                        real.
-                      </>
-                    ) : (
-                      <>
-                        <b>{bookedFigure}</b> was real math, on a sample plan. Put your own numbers in and watch this
-                        become yours.
-                      </>
-                    )}
-                  </p>
+                  <p>Every plan has a line like this. Put yours in and see where it is.</p>
                   <button type="button" className="btn btn-sun" onClick={() => setPlanOpen(true)}>
                     Put your plan in
                   </button>
@@ -432,41 +500,47 @@ export default function DealStage({
               )}
             </article>
 
-            <div className="period-card">
-              <p className="period-card-h">{noun === 'quarter' ? 'Quarter' : 'Month'} to date</p>
-              <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
-            </div>
+            {!showcase && (
+              <div className="period-card">
+                <p className="period-card-h">{noun === 'quarter' ? 'Quarter' : 'Month'} to date</p>
+                <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
+              </div>
+            )}
             </div>
           </div>
 
-          <div className="ds-main">
-            <DealForm
-              plan={plan}
-              ptd={ptd}
-              deal={deal}
-              set={set}
-              footer={
-                demo && (ownPlan ? dirty || Boolean(msg.booked) : changed) ? (
-                  <p className="deal-start-over">
-                    <button type="button" className="btn btn-secondary deal-reset" onClick={startOver}>
-                      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      {ownPlan ? 'Reset this deal' : 'Start over'}
-                    </button>
-                  </p>
-                ) : null
-              }
+          {!showcase && (
+            <div className="ds-main">
+              <DealForm
+                plan={plan}
+                ptd={ptd}
+                deal={deal}
+                set={set}
+                footer={
+                  demo && (dirty || Boolean(msg.booked)) ? (
+                    <p className="deal-start-over">
+                      <button type="button" className="btn btn-secondary deal-reset" onClick={startOver}>
+                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Reset this deal
+                      </button>
+                    </p>
+                  ) : null
+                }
+              />
+            </div>
+          )}
+
+          {!showcase && (
+            <PinnedOutcome
+              targetId="outcome-figure"
+              name={copy.name}
+              figureText={copy.figureText}
+              tone={copy.figureTone}
+              hidden={copy.figure === null}
             />
-          </div>
-
-          <PinnedOutcome
-            targetId="outcome-figure"
-            name={copy.name}
-            figureText={copy.figureText}
-            tone={copy.figureTone}
-            hidden={copy.figure === null}
-          />
+          )}
         </div>
       </section>
 

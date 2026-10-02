@@ -33,8 +33,12 @@ export function DemoDeal() {
     }
   }, [d.ready, d.deals.length, d.plan, d.ptd, d.qtd]);
 
+  // A visitor with a plan of their own gets the tool, not the pitch: a plain
+  // title over their deal, the builder, and no sales sections to scroll past.
+  const pitch = d.seeded;
+
   return (
-    <Shell current="/" email={null} width="full">
+    <Shell current="/" email={null} width="full" own={d.ready && !d.seeded}>
       <DealStage
         plan={d.ready ? d.plan : DEMO_PLAN}
         ptd={d.ready ? d.ptd : OPENING_PTD}
@@ -44,11 +48,11 @@ export function DemoDeal() {
         onSavePlan={d.savePlan}
         onStartOver={d.reset}
         initialDeal={SAMPLE}
-        intro={<LandingHero />}
+        intro={pitch ? <LandingHero /> : undefined}
         sample={d.seeded}
       />
-      <HowItWorks />
-      <ClosingCta />
+      {pitch && <HowItWorks />}
+      {pitch && <ClosingCta />}
     </Shell>
   );
 }
@@ -56,7 +60,7 @@ export function DemoDeal() {
 export function DemoQuota() {
   const d = useDemoStore();
   return (
-    <Shell current="/quota" email={null} width="narrow">
+    <Shell current="/quota" email={null} width="narrow" own={d.ready && !d.seeded}>
       {/* d.seeded is false the instant savePlan() has ever succeeded, same
           "already made this connection" signal DealStage.tsx's own
           plan-bridges use (there, local planSaved state) — without it, this
@@ -70,7 +74,7 @@ export function DemoQuota() {
 export function DemoHistory() {
   const d = useDemoStore();
   return (
-    <Shell current="/history" email={null} width="table">
+    <Shell current="/history" email={null} width="table" own={d.ready && !d.seeded}>
       {d.ready && <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo onReset={d.reset} />}
     </Shell>
   );
@@ -79,7 +83,7 @@ export function DemoHistory() {
 export function DemoPlan() {
   const d = useDemoStore();
   return (
-    <Shell current="/plan" email={null} width="plan">
+    <Shell current="/plan" email={null} width="plan" own={d.ready && !d.seeded}>
       {/* The stock sample isn't anyone's plan: a visitor who hasn't put theirs
           in yet starts by describing it, not by editing the sample. */}
       {d.ready && <PlanCapture current={d.seeded ? null : d.plan} onSave={d.savePlan} account={false} />}

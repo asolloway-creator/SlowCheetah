@@ -15,8 +15,11 @@ const NAV = [
  * (the deal page links visitors onward to /quota and /history, which have
  * no nav of their own). "Put your plan in" links to `/?plan=1`, which opens
  * the inline plan dialog DealStage renders, from any page.
+ *
+ * Signed out with a plan of their own already in this browser (`own`), the
+ * ask is no longer "put your plan in" but "keep it": their plan, and sign in.
  */
-export default function Masthead({ current, email }: { current: string; email: string | null }) {
+export default function Masthead({ current, email, own = false }: { current: string; email: string | null; own?: boolean }) {
   return (
     <header className="masthead">
       <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
@@ -39,6 +42,22 @@ export default function Masthead({ current, email }: { current: string; email: s
               </form>
             </div>
           </>
+        ) : own ? (
+          <div className="auth">
+            {current !== '/' && (
+              <Link className="nav-link hide-sm" href="/">
+                &larr; Back to your deal
+              </Link>
+            )}
+            {current !== '/plan' && (
+              <Link className="nav-link" href="/plan">
+                Your plan
+              </Link>
+            )}
+            <Link className="btn btn-primary" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
+              Sign in
+            </Link>
+          </div>
         ) : (
           <div className="auth">
             {current === '/' ? (
