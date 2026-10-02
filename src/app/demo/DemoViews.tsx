@@ -42,7 +42,9 @@ export function DemoDeal() {
       <DealStage
         plan={d.ready ? d.plan : DEMO_PLAN}
         ptd={d.ready ? d.ptd : OPENING_PTD}
-        qtd={d.qtd}
+        // The quarter too, or the first paint has no bonus line, bonus box or
+        // story to tell, and they all arrive with a jump once the store loads.
+        qtd={d.ready ? d.qtd : OPENING_QTD}
         demo
         onSave={d.saveDeal}
         onSavePlan={d.savePlan}
