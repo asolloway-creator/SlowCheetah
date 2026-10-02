@@ -846,6 +846,14 @@ main { display: block; padding-bottom: 80px; }
 .auth-form { margin-top: 32px; }
 .auth-form .btn { margin-top: 16px; }
 .auth-error { margin-bottom: 16px; color: var(--red); font-weight: 550; }
+.auth-code { font-size: 20px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; }
+
+/* Where you stand / Your deals before a plan is in, and the starting point. */
+.plan-first .btn { margin-top: 28px; }
+.opening-fields { margin-top: 14px; }
+.quota-start { margin-top: 18px; font: 500 15px/1.5 var(--ui); color: var(--ink-2); }
+.quota-start-edit { margin-top: 28px; }
+.quota-start-edit .cap-actions { margin-top: 18px; }
 .auth-actions { margin-top: 24px; }
 
 /* Loading/error route boundaries — no Shell, their own centred frame. */

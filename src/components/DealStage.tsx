@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DEMO_PLAN, periodLabel, syntheticOpening, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
+import { DEMO_PLAN, periodLabel, starterDeal, type CompPlan, type DealInput, type OpeningInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import DealForm from '@/components/DealForm';
@@ -88,6 +88,7 @@ export default function DealStage({
   demo,
   onSave,
   onSavePlan,
+  onSaveOpening,
   onStartOver,
   initialDeal,
   intro,
@@ -102,6 +103,8 @@ export default function DealStage({
   onSave: (deal: DealInput) => Promise<{ error?: string }>;
   /** Demo only: swap in the visitor's own plan without leaving this page. */
   onSavePlan?: (plan: CompPlan) => Promise<{ error?: string }>;
+  /** Demo only: where the visitor says they already stand, asked right after their plan goes in. */
+  onSaveOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
   onStartOver?: () => void;
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
@@ -157,19 +160,26 @@ export default function DealStage({
 
   // `deal` only reads `initialDeal` on the very first render, which can't yet
   // know what's in localStorage. A saved custom plan needs a starter shaped to
-  // it (SAMPLE is sized for the stock plan). The stock sample keeps SAMPLE even
-  // after bookings: its story may land differently, but a live deal beats an
-  // empty, greyed-out card, and the sample is re-seeded every visit anyway
-  // (lib/demo.ts). A ref latch, not just `!dirty`, so it can never fire again
-  // and clobber startOver()/a later savePlan(), which set `deal` themselves.
+  // it and to where the visitor stands (SAMPLE is sized for the stock plan). A
+  // ref latch, not just `!dirty`, so it can never fire again and clobber
+  // startOver()/a later savePlan(), which set `deal` themselves.
+  //
+  // Until the visitor touches it, the starter then follows where they stand
+  // (`starterAt`, the position it was sized for): a starting point added after
+  // their plan went in re-sizes it. Booking a deal stops it following.
   const caughtUpToSavedState = useRef(false);
+  const starterAt = useRef<number | null>(null);
   useEffect(() => {
-    if (caughtUpToSavedState.current || !demo || dirty) return;
-    if (JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
-    caughtUpToSavedState.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeal(syntheticOpening(plan).starter);
-  }, [demo, plan, dirty]);
+    if (!demo) return;
+    if (!caughtUpToSavedState.current) {
+      if (dirty || JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
+      caughtUpToSavedState.current = true;
+    } else if (dirty || starterAt.current === null || starterAt.current === ptd.creditBooked) {
+      return;
+    }
+    starterAt.current = ptd.creditBooked;
+    setDeal(starterDeal(plan, ptd.creditBooked));
+  }, [demo, plan, dirty, ptd.creditBooked]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
@@ -230,6 +240,7 @@ export default function DealStage({
     } else {
       track('deal_booked', ctx);
       setMsg({ booked: true });
+      starterAt.current = null;
       setDeal(EMPTY);
       setDirty(false);
     }
@@ -240,7 +251,8 @@ export default function DealStage({
   const ownPlan = demo && (!sample || planSaved);
   function startOver() {
     if (ownPlan) {
-      setDeal(syntheticOpening(plan).starter);
+      starterAt.current = ptd.creditBooked;
+      setDeal(starterDeal(plan, ptd.creditBooked));
     } else {
       onStartOver?.();
       setDeal(SAMPLE);
@@ -255,11 +267,12 @@ export default function DealStage({
   async function savePlan(p: CompPlan) {
     const res = await onSavePlan!(p);
     if (!res.error) {
-      // The dialog stays open on its "saved" step and closes itself; the
-      // deal behind it updates now. A deal sized to close the gap to your
-      // own accelerator, the same "one deal from crossing" moment the
-      // sample opens on.
-      setDeal(syntheticOpening(p).starter);
+      // The dialog stays open on its "saved" step; the deal behind it updates
+      // now, sized from a standing start, and re-sizes itself (starterAt) once
+      // the store reports where the visitor really stands.
+      caughtUpToSavedState.current = true;
+      starterAt.current = -1;
+      setDeal(starterDeal(p, 0));
       setDirty(false);
       setMsg({});
       setPlanSaved(true);
@@ -546,7 +559,7 @@ export default function DealStage({
       </section>
 
       {demo && planOpen && onSavePlan && (
-        <PlanDialog onSave={savePlan} onClose={() => setPlanOpen(false)} />
+        <PlanDialog onSave={savePlan} onOpening={onSaveOpening} onClose={() => setPlanOpen(false)} />
       )}
     </>
   );

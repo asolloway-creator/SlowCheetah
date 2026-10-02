@@ -1,36 +1,49 @@
 'use client';
 
 import Link from 'next/link';
-import { periodLabel, periodSummary, type CompPlan, type PeriodToDate } from '@/lib/calc';
+import { useState } from 'react';
+import {
+  needsQuarterArr,
+  periodLabel,
+  periodSummary,
+  type CompPlan,
+  type Opening,
+  type OpeningInput,
+  type PeriodToDate,
+} from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
+import OpeningFields from '@/components/OpeningFields';
 
-/** Where you stand: one narrative — a figure, the line, one sentence, a ledger. */
+/**
+ * Where you stand: one narrative — a figure, the line, one sentence, a
+ * ledger. `ptd` already includes the rep's starting point (`opening`, what
+ * they'd booked before IOI); it gets its own ledger line, and it can be
+ * added or changed here.
+ */
 export default function QuotaView({
   plan,
   ptd,
   deals,
-  demo,
+  opening = null,
+  onOpening,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
   deals: DealRow[];
-  /** Second, lighter touch of the same plan-bridge the deal page makes —
-   *  this is where a demo visitor lands right after booking, looking at a
-   *  real ledger of sample numbers. Never shown signed in, and the caller
-   *  (DemoViews.tsx) only passes it true while still on the stock plan —
-   *  same "already made this connection" suppression the deal page's own
-   *  bridges use, via planSaved there. */
-  demo?: boolean;
+  /** The starting point for this period, when there is one. */
+  opening?: Opening | null;
+  onOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
 }) {
   const s = periodSummary(plan, ptd);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
   const retro = plan.accelerator_style === 'retro_bump';
   const hasAccel = plan.accelerator_style !== 'none';
-  const empty = deals.length === 0;
+  const started = opening !== null && (opening.credit > 0 || (opening.quarterArr ?? 0) > 0);
+  const empty = deals.length === 0 && !(opening && opening.credit > 0);
 
   const units = deals.reduce((n, d) => n + d.units, 0);
   const arr = deals.reduce((n, d) => n + d.arr, 0);
@@ -50,6 +63,9 @@ export default function QuotaView({
       : `${fmtCredit(plan, s.toQuota)} to quota. Same rate on every deal.`;
 
   const rows: LedgerRow[] = [
+    ...(opening && opening.credit > 0
+      ? [{ label: 'Booked before IOI', value: fmtCredit(plan, opening.credit), suffix: '· your starting point' }]
+      : []),
     {
       label: 'Deals booked',
       value: `${deals.length} deal${deals.length === 1 ? '' : 's'}`,
@@ -59,12 +75,18 @@ export default function QuotaView({
     {
       label: 'Commission so far',
       value: fmtMoney(s.payout),
+      // A starting point in ARR is counted at the base rate (IOI never saw
+      // those deals); one in units carries no dollars at all. Say which.
       suffix:
-        s.accelerated && retro
-          ? `· includes the +${fmtPctShort(plan.accelerator_rate)} bump`
-          : plan.accelerator_style === 'rate_switch' && s.accelerated
-            ? '· as booked'
-            : `· at ${fmtRateShort(plan, plan.base_rate)}`,
+        opening && opening.credit > 0
+          ? plan.quota_basis === 'arr'
+            ? '· what you’d booked before IOI counted at your base rate'
+            : '· on deals booked in IOI'
+          : s.accelerated && retro
+            ? `· includes the +${fmtPctShort(plan.accelerator_rate)} bump`
+            : plan.accelerator_style === 'rate_switch' && s.accelerated
+              ? '· as booked'
+              : `· at ${fmtRateShort(plan, plan.base_rate)}`,
     },
     // Each deal's own residual, locked in at whatever it cost when THAT
     // deal was booked — a discount given before you crossed the
@@ -106,16 +128,83 @@ export default function QuotaView({
           <p className="quota-sentence">{sentence}</p>
           <h2 className="section-h">This {noun} so far</h2>
           <Ledger rows={rows} />
-          {demo && (
-            <p className="quota-bridge">
-              Sample data. Every figure above is real math on numbers that aren’t yours yet.{' '}
-              <Link className="btn-text" href="/?plan=1">
-                Put your plan in &rarr;
-              </Link>
-            </p>
-          )}
         </>
       )}
+
+      {onOpening && <StartingPoint plan={plan} opening={opening} started={started} label={label} onSave={onOpening} />}
+    </div>
+  );
+}
+
+/** Add or change what was booked before IOI, right where it's counted. */
+function StartingPoint({
+  plan,
+  opening,
+  started,
+  label,
+  onSave,
+}: {
+  plan: CompPlan;
+  opening: Opening | null;
+  started: boolean;
+  label: string;
+  onSave: (o: OpeningInput) => Promise<{ error?: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [credit, setCredit] = useState(opening?.credit ?? 0);
+  const [quarterArr, setQuarterArr] = useState(opening?.quarterArr ?? 0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) {
+    return (
+      <p className="quota-start">
+        {started ? 'Includes what you’d booked before IOI. ' : `Started using IOI partway through ${label}? `}
+        <button type="button" className="btn-text" onClick={() => setOpen(true)}>
+          {started ? 'Change it' : 'Add what you’d already booked'}
+        </button>
+      </p>
+    );
+  }
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    let res: { error?: string };
+    try {
+      res = await onSave({ credit, quarterArr: needsQuarterArr(plan) ? quarterArr : null });
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setBusy(false);
+    if (res.error) return setError(res.error);
+    setOpen(false);
+  }
+
+  return (
+    <div className="quota-start-edit">
+      <h2 className="section-h">Where you started {label}</h2>
+      <OpeningFields
+        plan={plan}
+        credit={credit}
+        quarterArr={quarterArr}
+        onCredit={setCredit}
+        onQuarterArr={setQuarterArr}
+        idPrefix="quota-opening"
+      />
+      {error && (
+        <p className="cap-msg is-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="cap-actions">
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={save}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+        <button type="button" className="btn-text" disabled={busy} onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

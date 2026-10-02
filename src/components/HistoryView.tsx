@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmtDate, fmtMoney, fmtPctShort } from '@/lib/format';
 
 const dealValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + d.arr;
 
@@ -20,13 +20,12 @@ export default function HistoryView({
   deals,
   onDelete,
   demo = false,
-  onReset,
 }: {
   plan: CompPlan;
   deals: DealRow[];
   onDelete: (id: string) => Promise<{ error?: string }>;
+  /** Signed out: these live in this browser only. */
   demo?: boolean;
-  onReset?: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -144,10 +143,10 @@ export default function HistoryView({
 
       {demo && (
         <p className="history-foot">
-          Sample data lives in this browser.{' '}
-          <button type="button" className="btn-text" onClick={onReset}>
-            Reset the sample {periodNoun(plan)}
-          </button>
+          These live in this browser only.{' '}
+          <Link className="btn-text" href="/login">
+            Sign in to keep them on any device &rarr;
+          </Link>
         </p>
       )}
     </div>

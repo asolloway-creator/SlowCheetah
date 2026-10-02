@@ -1,4 +1,4 @@
--- IOI schema v10 (2026-09-30): plan records, the anonymized plan data set.
+-- IOI schema v11 (2026-10-02): a rep's starting point on their working plan.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -86,6 +86,14 @@
 --   - admin_plan_data(): the dashboard's plan-data section, one plan per
 --     person, same exclusions as admin_traffic().
 
+-- v11 (2026-10-02) adds comp_plans.opening: what the rep had already booked
+-- this period before they started using IOI (calc.ts Opening), so where they
+-- stand starts from their real position instead of zero, or, as the demo
+-- once did, from invented history. Nullable jsonb, validated app-side, on
+-- the working plan (owner-only RLS already covers it), never copied into
+-- plan_records. Additive, safe on a live v10 database:
+--   alter table public.comp_plans add column if not exists opening jsonb;
+
 create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
   email      text not null,
@@ -143,6 +151,9 @@ create table public.comp_plans (
   company_size_band     text check (company_size_band is null or company_size_band in (
                            '1-50', '51-200', '201-500', '501-1000', '1001-5000', '5001+'
                          )),
+  -- v11: { periodKey, credit, quarterKey, quarterArr } or null. What the rep
+  -- had already booked this period before IOI; ignored once its period ends.
+  opening               jsonb,
   created_at            timestamptz not null default now(),
   unique (user_id)
 );

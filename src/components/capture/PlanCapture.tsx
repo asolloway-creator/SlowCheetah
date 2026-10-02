@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { CompPlan } from '@/lib/calc';
+import type { CompPlan, OpeningInput } from '@/lib/calc';
 import { track, trackOnce } from '@/lib/track';
 import { mapRecord, mergeFormIntoRecord, recordFromPlan, type Topic } from '@/lib/plan-record/map';
 import { applyAnswer, GAP_WORDS } from '@/lib/plan-record/copy';
@@ -48,6 +48,7 @@ const MESSAGES = {
 export default function PlanCapture({
   current,
   onSave,
+  onOpening,
   account,
   compact = false,
   onDone,
@@ -56,6 +57,8 @@ export default function PlanCapture({
   /** The working plan, if the person already has one of their own. */
   current: CompPlan | null;
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
+  /** Where the person already stands this period, asked once their plan is in. */
+  onOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
   account: boolean;
   /** Inside the dialog over the deal: no summary, a smaller frame. */
   compact?: boolean;
@@ -76,6 +79,7 @@ export default function PlanCapture({
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [filedId, setFiledId] = useState<string | null>(null);
   const [calculable, setCalculable] = useState(true);
+  const [savedPlan, setSavedPlan] = useState<CompPlan | null>(null);
 
   const mapping = useMemo(() => (record ? mapRecord(record, choices) : null), [record, choices]);
 
@@ -147,6 +151,7 @@ export default function PlanCapture({
     if (id) markContributed(true);
     setFiledId(id);
     setCalculable(plan !== null);
+    setSavedPlan(plan);
     track('plan_confirmed', ctx);
     setStep('saved');
     window.scrollTo({ top: 0 });
@@ -215,7 +220,7 @@ export default function PlanCapture({
         </button>
         <PlanSentence plan={start} demo={!account} onSave={saveForm} trackAs={ctx} />
         <p className="cap-privacy">
-          Your plan stays anonymous. IOI never keeps your company or your deals.
+          Your plan stays anonymous. Your company and deals are never part of it.
         </p>
       </div>
     );
@@ -247,6 +252,8 @@ export default function PlanCapture({
     return (
       <SavedStep
         calculable={calculable}
+        plan={savedPlan}
+        onOpening={!current && onOpening ? onOpening : null}
         onContext={filedId ? context : null}
         onDone={finish}
         doneLabel={onDone || calculable ? doneLabel : 'Done'}

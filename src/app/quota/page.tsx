@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
+import { saveOpeningAction } from '../actions';
 import { Shell } from '../AccountViews';
 import { DemoQuota } from '../demo/DemoViews';
 import QuotaView from '@/components/QuotaView';
@@ -11,10 +12,10 @@ export default async function QuotaPage() {
   if (!user) return <DemoQuota />;
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
-  const { deals, ...ptd } = await getPeriodToDate(user.id, plan);
+  const { deals, opening, ...ptd } = await getPeriodToDate(user.id, plan);
   return (
     <Shell current="/quota" email={user.email ?? ''} width="narrow">
-      <QuotaView plan={plan} ptd={ptd} deals={deals} />
+      <QuotaView plan={plan} ptd={ptd} deals={deals} opening={opening} onOpening={saveOpeningAction} />
     </Shell>
   );
 }

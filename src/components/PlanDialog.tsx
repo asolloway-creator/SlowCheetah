@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import type { CompPlan } from '@/lib/calc';
+import type { CompPlan, OpeningInput } from '@/lib/calc';
 import PlanCapture from '@/components/capture/PlanCapture';
 
 /**
@@ -12,9 +12,11 @@ import PlanCapture from '@/components/capture/PlanCapture';
  */
 export default function PlanDialog({
   onSave,
+  onOpening,
   onClose,
 }: {
   onSave: (p: CompPlan) => Promise<{ error?: string }>;
+  onOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -37,7 +39,15 @@ export default function PlanDialog({
         <button type="button" className="dialog-close" aria-label="Close" onClick={onClose}>
           &times;
         </button>
-        <PlanCapture current={null} onSave={onSave} account={false} compact onDone={onClose} doneLabel="Back to your deal" />
+        <PlanCapture
+          current={null}
+          onSave={onSave}
+          onOpening={onOpening}
+          account={false}
+          compact
+          onDone={onClose}
+          doneLabel="Back to your deal"
+        />
       </div>
     </div>
   );

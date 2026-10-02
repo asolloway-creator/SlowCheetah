@@ -16,13 +16,14 @@ const NAV = [
  * no nav of their own). "Put your plan in" links to `/?plan=1`, which opens
  * the inline plan dialog DealStage renders, from any page.
  *
- * Signed out with a plan of their own already in this browser (`own`), the
- * ask is no longer "put your plan in" but "keep it": their plan, and sign in.
+ * Signed out with a plan of their own already in this browser (`own`), they
+ * get the same four pages a signed-in rep does, and the ask is no longer
+ * "put your plan in" but "keep it": sign in.
  */
 export default function Masthead({ current, email, own = false }: { current: string; email: string | null; own?: boolean }) {
   return (
     <header className="masthead">
-      <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
+      <div className={`masthead-bar${email || own ? ' is-signed-in' : ''}`}>
         <Wordmark />
         {email ? (
           <>
@@ -43,21 +44,20 @@ export default function Masthead({ current, email, own = false }: { current: str
             </div>
           </>
         ) : own ? (
-          <div className="auth">
-            {current !== '/' && (
-              <Link className="nav-link hide-sm" href="/">
-                &larr; Back to your deal
+          <>
+            <nav className="nav" aria-label="Primary">
+              {NAV.map((t) => (
+                <Link key={t.href} href={t.href} aria-current={t.href === current ? 'page' : undefined}>
+                  {t.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="auth">
+              <Link className="btn btn-primary" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
+                Sign in
               </Link>
-            )}
-            {current !== '/plan' && (
-              <Link className="nav-link" href="/plan">
-                Your plan
-              </Link>
-            )}
-            <Link className="btn btn-primary" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
-              Sign in
-            </Link>
-          </div>
+            </div>
+          </>
         ) : (
           <div className="auth">
             {current === '/' ? (

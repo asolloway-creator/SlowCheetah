@@ -1,10 +1,15 @@
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import {
+  currentOpening,
+  periodKeyInZone,
   periodToDateFrom,
   quarterToDateFrom,
   startOfPeriodInZone,
+  withPeriodOpening,
+  withQuarterOpening,
   type CompPlan,
+  type Opening,
   type PeriodToDate,
   type QuarterToDate,
   type QuarterlyKicker,
@@ -127,20 +132,61 @@ export async function listDeals(userId: string, opts?: { since?: Date }): Promis
   return (data ?? []).map(toDealRow);
 }
 
+const KEY = /^\d{4}-(0[1-9]|1[0-2]|Q[1-4])$/;
+
+/** comp_plans.opening as an Opening, or null when it's missing or malformed
+ *  (same caution as parseKicker). */
+function parseOpening(v: unknown): Opening | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const credit = num(o.credit);
+  const quarterArr = o.quarterArr === null || o.quarterArr === undefined ? null : num(o.quarterArr);
+  if (typeof o.periodKey !== 'string' || !KEY.test(o.periodKey)) return null;
+  if (typeof o.quarterKey !== 'string' || !KEY.test(o.quarterKey)) return null;
+  if (!(credit >= 0) || (quarterArr !== null && !(quarterArr >= 0))) return null;
+  return { periodKey: o.periodKey, credit, quarterKey: o.quarterKey, quarterArr };
+}
+
+/**
+ * The rep's starting point: what they'd booked before IOI (calc.ts Opening).
+ * Never throws. Where it can't be read, the rep is shown from zero rather than
+ * the page failing, the same as before starting points existed.
+ */
+export async function getOpening(userId: string): Promise<Opening | null> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('comp_plans').select('opening').eq('user_id', userId).maybeSingle();
+    if (error || !data) return null;
+    return parseOpening((data as { opening?: unknown }).opening);
+  } catch {
+    return null;
+  }
+}
+
+/** The period so far: deals booked in IOI plus the starting point, when it
+ *  was entered for this period. `opening` is that starting point, or null. */
 export async function getPeriodToDate(
   userId: string,
   plan: CompPlan,
-): Promise<PeriodToDate & { deals: DealRow[] }> {
+): Promise<PeriodToDate & { deals: DealRow[]; opening: Opening | null }> {
   const tz = await repTimeZone();
-  const deals = await listDeals(userId, { since: startOfPeriodInZone(plan.period, tz) });
-  return { ...periodToDateFrom(deals), deals };
+  const key = periodKeyInZone(plan.period, tz);
+  const [deals, saved] = await Promise.all([
+    listDeals(userId, { since: startOfPeriodInZone(plan.period, tz) }),
+    getOpening(userId),
+  ]);
+  return { ...withPeriodOpening(plan, periodToDateFrom(deals), saved, key), deals, opening: currentOpening(saved, key) };
 }
 
 /** Always the calendar quarter, independent of plan.period — reuses
- *  listDeals unmodified, just with a different `since`. Only called when
- *  a plan actually has a quarterly_kicker configured. */
-export async function getQuarterToDate(userId: string): Promise<QuarterToDate> {
+ *  listDeals unmodified, just with a different `since`, plus the starting
+ *  point's quarter ARR. Only called when a plan actually has a
+ *  quarterly_kicker configured. */
+export async function getQuarterToDate(userId: string, plan: CompPlan): Promise<QuarterToDate> {
   const tz = await repTimeZone();
-  const deals = await listDeals(userId, { since: startOfPeriodInZone('quarter', tz) });
-  return quarterToDateFrom(deals);
+  const [deals, saved] = await Promise.all([
+    listDeals(userId, { since: startOfPeriodInZone('quarter', tz) }),
+    getOpening(userId),
+  ]);
+  return withQuarterOpening(plan, quarterToDateFrom(deals), saved, periodKeyInZone('quarter', tz));
 }

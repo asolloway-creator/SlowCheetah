@@ -1,5 +1,5 @@
 import { currentUser, getCompPlan } from '@/lib/queries';
-import { savePlanAction } from '../actions';
+import { saveOpeningAction, savePlanAction } from '../actions';
 import { Shell } from '../AccountViews';
 import { DemoPlan } from '../demo/DemoViews';
 import PlanCapture from '@/components/capture/PlanCapture';
@@ -14,7 +14,7 @@ export default async function PlanPage() {
   return (
     <Shell current="/plan" email={user.email ?? ''} width="plan">
       {!plan && <ImportDemoPlan />}
-      <PlanCapture current={plan} onSave={savePlanAction} account />
+      <PlanCapture current={plan} onSave={savePlanAction} onOpening={saveOpeningAction} account />
     </Shell>
   );
 }

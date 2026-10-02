@@ -338,120 +338,111 @@ export function quarterlyKickerSummary(plan: CompPlan, qtd: QuarterToDate) {
   };
 }
 
+// ── Where a rep starts ───────────────────────────────────────────────────────
+
 /**
- * A plausible "mid-period, closing in on your accelerator" scenario for any
- * plan — the same story the default demo tells (three-quarters of the way
- * to quota, one deal away from crossing), generated from whatever numbers a
- * visitor enters instead of hand-authored once for a single shape. `booked`
- * is prior history; `starter` is sized to close the remaining gap when it
- * lands, so the line moves and the accelerator fires the moment their plan
- * is in — the same moment the pre-seeded demo opens on, not an empty form.
+ * What a rep had already booked before they started using IOI: their real
+ * starting point, entered by them, so where they stand reflects the period
+ * they're actually in rather than starting from zero. Never filed with plan
+ * records; it lives with the working plan (the browser, or the account).
+ *
+ * Tied to the period it was entered for and ignored once that period ends.
  */
-export function syntheticOpening(plan: CompPlan): { booked: DealInput; starter: DealInput } {
-  const target = Math.max(1, plan.accelerator_style !== 'none' ? plan.accelerator_threshold : plan.quota);
-  const bookedCredit = target * 0.75;
-  const starterCredit = Math.max(target - bookedCredit, target * 0.05);
+export type Opening = {
+  /** periodKey of the plan's own period when this was entered: '2026-10' or '2026-Q4'. */
+  periodKey: string;
+  /** Quota credit already booked that period: units or new ARR, per quota_basis. */
+  credit: number;
+  /** periodKey('quarter') when this was entered. */
+  quarterKey: string;
+  /** New ARR already booked that calendar quarter, for a quarterly bonus, when
+   *  it had to be asked for separately (see needsQuarterArr). */
+  quarterArr: number | null;
+};
 
-  // Rounding to whole units/dollars-a-month can undershoot the credit it was
-  // asked for. Fine for the booked portion, but the starter deal's whole
-  // job is to visibly close the gap — rounded down, it can land a few
-  // dollars short and turn "crosses the accelerator" into an anticlimactic
-  // near-miss. Round it up instead: never short, at worst a dollar or two
-  // over.
-  const dealFor = (credit: number, roundUp = false): DealInput => {
-    const round = roundUp ? Math.ceil : Math.round;
-    if (plan.quota_basis === 'units') {
-      const units = Math.max(1, round(credit));
-      // A units-basis plan's quota/rates say nothing about a unit's dollar
-      // size on their own. A quarterly kicker does give us one real dollar
-      // signal — its ARR target — so when one's configured, size synthetic
-      // units off of it (assuming the unit quota roughly maps to the
-      // kicker's quarterly target) rather than an arbitrary flat guess.
-      // That keeps `booked`/`starter` on the same scale as
-      // syntheticKickerHistory's gap-filler deals below, instead of the two
-      // visibly disagreeing on /history. No kicker means no dollar signal
-      // at all — $500/unit is a plain placeholder, and nothing else in that
-      // case derives from it.
-      const unitsPerQuarter = plan.period === 'month' ? plan.quota * 3 : plan.quota;
-      const perUnitMrr =
-        plan.quarterly_kicker && plan.quarterly_kicker.target > 0 && unitsPerQuarter > 0
-          ? Math.max(100, Math.round(plan.quarterly_kicker.target / unitsPerQuarter / 12))
-          : 500;
-      const size = units * perUnitMrr;
-      return { oneTime: size, subscription: size, subMode: 'mrr', units, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
-    }
-    const mrr = Math.max(1, round(credit / 12));
-    return { oneTime: mrr, subscription: mrr, subMode: 'mrr', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+/** What a person types: the keys are stamped when it's saved. */
+export type OpeningInput = { credit: number; quarterArr: number | null };
+
+/** A plan with a quarterly bonus whose own quota isn't already the quarter's ARR
+ *  needs the quarter's ARR asked for on its own. */
+export function needsQuarterArr(plan: CompPlan): boolean {
+  return Boolean(plan.quarterly_kicker) && !(plan.quota_basis === 'arr' && plan.period === 'quarter');
+}
+
+/** Base-rate commission on new ARR, by the plan's own rules: what ARR booked
+ *  before IOI is counted at, since IOI never saw those deals. */
+function commissionOnArr(plan: CompPlan, arr: number): number {
+  return plan.commission_style === 'percent' ? (arr * plan.base_rate) / 100 : (arr / 12) * plan.base_rate;
+}
+
+/** The quarter's ARR a starting point stands for. */
+export function openingQuarterArr(plan: CompPlan, o: Opening): number {
+  if (o.quarterArr !== null) return o.quarterArr;
+  return plan.quota_basis === 'arr' && plan.period === 'quarter' ? o.credit : 0;
+}
+
+/** The period's position with the starting point added, when it was entered
+ *  for this period (`key`). Units carry no dollars, so a units starting point
+ *  moves the accelerator but adds no commission. */
+export function withPeriodOpening(plan: CompPlan, ptd: PeriodToDate, o: Opening | null, key: string): PeriodToDate {
+  if (!o || o.periodKey !== key || !(o.credit > 0)) return ptd;
+  const commission = plan.quota_basis === 'arr' ? commissionOnArr(plan, o.credit) : 0;
+  return {
+    creditBooked: ptd.creditBooked + o.credit,
+    commissionBooked: ptd.commissionBooked + commission,
+    earnedBooked: ptd.earnedBooked + commission,
   };
+}
 
-  return { booked: dealFor(bookedCredit), starter: dealFor(starterCredit, true) };
+/** The quarter's position with the starting point added, when it was entered
+ *  for this quarter (`key`). */
+export function withQuarterOpening(plan: CompPlan, qtd: QuarterToDate, o: Opening | null, key: string): QuarterToDate {
+  if (!o || o.quarterKey !== key) return qtd;
+  const arr = openingQuarterArr(plan, o);
+  if (!(arr > 0)) return qtd;
+  return {
+    saasArrBooked: qtd.saasArrBooked + arr,
+    saasCommissionBooked: qtd.saasCommissionBooked + commissionOnArr(plan, arr),
+  };
+}
+
+/** The starting point that applies right now, or null once its period has passed. */
+export function currentOpening(o: Opening | null, key: string): Opening | null {
+  return o && o.periodKey === key ? o : null;
 }
 
 /**
- * `booked` above is sized against the monthly accelerator/quota (a few
- * units or a slice of a monthly quota) — nowhere near a quarter's worth of
- * ARR, so a plan with a quarterly_kicker configured would show nothing
- * for it: the kicker, often the single biggest number on the page, stays
- * invisible until a real visitor books enough of their own deals to
- * approach it themselves. Two more synthetic prior-quarter deals (plain
- * background history, not tied to any accelerator story) closing most of
- * that gap so the kicker has something real to show the moment the plan
- * is saved. Returns [] when there's no kicker to seed toward, or `booked`
- * alone already gets there.
- *
- * `starter` matters here, not just `booked` — it's not booked yet, but
- * it's what's actually sitting in the deal form the moment the plan is
- * saved, and the hand-seeded stock demo's whole kicker story is that the
- * *in-progress* deal is what crosses the tier: drag its discount down and
- * it un-crosses, right in front of you. Sizing history to clear the tier
- * on its own (an earlier version of this function did exactly that)
- * leaves the slider with nothing left to do — the kicker becomes a
- * decoration that never moves. Reserving `starter`'s own ARR out of the
- * target instead means the already-booked history sits *just under* the
- * tier, and it's `starter` — the one thing on screen with a slider
- * attached — that tips it over, the same live crossing every other plan
- * on this site already has.
- *
- * Deliberately not the same deal twice — only `subscription` feeds ARR
- * (subAnnual only ever reads deal.subscription, never deal.oneTime), so
- * everything else here — the 58/42 split, unit counts, the oneTime
- * multiplier, the discount on the second one — is free to vary for
- * realism without moving the number this function exists to hit. Two
- * identical rows would be an obvious tell the moment anyone opened
- * /history; splitting one number across two differently-shaped deals
- * reads as an actual quarter instead.
+ * The deal the deal page opens on for a plan of the rep's own, sized from
+ * where they really stand (`creditBooked`). When the accelerator is within
+ * one deal's reach, a deal that crosses it, with room to discount on ARR
+ * plans: the moment worth seeing on your own numbers. Otherwise a deal a
+ * quarter of the way to it. Never saved anywhere; it's what the builder
+ * shows until the rep types their own deal.
  */
-export function syntheticKickerHistory(plan: CompPlan, booked: DealInput, starter: DealInput): DealInput[] {
-  const kicker = plan.quarterly_kicker;
-  if (!kicker || kicker.target <= 0) return [];
-  const tier1 = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct)[0];
-  if (!tier1) return [];
-  const opening = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
-  const bookedArr = calc(plan, booked, opening).subAnnual;
-  const starterArr = calc(plan, starter, opening).subAnnual;
-  // Just over the first tier — the same "crossed, but a discount could
-  // knock you back under it" position the hand-seeded stock demo opens
-  // on, not maxed out against the target. starterArr is reserved, not
-  // included in the history itself — see the doc comment above.
-  const desiredArr = kicker.target * (tier1.attainmentPct / 100) * 1.01;
-  const gap = Math.max(0, desiredArr - bookedArr - starterArr);
-  if (gap <= 0) return [];
-  const round5 = (n: number) => Math.max(5, Math.round(n / 5) * 5);
-  const mrrFor = (shareOfGap: number) => round5((gap * shareOfGap) / 12);
-  const subA = mrrFor(0.58);
-  const subB = mrrFor(0.42);
-  const dealA: DealInput = {
-    oneTime: round5(subA * 1.15), subscription: subA, subMode: 'mrr', units: 2,
-    oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
-  };
-  const dealB: DealInput = {
-    // A one-time discount, not a subscription one — the latter would
-    // shrink subMrr and undershoot the ARR this function solved for;
-    // oneTimeDiscountPct never touches subAnnual at all.
-    oneTime: round5(subB * 0.85), subscription: subB, subMode: 'mrr', units: 1,
-    oneTimeDiscountPct: 18, subscriptionDiscountPct: 0,
-  };
-  return [dealA, dealB];
+export function starterDeal(plan: CompPlan, creditBooked: number): DealInput {
+  const target = Math.max(1, plan.accelerator_style !== 'none' ? plan.accelerator_threshold : plan.quota);
+  const typical = target * 0.25;
+  const gap = Math.max(0, target - creditBooked);
+  const withinReach = gap > 0 && gap <= typical * 1.2;
+  const credit = withinReach ? (plan.quota_basis === 'arr' ? gap * 1.2 : gap) : typical;
+
+  if (plan.quota_basis === 'units') {
+    const units = Math.max(1, Math.ceil(credit - 1e-9));
+    // A unit's dollar size isn't in a units plan's own numbers. A quarterly
+    // bonus gives one real signal, its ARR target, so size units off it
+    // (assuming the unit quota roughly maps to that target); otherwise $500
+    // a month is a plain placeholder nothing else derives from.
+    const unitsPerQuarter = plan.period === 'month' ? plan.quota * 3 : plan.quota;
+    const perUnitMrr =
+      plan.quarterly_kicker && plan.quarterly_kicker.target > 0 && unitsPerQuarter > 0
+        ? Math.max(100, Math.round(plan.quarterly_kicker.target / unitsPerQuarter / 12))
+        : 500;
+    const size = units * perUnitMrr;
+    return { oneTime: size, subscription: size, subMode: 'mrr', units, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+  }
+  // Rounded up, so a deal meant to cross never lands a dollar short.
+  const mrr = Math.max(1, Math.ceil(credit / 12));
+  return { oneTime: mrr, subscription: mrr, subMode: 'mrr', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
 }
 
 // ── Period helpers ───────────────────────────────────────────────────────────
@@ -513,6 +504,24 @@ export function periodLabel(period: Period, d = new Date()): string {
 
 export function periodOf(period: Period, iso: string): string {
   return periodLabel(period, new Date(iso));
+}
+
+/** A stable name for the period a date falls in: '2026-10', or '2026-Q4' for a
+ *  quarter. Local time, like startOfPeriod: right in the browser. */
+export function periodKey(period: Period, d = new Date()): string {
+  return keyFor(period, d.getFullYear(), d.getMonth());
+}
+
+/** periodKey in the rep's own time zone, for the server (see startOfPeriodInZone). */
+export function periodKeyInZone(period: Period, timeZone: string, now = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit' }).formatToParts(now).map((p) => [p.type, p.value]),
+  );
+  return keyFor(period, +parts.year, +parts.month - 1);
+}
+
+function keyFor(period: Period, year: number, month: number): string {
+  return period === 'quarter' ? `${year}-Q${Math.floor(month / 3) + 1}` : `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
 // ── Presets ──────────────────────────────────────────────────────────────────
@@ -593,8 +602,8 @@ export const PRESETS: Preset[] = [
 // the one demo instance that shows the cross-effect: a subscription
 // discount that costs nothing on the monthly accelerator (crossesAccelerator
 // is driven by units here, not $) can still drop quarterly SaaS attainment
-// below a tier. Sized against the seeded deals in demo.ts / OPENING_QTD in
-// opening.ts — see that file if these numbers ever need to move.
+// below a tier. Sized against DEMO_PTD/DEMO_QTD below and SAMPLE in
+// opening.ts: see those if these numbers ever need to move.
 // 15%/20% -> 70%/85% (a prior pass) read as unrealistic for the percentage
 // itself — real accelerator/SPIFF kickers don't run that high. The better
 // lever is the dollar base kickerPct multiplies against: every $ amount in
@@ -606,9 +615,8 @@ export const PRESETS: Preset[] = [
 // 105.977% resting, crossing at 24.42% subscription discount, 103.977% at
 // 50%, all unchanged. kickerPct only needed to move from 15/20 to a still-
 // plausible 25/30 on top of that 3x base to clear $10,000 at rest
-// ($10,780.92). See demo.ts's seedDeals()/seedQuarterHistory() and
-// opening.ts's SAMPLE for the matching 3x — they all have to move
-// together or this ratio (and OPENING_PTD/OPENING_QTD) drifts.
+// ($10,780.92). DEMO_PTD/DEMO_QTD below and opening.ts's SAMPLE carry
+// the matching 3x; they all have to move together or this ratio drifts.
 export const DEMO_PLAN: CompPlan = {
   ...PRESETS.find((p) => p.id === 'units-switch')!.plan,
   quarterly_kicker: {
@@ -619,3 +627,14 @@ export const DEMO_PLAN: CompPlan = {
     ],
   },
 };
+
+/**
+ * Where the sample's rep stands: 6 of 8 units into the month (one deal from
+ * the accelerator) and 102% of the Quarterly Bonus target, close enough that
+ * a discount on the sample deal decides it. Fixed numbers rather than a
+ * script of dated deals, so the sample never depends on today's date: it
+ * once seeded a quarter of history that, early in a quarter, either counted
+ * twice or showed deals from the previous quarter.
+ */
+export const DEMO_PTD: PeriodToDate = { creditBooked: 6, commissionBooked: 11068.68, earnedBooked: 11068.68 };
+export const DEMO_QTD: QuarterToDate = { saasArrBooked: 550674, saasCommissionBooked: 41071.68 };

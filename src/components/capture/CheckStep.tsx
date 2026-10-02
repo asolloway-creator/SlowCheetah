@@ -181,7 +181,7 @@ export default function CheckStep({
           <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.5" />
         </svg>
         <span>
-          Your plan stays anonymous. IOI never keeps your words, your company or your deals.{' '}
+          Your plan stays anonymous. Your words are discarded once they’re read, and your company and deals are never part of it.{' '}
           <Link href="/plans-and-privacy">How IOI handles your plan</Link>
         </span>
       </p>

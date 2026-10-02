@@ -11,11 +11,12 @@ export default async function Home() {
 
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
-  const { deals: _deals, ...ptd } = await getPeriodToDate(user.id, plan);
+  const { deals: _deals, opening: _opening, ...ptd } = await getPeriodToDate(user.id, plan);
   void _deals;
+  void _opening;
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
-  const qtd = plan.quarterly_kicker ? await getQuarterToDate(user.id) : null;
+  const qtd = plan.quarterly_kicker ? await getQuarterToDate(user.id, plan) : null;
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">

@@ -1,14 +1,37 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { currentUser, getCompPlan, getPeriodToDate } from '@/lib/queries';
-import { calc, COMPANY_SIZE_BANDS, type CompPlan, type DealInput } from '@/lib/calc';
+import { currentUser, getCompPlan, getOpening, getPeriodToDate, repTimeZone } from '@/lib/queries';
+import {
+  calc,
+  COMPANY_SIZE_BANDS,
+  needsQuarterArr,
+  periodKeyInZone,
+  withPeriodOpening,
+  type CompPlan,
+  type DealInput,
+  type Opening,
+  type OpeningInput,
+  type PeriodToDate,
+} from '@/lib/calc';
 import { serviceClient } from '@/lib/supabase/service';
 
 export type Result = { error?: string };
 
 const clampPct = (n: number) => Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0));
 const money = (n: number) => (Number.isFinite(n) ? Math.max(0, n) : 0);
+
+/** A deal as the browser sent it, cleaned the same way every save is. */
+function cleanDeal(input: DealInput): DealInput {
+  return {
+    oneTime: money(input.oneTime),
+    subscription: money(input.subscription),
+    subMode: input.subMode === 'acv' ? 'acv' : 'mrr',
+    units: Math.max(1, Math.round(Number(input.units) || 1)),
+    oneTimeDiscountPct: clampPct(input.oneTimeDiscountPct),
+    subscriptionDiscountPct: clampPct(input.subscriptionDiscountPct),
+  };
+}
 
 export async function saveDealAction(input: DealInput): Promise<Result> {
   const { supabase, user } = await currentUser();
@@ -29,14 +52,7 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   if (!plan) return { error: 'Set up your comp plan before saving a deal.' };
   const compPlan = plan;
 
-  const deal: DealInput = {
-    oneTime: money(input.oneTime),
-    subscription: money(input.subscription),
-    subMode: input.subMode === 'acv' ? 'acv' : 'mrr',
-    units: Math.max(1, Math.round(Number(input.units) || 1)),
-    oneTimeDiscountPct: clampPct(input.oneTimeDiscountPct),
-    subscriptionDiscountPct: clampPct(input.subscriptionDiscountPct),
-  };
+  const deal = cleanDeal(input);
   if (deal.oneTime === 0 && deal.subscription === 0)
     return { error: 'Enter at least one line item before saving.' };
 
@@ -190,22 +206,131 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     return { error: 'Set a threshold for your accelerator. It can’t kick in at zero.' };
   }
 
+  // A starting point counts in the plan's own measure. If that changed (units
+  // to ARR, a month to a quarter), the old one means nothing, so it goes.
+  let previous: CompPlan | null = null;
+  try {
+    previous = await getCompPlan(user.id);
+  } catch {}
+  const measureChanged =
+    previous !== null && (previous.quota_basis !== plan.quota_basis || previous.period !== plan.period);
+
   const { error } = await supabase
     .from('comp_plans')
-    .upsert({ user_id: user.id, ...plan }, { onConflict: 'user_id' });
+    .upsert({ user_id: user.id, ...plan, ...(measureChanged ? { opening: null } : {}) }, { onConflict: 'user_id' });
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
   return {};
 }
 
 /**
- * Carries a plan the visitor shaped in the demo (browser localStorage) over
- * into their real account on first sign-in. Same validation and upsert as
- * `savePlanAction` — this only exists separately so the demo-import banner
- * can call something purpose-named rather than reusing a form-submit action.
+ * Saves where the rep already stands this period: what they'd booked before
+ * IOI (calc.ts Opening), stamped with this period and quarter in their own
+ * time zone. Lives on their working plan, never with plan records.
  */
-export async function importDemoPlanAction(input: CompPlan): Promise<Result> {
-  return savePlanAction(input);
+export async function saveOpeningAction(input: OpeningInput): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to save where you stand.' };
+  let plan: CompPlan | null;
+  try {
+    plan = await getCompPlan(user.id);
+  } catch {
+    return { error: 'Could not load your comp plan. Try again in a moment.' };
+  }
+  if (!plan) return { error: 'Set up your comp plan first.' };
+
+  const credit = Number(input.credit);
+  const quarterArr = input.quarterArr === null || input.quarterArr === undefined ? null : Number(input.quarterArr);
+  if (!(credit >= 0) || (quarterArr !== null && !(quarterArr >= 0))) {
+    return { error: 'Enter amounts of zero or more.' };
+  }
+  const tz = await repTimeZone();
+  const opening: Opening = {
+    periodKey: periodKeyInZone(plan.period, tz),
+    credit: plan.quota_basis === 'units' ? Math.round(credit) : Math.round(credit * 100) / 100,
+    quarterKey: periodKeyInZone('quarter', tz),
+    quarterArr: needsQuarterArr(plan) && quarterArr !== null ? Math.round(quarterArr * 100) / 100 : null,
+  };
+  const { error } = await supabase.from('comp_plans').update({ opening }).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+export type ImportedDeal = { deal: DealInput; createdAt: string };
+
+/**
+ * Carries what a visitor set up in the browser (lib/demo.ts) into their new
+ * account on first sign-in: the plan, the starting point for this period when
+ * they'd given one, and the deals they booked, kept on the days they booked
+ * them. Each deal is re-run here, oldest first, against its own period (and
+ * the starting point, in that period), rather than trusting the browser's
+ * figures. Same validation as every other save.
+ */
+export async function importDemoPlanAction(
+  input: CompPlan,
+  opening?: OpeningInput | null,
+  deals: ImportedDeal[] = [],
+): Promise<Result> {
+  const res = await savePlanAction(input);
+  if (res.error) return res;
+  if (opening) {
+    const saved = await saveOpeningAction(opening);
+    if (saved.error) return saved;
+  }
+  if (!deals.length) return {};
+
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to save deals.' };
+  let plan: CompPlan | null;
+  try {
+    plan = await getCompPlan(user.id);
+  } catch {
+    return { error: 'Your plan is in, but your deals didn’t come across. Try again in a moment.' };
+  }
+  if (!plan) return {};
+  const tz = await repTimeZone();
+  const start = await getOpening(user.id);
+  const now = Date.now();
+  const clean = deals
+    .slice(0, 300)
+    .map((d) => ({ deal: cleanDeal(d.deal), at: new Date(Math.min(now, Date.parse(d.createdAt) || now)) }))
+    .filter((d) => d.deal.oneTime > 0 || d.deal.subscription > 0)
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  const byPeriod = new Map<string, PeriodToDate>();
+  const rows = clean.map(({ deal, at }) => {
+    const key = periodKeyInZone(plan.period, tz, at);
+    const ptd = byPeriod.get(key) ?? withPeriodOpening(plan, { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 }, start, key);
+    const r = calc(plan, deal, ptd);
+    byPeriod.set(key, {
+      creditBooked: ptd.creditBooked + r.credit,
+      commissionBooked: ptd.commissionBooked + r.commissionBase,
+      earnedBooked: ptd.earnedBooked + r.commissionEffective,
+    });
+    return {
+      user_id: user.id,
+      one_time_amount: deal.oneTime,
+      subscription_amount: deal.subscription,
+      subscription_mode: deal.subMode,
+      units: deal.units,
+      one_time_discount_pct: deal.oneTimeDiscountPct,
+      subscription_discount_pct: deal.subscriptionDiscountPct,
+      quota_credit: Number(r.credit.toFixed(2)),
+      arr: Number(r.subAnnual.toFixed(2)),
+      commission_base: Number(r.commissionBase.toFixed(2)),
+      commission_earned: Number(r.commissionEffective.toFixed(2)),
+      money_left_on_table: Number(r.lost.toFixed(2)),
+      saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
+      created_at: at.toISOString(),
+    };
+  });
+  if (rows.length) {
+    const { error } = await supabase.from('deals').insert(rows);
+    if (error) return { error: 'Your plan is in, but your deals didn’t come across. Try again in a moment.' };
+  }
+  revalidatePath('/', 'layout');
+  return {};
 }
 
 const VISITOR = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
