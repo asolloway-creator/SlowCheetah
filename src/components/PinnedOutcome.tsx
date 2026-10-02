@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import type { Tone } from '@/components/opening';
 
+/** Clear of the sticky masthead: a figure tucked under it counts as gone. */
+const MASTHEAD = 88;
+
 /**
- * Mobile only (CSS hides it from 900px up): a compact bar pinned to the
- * bottom of the stage whenever the outcome figure has scrolled out of view,
- * so the number and the slider are on screen together. Tapping it brings the
- * figure back.
+ * A compact bar pinned to the bottom of the builder whenever the outcome
+ * figure has scrolled up out of view, so the number stays on screen while
+ * the fields are edited. Clicking it brings the full card back.
  */
 export default function PinnedOutcome({
   targetId,
@@ -28,8 +30,8 @@ export default function PinnedOutcome({
     const el = document.getElementById(targetId);
     if (!el || typeof IntersectionObserver === 'undefined') return;
     const io = new IntersectionObserver(
-      ([e]) => setAbove(!e.isIntersecting && e.boundingClientRect.top < 0),
-      { threshold: 0 },
+      ([e]) => setAbove(!e.isIntersecting && e.boundingClientRect.top < MASTHEAD),
+      { threshold: 0, rootMargin: `-${MASTHEAD}px 0px 0px 0px` },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -50,6 +52,9 @@ export default function PinnedOutcome({
       >
         <span className="pinned-name">{name}</span>
         <span className={`pinned-figure is-${tone}`}>{figureText}</span>
+        <svg className="pinned-up" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M10 15V5M5 9.5 10 4.5l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
     </div>
   );

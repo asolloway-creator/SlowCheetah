@@ -17,15 +17,23 @@ import type { DealRow } from '@/lib/queries';
 import { track } from '@/lib/track';
 
 /**
- * Demo mode: the whole app running against the visitor's browser. The plan
- * and deals never leave the machine; only anonymous usage events do (which
- * moment happened, never its numbers, see lib/track.ts). Signing in is the
- * "keep this" upsell.
+ * Demo mode: the whole app running against the visitor's browser. Deals never
+ * leave the machine. The plan stays here too, except that confirming one
+ * files its rules anonymously (lib/plan-record). Usage events carry which
+ * moment happened, never its numbers (lib/track.ts). Signing in is the "keep
+ * this" upsell.
  */
 
 const KEY = 'ioi-demo-v3';
 
-type DemoState = { plan: CompPlan; deals: DealRow[]; seeded: boolean };
+/** `carry`: sample history from earlier months that still counts toward this
+ *  quarter's bonus (see seedQuarterHistory). */
+type DemoRow = DealRow & { carry?: boolean };
+type DemoState = { plan: CompPlan; deals: DemoRow[]; seeded: boolean };
+
+const DAY_MS = 86400000;
+/** Sample history counts toward the quarter for about a quarter's length. */
+const CARRY_WINDOW_MS = 100 * DAY_MS;
 
 function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, createdAt: Date): DealRow {
   const r = calc(plan, deal, ptd);
@@ -53,6 +61,16 @@ const D = (
   oneTime: 0, subMode: 'mrr',
   oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...p,
 });
+
+/** This calendar quarter's deals, plus sample history that carries into it. */
+function quarterDeals(deals: DemoRow[]): DemoRow[] {
+  const quarterSince = startOfPeriod('quarter').getTime();
+  const carrySince = Date.now() - CARRY_WINDOW_MS;
+  return deals.filter((d) => {
+    const t = new Date(d.created_at).getTime();
+    return t >= quarterSince || (d.carry === true && t >= carrySince);
+  });
+}
 
 /**
  * A mid-month rep: 6 of 8 units to the accelerator, several discounts —
@@ -97,25 +115,22 @@ function seedDeals(plan: CompPlan): DealRow[] {
  * same as a real month would), giving the quarter a believable historical
  * position instead of a bare current-month slice.
  *
- * Dates are anchored relative to "now" (75 and 40 days back), clamped to
- * never predate the calendar quarter, rather than mapped onto real
- * calendar months — that keeps this correct and stable no matter what day
- * of the year the demo is viewed: 40+ days is always more than a month,
- * so these can never accidentally land inside the current month and get
- * double-counted into OPENING_PTD, and the Math.max floor means they're
- * still fully counted (not silently dropped) even when "now" is early in
- * the quarter. See OPENING_QTD in opening.ts, sized against this.
+ * Dated 75 and 40 days back, so they always fall in earlier months and never
+ * in this month's own totals (OPENING_PTD). They're flagged `carry` and count
+ * toward the quarter's bonus whatever the calendar says: the sample is
+ * always mid-quarter. (They used to be clamped to the quarter's first day,
+ * which in the first month of a quarter dropped them into the current month
+ * and counted them twice: 22 units, 275% of quota, the story gone.) See
+ * OPENING_QTD in opening.ts, sized against this.
  */
-function seedQuarterHistory(plan: CompPlan): DealRow[] {
-  const quarterStart = startOfPeriod('quarter').getTime();
+function seedQuarterHistory(plan: CompPlan): DemoRow[] {
   const now = Date.now();
-  const DAY = 86400000;
   const HOUR = 3600000;
-  const monthScript = (deals: DealInput[], daysBack: number): DealRow[] => {
-    const anchor = Math.max(quarterStart, now - daysBack * DAY);
-    const rows: DealRow[] = [];
+  const monthScript = (deals: DealInput[], daysBack: number): DemoRow[] => {
+    const anchor = now - daysBack * DAY_MS;
+    const rows: DemoRow[] = [];
     deals.forEach((deal, i) => {
-      rows.push(rowFromDeal(plan, deal, periodToDateFrom(rows), new Date(anchor + i * HOUR)));
+      rows.push({ ...rowFromDeal(plan, deal, periodToDateFrom(rows), new Date(anchor + i * HOUR)), carry: true });
     });
     return rows.reverse();
   };
@@ -153,11 +168,28 @@ function fresh(): DemoState {
 let cache: DemoState | null = null;
 const listeners = new Set<() => void>();
 
+const SESSION_KEY = 'ioi-demo-session';
+
+/**
+ * The stock sample is scripted, so it's re-seeded at the start of every visit
+ * (browser session): deals booked against it last time, or a month that has
+ * rolled over since, would otherwise leave the homepage on a half-played,
+ * empty deal. Bookings stay for the rest of the visit. A visitor's own plan
+ * and deals are never touched.
+ */
 function read(): DemoState {
   if (cache) return cache;
   try {
     const raw = localStorage.getItem(KEY);
-    cache = raw ? (JSON.parse(raw) as DemoState) : fresh();
+    const stored = raw ? (JSON.parse(raw) as DemoState) : null;
+    const newVisit = sessionStorage.getItem(SESSION_KEY) !== '1';
+    sessionStorage.setItem(SESSION_KEY, '1');
+    if (stored && !(stored.seeded && newVisit)) {
+      cache = stored;
+    } else {
+      cache = fresh();
+      localStorage.setItem(KEY, JSON.stringify(cache));
+    }
   } catch {
     cache = fresh();
   }
@@ -219,8 +251,7 @@ export function useDemoStore() {
   // startOfPeriod('quarter') the real (Supabase) path uses in
   // getQuarterToDate. Cheap to always compute; only read when a plan
   // actually has a quarterly_kicker configured.
-  const quarterSince = startOfPeriod('quarter').getTime();
-  const qtd = quarterToDateFrom(deals.filter((d) => new Date(d.created_at).getTime() >= quarterSince));
+  const qtd = quarterToDateFrom(quarterDeals(deals));
 
   return {
     ready: state !== null,
@@ -269,19 +300,18 @@ export function useDemoStore() {
       const periodStart = startOfPeriod(plan.period).getTime();
       const row = rowFromDeal(plan, booked, opening, new Date(Math.max(periodStart, now - 6 * DAY)));
       // Plain background history, not tied to the current month's own
-      // accelerator story — same 75/40-day anchoring as demo.ts's stock
-      // seedQuarterHistory() (always outside the current month, clamped to
-      // never predate the calendar quarter), just one deal per "month"
-      // instead of six. Empty array (no quarterly_kicker, `booked` alone
+      // accelerator story: same 75/40-day anchoring and `carry` flag as
+      // seedQuarterHistory() (always outside the current month, still
+      // counted toward the quarter), just one deal per "month" instead of six. Empty array (no quarterly_kicker, `booked` alone
       // already gets there, or `starter` alone already reserves the rest
       // of the gap) means this plan renders exactly as before — no
       // behavior change for the common case. `starter` is passed through
       // so the history stays reserved for it — see syntheticKickerHistory's
       // doc comment in calc.ts.
-      const quarterStart = startOfPeriod('quarter').getTime();
-      const kickerRows = syntheticKickerHistory(plan, booked, starter).map((deal, i) =>
-        rowFromDeal(plan, deal, opening, new Date(Math.max(quarterStart, now - (75 - i * 35) * DAY))),
-      );
+      const kickerRows: DemoRow[] = syntheticKickerHistory(plan, booked, starter).map((deal, i) => ({
+        ...rowFromDeal(plan, deal, opening, new Date(now - (75 - i * 35) * DAY)),
+        carry: true,
+      }));
       update((s) => ({ ...s, plan, deals: [row, ...kickerRows], seeded: false }));
       track('plan_saved', 'own');
       return {};

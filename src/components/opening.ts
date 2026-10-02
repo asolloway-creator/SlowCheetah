@@ -625,7 +625,10 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmp
     callout = r2.discountBlocksAccelerator
       ? { text: `${fmtCredit(plan, threshold - r2.creditAfter)} short`, tone: 'red' }
       : crossed
-        ? { text: `Crossed by ${fmtCredit(plan, r2.creditAfter - threshold)}`, tone: 'green' }
+        ? {
+            text: r2.creditAfter > threshold ? `Crossed by ${fmtCredit(plan, r2.creditAfter - threshold)}` : 'Right on the line',
+            tone: 'green',
+          }
         : { text: `${fmtCredit(plan, threshold - r2.creditAfter)} to go`, tone: 'dim' };
   } else {
     callout = r2.attained

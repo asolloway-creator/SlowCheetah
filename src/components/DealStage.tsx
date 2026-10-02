@@ -102,22 +102,20 @@ export default function DealStage({
   }, [demo, searchParams, router]);
 
   // `deal` only reads `initialDeal` on the very first render, which can't yet
-  // know what's in localStorage: a saved custom plan (SAMPLE is sized for the
-  // stock plan, so swap in a starter shaped to this one), or bookings from an
-  // earlier visit that pushed the stock demo past its scripted opening (SAMPLE's
-  // fixed 20% one-time discount no longer tells its story, so start empty).
-  // A ref latch, not just `!dirty`, so it can never fire again and clobber
-  // startOver()/a later savePlan(), which set `deal` themselves.
+  // know what's in localStorage. A saved custom plan needs a starter shaped to
+  // it (SAMPLE is sized for the stock plan). The stock sample keeps SAMPLE even
+  // after bookings: its story may land differently, but a live deal beats an
+  // empty, greyed-out card, and the sample is re-seeded every visit anyway
+  // (lib/demo.ts). A ref latch, not just `!dirty`, so it can never fire again
+  // and clobber startOver()/a later savePlan(), which set `deal` themselves.
   const caughtUpToSavedState = useRef(false);
   useEffect(() => {
     if (caughtUpToSavedState.current || !demo || dirty) return;
-    const customPlan = JSON.stringify(plan) !== JSON.stringify(DEMO_PLAN);
-    const driftedStockDemo = !customPlan && JSON.stringify(ptd) !== JSON.stringify(OPENING_PTD);
-    if (!customPlan && !driftedStockDemo) return;
+    if (JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
     caughtUpToSavedState.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeal(customPlan ? syntheticOpening(plan).starter : EMPTY);
-  }, [demo, plan, ptd, dirty]);
+    setDeal(syntheticOpening(plan).starter);
+  }, [demo, plan, dirty]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
@@ -182,13 +180,19 @@ export default function DealStage({
     }
   }
 
+  // On the sample: put the whole sample back. On your own plan: only the deal
+  // goes back to a fresh starter. Your plan and booked deals stay.
+  const ownPlan = demo && (!sample || planSaved);
   function startOver() {
-    onStartOver?.();
-    setDeal(SAMPLE);
+    if (ownPlan) {
+      setDeal(syntheticOpening(plan).starter);
+    } else {
+      onStartOver?.();
+      setDeal(SAMPLE);
+      setPlanSaved(false);
+    }
     setDirty(false);
     setMsg({});
-    // onStartOver puts the stock demo plan back, so "Your plan is in" must go too.
-    setPlanSaved(false);
   }
 
   // Swapping in a real plan leaves the sample deal's numbers behind too —
@@ -261,18 +265,21 @@ export default function DealStage({
           <div className="ds-panel" aria-hidden="true" />
 
           <div className="ds-aside">
+            {/* Sticky on desktop: the result stays beside the inputs while you
+                edit the deal below. Phones get the pinned bar instead. */}
+            <div className="ds-aside-inner">
             <article className="deal-card" id="deal-card" aria-labelledby="outcome-h">
               <header className="dc-head">
-                {demo && !planSaved && (
+                {demo && sample && !planSaved && (
                   <p className="dc-note">
                     <b>This is a sample {noun}.</b> Try the numbers.
                   </p>
                 )}
-                {demo && planSaved && (
+                {demo && (planSaved || !sample) && (
                   <p className="dc-note">
-                    <b>Your plan is in.</b> Saved in this browser only.{' '}
+                    <b>{planSaved ? 'Your plan is in.' : 'Your plan.'}</b>{' '}
                     <Link className="btn-text" href="/login">
-                      Sign in to keep it &rarr;
+                      Sign in to keep it on any device &rarr;
                     </Link>
                   </p>
                 )}
@@ -429,6 +436,7 @@ export default function DealStage({
               <p className="period-card-h">{noun === 'quarter' ? 'Quarter' : 'Month'} to date</p>
               <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
             </div>
+            </div>
           </div>
 
           <div className="ds-main">
@@ -438,10 +446,13 @@ export default function DealStage({
               deal={deal}
               set={set}
               footer={
-                demo && changed ? (
+                demo && (ownPlan ? dirty || Boolean(msg.booked) : changed) ? (
                   <p className="deal-start-over">
-                    <button type="button" className="btn-text" onClick={startOver}>
-                      Start over
+                    <button type="button" className="btn btn-secondary deal-reset" onClick={startOver}>
+                      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {ownPlan ? 'Reset this deal' : 'Start over'}
                     </button>
                   </p>
                 ) : null
