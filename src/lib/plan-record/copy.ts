@@ -59,6 +59,8 @@ const SCOPE_WORDS: Record<PlanRecord['pay_rules'][number]['applies_to'], string>
   expansion: 'Expansion deals pay',
   renewal: 'Renewals pay',
   one_time: 'One-time charges pay',
+  services: 'Setup and services pay',
+  hardware: 'Hardware pays',
   other: 'Some deals pay',
 };
 const SPIFF_WORDS: Record<PlanRecord['bonuses'][number]['spiff_for'], string> = {
@@ -178,10 +180,12 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
     quota.push(line('quota_excludes', 0, `${capital(andList(named))} don’t count ${toward}.`));
   }
 
-  const pay: ReadbackLine[] = r.pay_rules.map((p, i) => {
+  const payLines: ReadbackLine[] = r.pay_rules.map((p, i) => {
     const scope = SCOPE_WORDS[p.applies_to];
     let text: string;
-    if (p.method === 'percent_of_value' && p.applies_to === 'one_time') {
+    if (p.method === 'percent_of_value' && p.applies_to === 'hardware') {
+      text = p.rate !== null ? `${scope} a flat ${fmtPctShort(p.rate)}, accelerator or not.` : `${scope} a percent.`;
+    } else if (p.method === 'percent_of_value' && (p.applies_to === 'one_time' || p.applies_to === 'services')) {
       text = p.rate !== null ? `${scope} ${fmtPctShort(p.rate)}.` : `${scope} a percent.`;
     } else if (p.method === 'percent_of_value') {
       text = p.rate !== null ? `${scope} ${fmtPctShort(p.rate)} of ${BASIS_WORDS[p.value_basis]}.` : `${scope} a percent of ${BASIS_WORDS[p.value_basis]}.`;
@@ -198,21 +202,26 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
     }
     return line('pay_rules', i, text);
   });
+  // The deal's own rates first, then how one-time charges count, then any
+  // one-time rate of its own (hardware last).
+  const oneTimeRule = (i: number) => ['one_time', 'services', 'hardware'].includes(r.pay_rules[i].applies_to);
+  const pay = payLines.filter((l) => !oneTimeRule(l.index));
+  const after = payLines.filter((l) => oneTimeRule(l.index)).sort((a, b) => Number(r.pay_rules[a.index].applies_to === 'hardware') - Number(r.pay_rules[b.index].applies_to === 'hardware'));
+  // How setup and services count, unless a rate of their own says it.
+  // With hardware on a rate of its own, this is about setup and services only.
   const ot = r.one_time.counts_pct;
-  const payingOnOneTime = r.pay_rules.some((p) => p.applies_to === 'one_time');
+  const payingOnOneTime = r.pay_rules.some((p) => p.applies_to === 'one_time' || p.applies_to === 'services');
+  const what = r.pay_rules.some((p) => p.applies_to === 'hardware') ? 'Setup and services' : 'One-time charges like setup fees';
   if (ot !== null && !payingOnOneTime) {
     pay.push(
       line(
         'one_time',
         0,
-        ot === 0
-          ? 'One-time charges like setup fees don’t count.'
-          : ot >= 100
-            ? 'One-time charges like setup fees count in full.'
-            : `One-time charges like setup fees count at ${fmtPctShort(ot)}.`,
+        ot === 0 ? `${what} don’t count.` : ot >= 100 ? `${what} count in full.` : `${what} count at ${fmtPctShort(ot)}.`,
       ),
     );
   }
+  pay.push(...after);
 
   const more: ReadbackLine[] = [];
   const noun = PERIOD_NOUN[r.quota.period];
@@ -511,6 +520,18 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
         topic, index, kind: 'number', current: r.one_time.counts_pct, max: 100, suffix: '%',
         prompt: 'How much do one-time charges like setup fees count? 0% if not at all, 100% if in full.',
       };
+    case 'one_time_kind': {
+      const rate = r.pay_rules[index]?.rate;
+      return {
+        topic, index, kind: 'choice', current: null,
+        prompt: `Which one-time charges pay ${rate !== null && rate !== undefined ? fmtPctShort(rate) : 'that rate'}?`,
+        choices: [
+          { value: 'hardware', label: 'Hardware, at a flat rate' },
+          { value: 'services', label: 'Setup and services' },
+          { value: 'one_time', label: 'All one-time charges' },
+        ],
+      };
+    }
     case 'accelerator_kind':
       return {
         topic, index, kind: 'choice', prompt: 'Once you pass your accelerator, what pays more?',
@@ -625,6 +646,13 @@ export function applyAnswer(r: PlanRecord, topic: Topic, index: number, value: s
     case 'one_time_weight':
       next.one_time = { counts_pct: num, source: how };
       break;
+    case 'one_time_kind': {
+      const rule = next.pay_rules[index];
+      if (!rule) break;
+      rule.applies_to = value as PlanRecord['pay_rules'][number]['applies_to'];
+      rule.source = how;
+      break;
+    }
     case 'accelerator_kind':
     case 'accelerator_start':
     case 'accelerator_rate': {
@@ -696,6 +724,7 @@ export const GAP_WORDS: Record<Topic, string> = {
   base_basis: 'what your percent is taken of',
   base_rate: 'your base rate',
   one_time_weight: 'how one-time charges count',
+  one_time_kind: 'which one-time charges a rate is for',
   accelerator_kind: 'how your accelerator applies',
   accelerator_start: 'where your accelerator starts',
   accelerator_rate: 'your accelerated rate',
@@ -716,6 +745,8 @@ export type WorkedExample = {
   after: number | null;
   afterNote: string | null;
   oneTime: { amount: number; adds: number } | null;
+  /** On a plan that pays hardware its own flat rate. */
+  hardware: { amount: number; adds: number } | null;
 };
 
 const nice = (n: number) => {
@@ -754,5 +785,10 @@ export function workedExample(plan: CompPlan): WorkedExample {
     const withSetup = calc(plan, { ...deal, oneTime: amount }, zero).commissionEffective;
     oneTime = { amount, adds: withSetup - before };
   }
-  return { deal: label, before, after, afterNote, oneTime };
+  let hardware: WorkedExample['hardware'] = null;
+  if (typeof plan.hardware_rate === 'number' && plan.hardware_rate > 0) {
+    const amount = 5000;
+    hardware = { amount, adds: calc(plan, { ...deal, hardware: amount }, zero).commissionEffective - before };
+  }
+  return { deal: label, before, after, afterNote, oneTime, hardware };
 }

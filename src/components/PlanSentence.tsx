@@ -5,6 +5,7 @@ import { trackOnce, type TrackContext } from '@/lib/track';
 import {
   COMPANY_SIZE_BANDS,
   isFixedTier,
+  paysHardware,
   PRESETS,
   type AcceleratorStep,
   type AcceleratorStyle,
@@ -166,6 +167,17 @@ export default function PlanSentence({
     setP((x) => withSteps({ ...x, accelerator_style: v, accelerator_rate: 0 }, []));
   };
 
+  // Hardware on its own flat rate, never accelerated, or counted with the
+  // rest of one-time. Off leaves no key behind, so presets still match.
+  const setHardware = (own: boolean) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => {
+      const { hardware_rate, ...rest } = x;
+      return own ? { ...rest, hardware_rate: hardware_rate ?? 0 } : rest;
+    });
+  };
+
   // Further accelerator steps past the first: "12% past $150,000, then 15%
   // past $187,500". Each starts past the one before it; up to three.
   const steps = p.accelerator_steps ?? [];
@@ -312,6 +324,7 @@ export default function PlanSentence({
 
   const arr = p.quota_basis === 'arr';
   const percent = p.commission_style === 'percent';
+  const hwOwn = paysHardware(p);
   const noun = periodNoun(p);
   const article = /^[aeiou]/i.test(p.role_name.trim()) ? 'an' : 'a';
 
@@ -425,8 +438,39 @@ export default function PlanSentence({
         />
       </div>
       {percent && (
-        <NumField id="w1" label="One-time products count at" value={p.one_time_weight} suffix="%" max={100} onChange={(n) => set('one_time_weight', n)} />
+        <NumField
+          id="w1"
+          label={hwOwn ? 'Setup and services count at' : 'One-time products count at'}
+          value={p.one_time_weight}
+          suffix="%"
+          max={100}
+          onChange={(n) => set('one_time_weight', n)}
+        />
       )}
+      <div className="field-grid">
+        <div className="field">
+          <span className="field-label">Hardware</span>
+          <Segmented
+            label="Hardware pays"
+            value={hwOwn ? 'own' : 'with'}
+            options={[
+              ['with', 'Same as one-time'],
+              ['own', 'Its own flat rate'],
+            ]}
+            onChange={(v) => setHardware(v === 'own')}
+          />
+        </div>
+        {hwOwn && (
+          <NumField
+            id="hw-rate"
+            label="Hardware pays a flat"
+            value={p.hardware_rate ?? 0}
+            suffix="%"
+            max={100}
+            onChange={(n) => set('hardware_rate', n)}
+          />
+        )}
+      </div>
 
       <h2 className="section-h">Accelerator</h2>
       <div className="field">

@@ -1,4 +1,4 @@
--- IOI schema v13 (2026-10-05): accelerator steps.
+-- IOI schema v14 (2026-10-05): a hardware line.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -86,6 +86,19 @@
 --   - admin_plan_data(): the dashboard's plan-data section, one plan per
 --     person, same exclusions as admin_traffic().
 
+-- v14 (2026-10-05) splits one-time charges in two. comp_plans.hardware_rate:
+-- a flat % of hardware, never accelerated (null when hardware counts with the
+-- rest of one-time at one_time_weight). deals and quotes gain hardware_amount
+-- and hardware_discount_pct; deals gain hardware_commission, what the hardware
+-- paid (part of commission_earned, never of commission_base, so no retro bump
+-- touches it). Additive, safe on a live v13 database:
+--   alter table public.comp_plans add column if not exists hardware_rate numeric(8,3) check (hardware_rate is null or hardware_rate >= 0);
+--   alter table public.deals add column if not exists hardware_amount numeric(14,2) not null default 0 check (hardware_amount >= 0),
+--     add column if not exists hardware_discount_pct numeric(5,2) not null default 0 check (hardware_discount_pct between 0 and 100),
+--     add column if not exists hardware_commission numeric(14,2) not null default 0;
+--   alter table public.quotes add column if not exists hardware_amount numeric(14,2) not null default 0 check (hardware_amount >= 0),
+--     add column if not exists hardware_discount_pct numeric(5,2) not null default 0 check (hardware_discount_pct between 0 and 100);
+--
 -- v13 (2026-10-05) adds comp_plans.accelerator_steps: further accelerator
 -- steps past the first (accelerator_threshold / accelerator_rate), same style,
 -- each starting past the one before ("12% past $150,000, 15% past $187,500").
@@ -151,6 +164,8 @@ create table public.comp_plans (
   -- v13: [{ threshold, rate }, ...] or null. Steps past the first one above.
   accelerator_steps     jsonb,
   one_time_weight       numeric(6,2)  not null default 50 check (one_time_weight between 0 and 100),
+  -- v14: hardware's own flat rate, never accelerated; null when it counts with the rest of one-time.
+  hardware_rate         numeric(8,3)  check (hardware_rate is null or hardware_rate >= 0),
   -- { target: number, tiers: [{attainmentPct, kickerPct, amount?}, ...] } or null; a tier
   -- with an amount pays that fixed bonus instead of the percent.
   -- Validated app-side (savePlanAction / parseKicker) rather than in SQL —
@@ -199,6 +214,10 @@ create table public.deals (
   -- plans, the proportional share for percent plans that blend in
   -- one-time. What a quarterly_kicker multiplies against.
   saas_commission             numeric(14,2) not null default 0,
+  -- v14: the hardware line, on a plan that pays hardware its own rate.
+  hardware_amount             numeric(14,2) not null default 0 check (hardware_amount >= 0),
+  hardware_discount_pct       numeric(5,2) not null default 0 check (hardware_discount_pct between 0 and 100),
+  hardware_commission         numeric(14,2) not null default 0,
   created_at                  timestamptz not null default now()
 );
 
@@ -571,6 +590,8 @@ create table if not exists public.quotes (
   units                      integer not null default 1 check (units >= 1),
   one_time_discount_pct      numeric(5,2) not null default 0 check (one_time_discount_pct between 0 and 100),
   subscription_discount_pct  numeric(5,2) not null default 0 check (subscription_discount_pct between 0 and 100),
+  hardware_amount            numeric(14,2) not null default 0 check (hardware_amount >= 0),
+  hardware_discount_pct      numeric(5,2) not null default 0 check (hardware_discount_pct between 0 and 100),
   created_at                 timestamptz not null default now(),
   updated_at                 timestamptz not null default now()
 );

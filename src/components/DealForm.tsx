@@ -1,16 +1,18 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
+import { paysHardware, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort, planSentence } from '@/lib/format';
 import NumField from '@/components/NumField';
 import Segmented from '@/components/Segmented';
 import DiscountSlider from '@/components/DiscountSlider';
-import { costOf, oneTimeCopy } from '@/components/opening';
+import { costOf, hardwareCopy, oneTimeCopy } from '@/components/opening';
 
 type Setter = <K extends keyof DealInput>(k: K, v: DealInput[K]) => void;
 
-/** The deal builder: the plan it's measured against, then the three inputs. */
+/** The deal builder: the plan it's measured against, then the inputs. A plan
+ *  that pays hardware its own rate gets a hardware line of its own, beside
+ *  setup and services. */
 export default function DealForm({
   plan,
   ptd,
@@ -38,6 +40,17 @@ export default function DealForm({
   const otCost = costOf(plan, deal, ptd, 'oneTimeDiscountPct');
   const costText = (pct: number, cost: number) =>
     `${fmtPctShort(pct)} off, ${cost > 0 ? `costs you ${fmtMoney(cost)}` : 'costs you nothing'}`;
+  const hw = paysHardware(plan);
+  const hwAmount = deal.hardware ?? 0;
+  const hwOff = deal.hardwareDiscountPct ?? 0;
+  const hwCost = hw ? costOf(plan, deal, ptd, 'hardwareDiscountPct') : 0;
+  const otName = hw ? 'Setup and services' : 'One-time products';
+
+  const units = (
+    <div className="deal-units">
+      <NumField id="units" label="Units" value={deal.units} min={1} integer stepper onChange={(n) => set('units', n)} />
+    </div>
+  );
 
   return (
     <section className="deal" aria-labelledby="deal-h">
@@ -86,16 +99,42 @@ export default function DealForm({
           <p className="field-note">{derived}</p>
         </div>
 
-        <div className="deal-units">
-          <NumField id="units" label="Units" value={deal.units} min={1} integer stepper onChange={(n) => set('units', n)} />
-        </div>
+        {hw ? (
+          <div className="deal-col">
+            {units}
+            <div className="deal-hw">
+              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} onChange={(n) => set('hardware', n)} />
+              <DiscountSlider
+                size="sm"
+                id="hwD"
+                label="Discount on hardware"
+                value={hwOff}
+                onChange={(v) => set('hardwareDiscountPct', v)}
+                costsYou={hwCost}
+                valueText={costText(hwOff, hwCost)}
+                disabled={hwAmount <= 0}
+              />
+              <p className="field-note">
+                {hwCost > 0 ? (
+                  <>
+                    {fmtPctShort(hwOff)} off hardware costs you <span className="is-red">{fmtMoney(hwCost)}</span>.
+                  </>
+                ) : (
+                  hardwareCopy(plan, deal, hwCost)
+                )}
+              </p>
+            </div>
+          </div>
+        ) : (
+          units
+        )}
 
         <div className="deal-ot">
-          <NumField id="ot" label="One-time products" prefix="$" value={deal.oneTime} onChange={(n) => set('oneTime', n)} />
+          <NumField id="ot" label={otName} prefix="$" value={deal.oneTime} onChange={(n) => set('oneTime', n)} />
           <DiscountSlider
             size="sm"
             id="otD"
-            label="Discount on one-time products"
+            label={`Discount on ${otName.toLowerCase()}`}
             value={deal.oneTimeDiscountPct}
             onChange={(v) => set('oneTimeDiscountPct', v)}
             costsYou={otCost}
@@ -105,7 +144,7 @@ export default function DealForm({
           <p className="field-note">
             {otCost > 0 ? (
               <>
-                {fmtPctShort(deal.oneTimeDiscountPct)} off one-time products costs you{' '}
+                {fmtPctShort(deal.oneTimeDiscountPct)} off {otName.toLowerCase()} costs you{' '}
                 <span className="is-red">{fmtMoney(otCost)}</span>.
               </>
             ) : (

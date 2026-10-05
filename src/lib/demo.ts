@@ -59,6 +59,13 @@ function rowFromDeal(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, created
     commission_earned: Number(r.commissionEffective.toFixed(2)),
     money_left_on_table: Number(r.lost.toFixed(2)),
     saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
+    ...((deal.hardware ?? 0) > 0
+      ? {
+          hardware_amount: deal.hardware,
+          hardware_discount_pct: deal.hardwareDiscountPct ?? 0,
+          hardware_commission: Number(r.hardwareCommission.toFixed(2)),
+        }
+      : {}),
     created_at: createdAt.toISOString(),
   };
 }
@@ -70,6 +77,7 @@ const dealFromRow = (d: DealRow): DealInput => ({
   units: d.units,
   oneTimeDiscountPct: d.one_time_discount_pct,
   subscriptionDiscountPct: d.subscription_discount_pct,
+  ...((d.hardware_amount ?? 0) > 0 ? { hardware: d.hardware_amount, hardwareDiscountPct: d.hardware_discount_pct ?? 0 } : {}),
 });
 
 /**

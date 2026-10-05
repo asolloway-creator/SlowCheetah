@@ -54,7 +54,8 @@ export function planSentence(p: CompPlan): string {
   const noun = periodNoun(p);
   const percent = p.commission_style === 'percent';
   const base = percent ? `${fmtPctShort(p.base_rate)} of deal value` : `${fmtRate(p, p.base_rate)} per deal`;
-  if (p.accelerator_style === 'none') return `${base}, every deal, all ${noun} long`;
+  const hardware = typeof p.hardware_rate === 'number' ? `hardware at a flat ${fmtPctShort(p.hardware_rate)}` : null;
+  if (p.accelerator_style === 'none') return [`${base}, every deal, all ${noun} long`, hardware].filter(Boolean).join(' · ');
 
   const th = fmtCredit(p, p.accelerator_threshold);
   const accel =
@@ -65,7 +66,12 @@ export function planSentence(p: CompPlan): string {
 
   let weights: string | null = null;
   if (percent && p.one_time_weight !== 100) {
-    weights = p.one_time_weight === 0 ? 'subscription only' : `one-time products at ${fmtPctShort(p.one_time_weight)}`;
+    weights =
+      p.one_time_weight === 0
+        ? hardware
+          ? 'setup and services don’t count'
+          : 'subscription only'
+        : `${hardware ? 'setup and services' : 'one-time products'} at ${fmtPctShort(p.one_time_weight)}`;
   }
-  return [base, accel, weights].filter(Boolean).join(' · ');
+  return [base, accel, weights, hardware].filter(Boolean).join(' · ');
 }

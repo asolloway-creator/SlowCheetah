@@ -153,6 +153,11 @@ export default function CheckStep({
               A {fmtMoney(example.oneTime.amount)} setup fee on the same deal adds {fmtMoney(example.oneTime.adds)}.
             </p>
           )}
+          {example.hardware && (
+            <p className="cap-example-note">
+              {fmtMoney(example.hardware.amount)} of hardware adds {fmtMoney(example.hardware.adds)}, accelerator or not.
+            </p>
+          )}
         </section>
       )}
 

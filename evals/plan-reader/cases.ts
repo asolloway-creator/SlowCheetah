@@ -28,6 +28,9 @@ export const CASES: Case[] = [
       ['record.quota.amount', 8],
       ['record.pay_rules.0.rate', 7],
       ['record.one_time.counts_pct', 40],
+      // "Setup and hardware count at 40%": one weight for both, no rate of its own.
+      ['plan.one_time_weight', 40],
+      ['plan.hardware_rate', null],
       ['plan.accelerator_style', 'rate_switch'],
       ['plan.accelerator_threshold', 8],
       ['plan.accelerator_rate', 9.5],
@@ -230,7 +233,9 @@ export const CASES: Case[] = [
     checks: [
       ['record.pay_rules.0.rate', 10],
       ['record.quota.amount', 100000],
-      ['plan.base_rate', 10],
+      // "$100K quarterly quota" never says what it counts, so asking (no plan
+      // yet) is as right as assuming ARR; what matters is never running 99.
+      ['plan', (v: unknown) => v === null || (v as { base_rate?: number }).base_rate === 10],
     ],
   },
   {
@@ -281,6 +286,8 @@ export const CASES: Case[] = [
       ['record.quota.excludes', (v: unknown) => Array.isArray(v) && v.includes('renewals')],
       ['record.other_features', (v: unknown) => !JSON.stringify(v).includes('renewal_rules')],
       ['record.pay_rules.0.rate', 8],
+      ['plan.one_time_weight', 50],
+      ['plan.hardware_rate', 3],
       ['record.accelerators.length', 2],
       ['plan.accelerator_threshold', 150000],
       ['plan.accelerator_rate', 12],

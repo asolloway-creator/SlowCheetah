@@ -34,7 +34,7 @@ export const PAY_METHODS = [
 export const VALUE_BASES = [
   'arr', 'acv', 'first_year_value', 'mrr', 'tcv', 'revenue', 'margin', 'not_applicable', 'unknown',
 ] as const;
-export const APPLIES_TO = ['all', 'new_business', 'expansion', 'renewal', 'recurring', 'one_time', 'other'] as const;
+export const APPLIES_TO = ['all', 'new_business', 'expansion', 'renewal', 'recurring', 'one_time', 'services', 'hardware', 'other'] as const;
 export const ACCEL_KINDS = ['forward_rate', 'retroactive_rate', 'retroactive_bump', 'marginal_tier', 'unknown'] as const;
 export const FLOOR_KINDS = ['no_commission_below', 'reduced_rate_below'] as const;
 export const DISCOUNT_EFFECTS = ['reduced_rate', 'no_commission', 'approval_only', 'other'] as const;
@@ -194,7 +194,11 @@ export const WireRead = z.object({
   pay_rules: z
     .array(
       z.object({
-        applies_to: z.enum(APPLIES_TO).describe("Which business the rule pays on. 'all' unless the plan pays different rates on different business."),
+        applies_to: z
+          .enum(APPLIES_TO)
+          .describe(
+            "Which business the rule pays on. 'all' unless the plan pays different rates on different business. services: setup, implementation, onboarding or professional services. hardware: hardware and devices. one_time: one-time charges when they don't say which.",
+          ),
         method: z.enum(PAY_METHODS),
         value_basis: z.enum(VALUE_BASES).describe("What a percent is taken of. 'not_applicable' for months of MRR and flat amounts."),
         rate: unknownNumber('The base rate: a percent as a number (7 for 7%), months of MRR as a number (2), or dollars for a flat amount.'),
@@ -203,7 +207,7 @@ export const WireRead = z.object({
     )
     .describe('How each deal pays before any accelerator. One entry per distinct rate.'),
   one_time_counts_pct: unknownNumber(
-    'Percent of one-time charges (setup, services, hardware, implementation) that counts toward commission. 0 when commission is on subscription or ARR only. 100 when one-time charges pay at the full rate.',
+    'Percent of one-time charges (setup, implementation, services, and hardware unless hardware has a rate of its own) that counts toward commission. 0 when commission is on subscription or ARR only. 100 when one-time charges pay at the full rate.',
   ),
   one_time_source: readSource,
   accelerators: z

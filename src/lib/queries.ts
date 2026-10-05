@@ -42,6 +42,11 @@ export type DealRow = {
   commission_earned: number;
   money_left_on_table: number;
   saas_commission: number;
+  /** v14: a hardware line, on a plan that pays hardware its own rate.
+   *  Absent on rows from before it existed (the browser store), meaning none. */
+  hardware_amount?: number;
+  hardware_discount_pct?: number;
+  hardware_commission?: number;
   created_at: string;
 };
 
@@ -122,6 +127,10 @@ export function toCompPlan(data: Record<string, unknown>): CompPlan {
     accelerator_rate: num(data.accelerator_rate),
     ...(steps ? { accelerator_steps: steps } : {}),
     one_time_weight: num(data.one_time_weight),
+    // v14: hardware's own flat rate, when the plan has one.
+    ...(data.hardware_rate !== null && data.hardware_rate !== undefined && Number.isFinite(num(data.hardware_rate))
+      ? { hardware_rate: num(data.hardware_rate) }
+      : {}),
     quarterly_kicker: parseKicker(data.quarterly_kicker),
     industry: data.industry ? String(data.industry) : null,
     company_size_band: data.company_size_band ? String(data.company_size_band) : null,
@@ -143,6 +152,9 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     commission_earned: num(d.commission_earned),
     money_left_on_table: num(d.money_left_on_table),
     saas_commission: num(d.saas_commission),
+    hardware_amount: num(d.hardware_amount ?? 0),
+    hardware_discount_pct: num(d.hardware_discount_pct ?? 0),
+    hardware_commission: num(d.hardware_commission ?? 0),
     created_at: String(d.created_at),
   };
 }
@@ -180,6 +192,9 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
         units: Math.max(1, num(d.units)),
         oneTimeDiscountPct: num(d.one_time_discount_pct),
         subscriptionDiscountPct: num(d.subscription_discount_pct),
+        ...(num(d.hardware_amount ?? 0) > 0
+          ? { hardware: num(d.hardware_amount), hardwareDiscountPct: num(d.hardware_discount_pct ?? 0) }
+          : {}),
       },
       createdAt: String(d.created_at),
       updatedAt: String(d.updated_at),

@@ -1,7 +1,7 @@
 // Checks the plan record's mapping, wording and questions without calling Claude.
 // Run from ioi-app/:  npx tsx scripts/test-plan-record.ts
 import assert from 'node:assert/strict';
-import { calc, DEMO_PLAN, kickerTierValue, periodSummary, PRESETS, quarterlyKickerSummary, type CompPlan } from '@/lib/calc';
+import { calc, DEMO_PLAN, kickerTierValue, periodSummary, periodToDateFrom, PRESETS, quarterlyKickerSummary, type CompPlan, type DealInput } from '@/lib/calc';
 import { planSentence } from '@/lib/format';
 import { crossEffect, dealLine, holdLinePct, kickerOutcomeCopy, outcome, outcomeCopy, quarterLine } from '@/components/opening';
 import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
@@ -119,6 +119,87 @@ test('a separate one-time rate becomes the one-time weight', () => {
   assert.equal(m.plan?.base_rate, 10);
   assert.equal(m.plan?.one_time_weight, 50);
   assert.ok(allText(r).includes('One-time charges pay 5%.'));
+});
+
+test('setup counts at a weight and hardware pays its own flat rate, never blended', () => {
+  const r = recordFromWire(
+    wire({
+      pay_rules: [
+        { applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 8, source: 'stated' },
+        { applies_to: 'hardware', method: 'percent_of_value', value_basis: 'not_applicable', rate: 3, source: 'stated' },
+      ],
+      one_time_counts_pct: 50,
+      accelerators: [{ kind: 'forward_rate', starts_at_pct: 100, starts_at_amount: -1, rate: 12, source: 'stated' }],
+    }),
+  );
+  const m = mapRecord(r);
+  assert.equal(m.plan?.one_time_weight, 50, 'not 3 / 8 = 37.5');
+  assert.equal(m.plan?.hardware_rate, 3);
+  const text = allText(r);
+  assert.ok(text.includes('Setup and services count at 50%.'), text.join('\n'));
+  assert.ok(text.includes('Hardware pays a flat 3%, accelerator or not.'), text.join('\n'));
+  const plan = m.plan!;
+  const zero = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
+  const only = (d: Partial<DealInput>) => ({ oneTime: 0, subscription: 0, subMode: 'mrr' as const, units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...d });
+  assert.equal(calc(plan, only({ oneTime: 2000 }), zero).commissionEffective, 80, 'a $2,000 setup fee pays 8% of half of it');
+  assert.equal(calc(plan, only({ hardware: 5000 }), zero).commissionEffective, 150);
+  const past = { creditBooked: 150000, commissionBooked: 12000, earnedBooked: 12000 };
+  assert.equal(calc(plan, only({ oneTime: 2000 }), past).commissionEffective, 120, 'setup accelerates with the rate');
+  const hw = calc(plan, only({ hardware: 5000, hardwareDiscountPct: 20 }), past);
+  assert.equal(hw.commissionEffective, 120, 'hardware stays at 3%, on the discounted price');
+  assert.equal(hw.hardwareCommission, 120);
+  assert.equal(hw.commissionBase, 0, 'hardware never feeds a retro bump');
+  assert.equal(hw.lost, 30);
+  assert.equal(hw.customerSavesAnnual, 1000);
+  assert.equal(hw.saasCommissionEffective, 0, 'hardware is never SaaS');
+  const ex = workedExample(plan);
+  assert.equal(ex.oneTime?.adds, 80);
+  assert.equal(ex.hardware?.adds, 150);
+});
+
+test('a one-time rate that doesn’t say which charges gets asked, never blended', () => {
+  const r = recordFromWire(
+    wire({
+      pay_rules: [
+        { applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 8, source: 'stated' },
+        { applies_to: 'one_time', method: 'percent_of_value', value_basis: 'not_applicable', rate: 3, source: 'stated' },
+      ],
+      one_time_counts_pct: 50,
+    }),
+  );
+  const m = mapRecord(r);
+  assert.equal(m.plan, null);
+  assert.deepEqual(m.gaps, [{ topic: 'one_time_kind', index: 1 }]);
+  const q = question(r, 'one_time_kind', 1);
+  assert.equal(q.prompt, 'Which one-time charges pay 3%?');
+  const hw = mapRecord(applyAnswer(r, 'one_time_kind', 1, 'hardware', 'answered'));
+  assert.equal(hw.plan?.hardware_rate, 3);
+  assert.equal(hw.plan?.one_time_weight, 50);
+  const all = mapRecord(applyAnswer(r, 'one_time_kind', 1, 'one_time', 'answered'));
+  assert.deepEqual(all.gaps, []);
+  assert.equal(all.plan?.one_time_weight, 37.5, 'all one-time charges at 3% of an 8% rate, as they said');
+});
+
+test('hardware on a plan without its own rate is one-time like any other', () => {
+  const plan = DEMO_PLAN;
+  const zero = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };
+  const deal = { oneTime: 0, subscription: 0, subMode: 'mrr' as const, units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+  assert.equal(
+    calc(plan, { ...deal, hardware: 1000 }, zero).commissionEffective,
+    calc(plan, { ...deal, oneTime: 1000 }, zero).commissionEffective,
+  );
+});
+
+test('a retro bump never touches hardware, and the period still pays it', () => {
+  const plan: CompPlan = { ...PRESETS.find((x) => x.id === 'arr-retro')!.plan, hardware_rate: 3 };
+  const ptd = periodToDateFrom([
+    { quota_credit: 60000, commission_base: 10000, commission_earned: 10150, hardware_commission: 150 },
+    { quota_credit: 50000, commission_base: 8000, commission_earned: 10000, hardware_commission: 0 },
+  ]);
+  assert.equal(ptd.hardwareBooked, 150);
+  assert.equal(periodSummary(plan, ptd).payout, 18000 * 1.25 + 150);
+  const p = { ...PRESETS.find((x) => x.id === 'flat')!.plan, hardware_rate: 4 };
+  assert.deepEqual(strip(mapRecord(recordFromPlan(p)).plan!), strip(p), 'a plan with a hardware rate survives record -> plan');
 });
 
 test('a marginal tier runs, flagged as close rather than exact', () => {

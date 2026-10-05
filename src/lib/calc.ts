@@ -73,10 +73,15 @@ export type CompPlan = {
    *  first step plus one here. Optional: most plans have a single step, and
    *  plans saved before steps existed have none. See acceleratorSteps(). */
   accelerator_steps?: AcceleratorStep[];
-  /** % of one-time revenue that is commissionable ('percent' style). One
-   *  bucket for every non-recurring cost on the deal — hardware,
-   *  implementation, setup fees, whatever a given plan charges once. */
+  /** % of one-time revenue that is commissionable ('percent' style): setup,
+   *  implementation and services, and hardware too unless the plan pays
+   *  hardware a rate of its own (hardware_rate). Counts at the deal's rate,
+   *  so it accelerates with it. */
   one_time_weight: number;
+  /** A flat % of hardware revenue, never accelerated: "hardware pays a flat
+   *  3%". Null or absent when the plan doesn't pay hardware separately, and
+   *  hardware is then one-time revenue like any other. See paysHardware(). */
+  hardware_rate?: number | null;
   /** Optional, independent of accelerator_style — most plans don't have
    *  one. See QuarterlyKicker. */
   quarterly_kicker: QuarterlyKicker | null;
@@ -126,13 +131,21 @@ export function stepIndexAt(steps: AcceleratorStep[], credit: number): number {
 }
 
 export type DealInput = {
+  /** One-time charges: setup, implementation, services. */
   oneTime: number;
   subscription: number;
   subMode: SubscriptionMode;
   units: number;
   oneTimeDiscountPct: number;
   subscriptionDiscountPct: number;
+  /** Hardware, on a plan that pays it a rate of its own (absent on deals
+   *  from before hardware had a line, which is the same as none). */
+  hardware?: number;
+  hardwareDiscountPct?: number;
 };
+
+/** The plan pays hardware its own flat rate, so the deal gets a hardware line. */
+export const paysHardware = (plan: CompPlan) => typeof plan.hardware_rate === 'number';
 
 /** Period-to-date position, rebuilt from saved deals. */
 export type PeriodToDate = {
@@ -142,6 +155,9 @@ export type PeriodToDate = {
   commissionBooked: number;
   /** Sum of commission as earned at save time (rate_switch already applied). */
   earnedBooked: number;
+  /** Of earnedBooked, what hardware paid at its own flat rate: never part of
+   *  commissionBooked, so a retro bump never touches it. Absent means none. */
+  hardwareBooked?: number;
 };
 
 export type CalcResult = {
@@ -157,8 +173,12 @@ export type CalcResult = {
   /** Commission at base rate, pre-accelerator. */
   commissionBase: number;
   commissionFullBase: number;
-  /** Commission as it will actually pay on this deal (accelerator applied). */
+  /** Commission as it will actually pay on this deal (accelerator applied),
+   *  hardware's flat-rate commission included. */
   commissionEffective: number;
+  /** What hardware pays at its own flat rate: in commissionEffective, never
+   *  in commissionBase, never accelerated. */
+  hardwareCommission: number;
   commissionFullEffective: number;
   /** The SaaS-only slice of commissionEffective — all of it for
    *  months_of_mrr plans (already 100% SaaS by construction), the
@@ -211,11 +231,21 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   const subAnnualList = subMrrList * 12;
   const subAnnual = subMrr * 12;
 
-  const otDisc = deal.oneTime * (1 - dOt);
+  // Hardware on a plan that pays it its own flat rate stands apart; on any
+  // other plan it's one-time revenue like setup, at the one-time weight.
+  const split = paysHardware(plan);
+  const hwList = Math.max(0, deal.hardware ?? 0);
+  const dHw = clamp(deal.hardwareDiscountPct ?? 0, 0, 100) / 100;
+  const hwDisc = hwList * (1 - dHw);
+  const otList = deal.oneTime + (split ? 0 : hwList);
+  const otDisc = deal.oneTime * (1 - dOt) + (split ? 0 : hwDisc);
 
   const w1 = plan.one_time_weight / 100;
-  const commissionableFull = deal.oneTime * w1 + subAnnualList;
+  const commissionableFull = otList * w1 + subAnnualList;
   const commissionable = otDisc * w1 + subAnnual;
+  const hwRate = split ? (plan.hardware_rate as number) / 100 : 0;
+  const hardwareCommission = hwDisc * hwRate;
+  const hardwareCommissionFull = hwList * hwRate;
 
   const commissionAt = (rate: number, full: boolean) =>
     plan.commission_style === 'percent'
@@ -260,6 +290,9 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     }
     if (crossesAccelerator) retroBump = ((bump(step) - bump(stepBefore)) / 100) * ptd.commissionBooked;
   }
+  // Hardware's flat rate, on top, after any accelerator: it never moves.
+  commissionEffective += hardwareCommission;
+  commissionFullEffective += hardwareCommissionFull;
 
   // The proportional slice of commissionEffective attributable to
   // subscription revenue — for months_of_mrr plans commissionEffective is
@@ -267,16 +300,17 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   // one-time at some weight, split by the same ratio the blend was built
   // from, so it carries through whatever accelerator effect already
   // applied above.
+  const rateCommission = commissionEffective - hardwareCommission;
   const saasCommissionEffective =
     plan.commission_style === 'months_of_mrr'
-      ? commissionEffective
+      ? rateCommission
       : commissionable > 0
-        ? commissionEffective * (subAnnual / commissionable)
+        ? rateCommission * (subAnnual / commissionable)
         : 0;
 
-  const hasDiscount = dOt > 0 || dSub > 0;
+  const hasDiscount = dOt > 0 || dSub > 0 || (hwList > 0 && dHw > 0);
   const lost = commissionFullEffective - commissionEffective;
-  const customerSavesAnnual = deal.oneTime * dOt + subAnnualList * dSub;
+  const customerSavesAnnual = deal.oneTime * dOt + hwList * dHw + subAnnualList * dSub;
 
   const discountBlocksAccelerator = stepFull > step;
 
@@ -296,6 +330,7 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     commissionFullBase,
     commissionEffective,
     commissionFullEffective,
+    hardwareCommission,
     saasCommissionEffective,
     effectiveRate,
     hasDiscount,
@@ -329,7 +364,7 @@ export function periodSummary(plan: CompPlan, ptd: PeriodToDate) {
   const next = steps[at + 1] ?? null;
   const attained = ptd.creditBooked >= plan.quota;
   const retro = plan.accelerator_style === 'retro_bump';
-  const payout = retro && step ? ptd.commissionBooked * (1 + step.rate / 100) : ptd.earnedBooked;
+  const payout = retro && step ? ptd.commissionBooked * (1 + step.rate / 100) + (ptd.hardwareBooked ?? 0) : ptd.earnedBooked;
   return {
     accelerated,
     attained,
@@ -350,12 +385,13 @@ export function periodSummary(plan: CompPlan, ptd: PeriodToDate) {
 
 /** Rebuild a period-to-date position from stored deal rows. */
 export function periodToDateFrom(
-  rows: { quota_credit: number; commission_base: number; commission_earned: number }[],
+  rows: { quota_credit: number; commission_base: number; commission_earned: number; hardware_commission?: number }[],
 ): PeriodToDate {
   return {
     creditBooked: rows.reduce((s, d) => s + d.quota_credit, 0),
     commissionBooked: rows.reduce((s, d) => s + d.commission_base, 0),
     earnedBooked: rows.reduce((s, d) => s + d.commission_earned, 0),
+    hardwareBooked: rows.reduce((s, d) => s + (d.hardware_commission ?? 0), 0),
   };
 }
 
@@ -454,6 +490,7 @@ export function withPeriodOpening(plan: CompPlan, ptd: PeriodToDate, o: Opening 
   if (!o || o.periodKey !== key || !(o.credit > 0)) return ptd;
   const commission = plan.quota_basis === 'arr' ? commissionOnArr(plan, o.credit) : 0;
   return {
+    ...ptd,
     creditBooked: ptd.creditBooked + o.credit,
     commissionBooked: ptd.commissionBooked + commission,
     earnedBooked: ptd.earnedBooked + commission,
@@ -565,6 +602,7 @@ export function pipeline(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
       creditBooked: p.creditBooked + r.credit,
       commissionBooked: p.commissionBooked + r.commissionBase,
       earnedBooked: p.earnedBooked + r.commissionEffective,
+      hardwareBooked: (p.hardwareBooked ?? 0) + r.hardwareCommission,
     };
     if (q) q = { saasArrBooked: q.saasArrBooked + r.subAnnual, saasCommissionBooked: q.saasCommissionBooked + r.saasCommissionEffective };
   }

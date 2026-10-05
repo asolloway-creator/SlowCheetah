@@ -678,6 +678,8 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 .hero-note { margin-top: 22px; font: 500 14px/1.4 var(--ui); color: var(--ink-3); }
 
 .deal-sub { grid-column: 1 / -1; }
+/* Units over hardware, beside setup and services, on a plan that pays hardware its own rate. */
+.deal-col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
 .deal-start-over { margin-top: 28px; }
 .deal-reset { height: 42px; padding: 0 16px; border-radius: 12px; font-size: 14.5px; gap: 8px; }
 .deal-reset svg { width: 17px; height: 17px; }
@@ -1329,6 +1331,10 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
   .ds-main { padding: calc(44px + 44px) 0 20px; }
   .deal-h { font-size: 38px; }
   .deal-fields { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  /* One column: setup and services first, as it always was, then hardware. */
+  .deal-col { display: contents; }
+  .deal-ot { order: 1; }
+  .deal-hw { order: 2; }
   .page-title { margin-top: 40px; font-size: 36px; }
   .how { padding: 96px 0 20px; }
   .how-head h2 { font-size: 42px; }

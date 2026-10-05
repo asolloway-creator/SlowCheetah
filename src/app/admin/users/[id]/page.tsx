@@ -131,9 +131,13 @@ export default async function AdminUserPage({
                       <td>{day(d.created_at)}</td>
                       <td className="num">{d.units}</td>
                       <td className="num">{fmtMoney(d.arr)}</td>
-                      <td className="num">{fmtMoney(d.one_time_amount ?? 0)}</td>
+                      <td className="num">{fmtMoney((d.one_time_amount ?? 0) + (d.hardware_amount ?? 0))}</td>
                       <td className="num">
-                        {[d.subscription_discount_pct ? `${fmtPctShort(d.subscription_discount_pct)} sub` : null, d.one_time_discount_pct ? `${fmtPctShort(d.one_time_discount_pct)} one-time` : null]
+                        {[
+                          d.subscription_discount_pct ? `${fmtPctShort(d.subscription_discount_pct)} sub` : null,
+                          d.one_time_discount_pct ? `${fmtPctShort(d.one_time_discount_pct)} one-time` : null,
+                          d.hardware_discount_pct ? `${fmtPctShort(d.hardware_discount_pct)} hardware` : null,
+                        ]
                           .filter(Boolean)
                           .join(' · ') || 'None'}
                       </td>

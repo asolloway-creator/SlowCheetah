@@ -78,6 +78,7 @@ export type Topic =
   | 'base_basis'
   | 'base_rate'
   | 'one_time_weight'
+  | 'one_time_kind'
   | 'accelerator_kind'
   | 'accelerator_start'
   | 'accelerator_rate'
@@ -134,6 +135,7 @@ const TOPIC_ORDER: Topic[] = [
   'kicker_target',
   'kicker_start',
   'kicker_pay',
+  'one_time_kind',
   'one_time_weight',
 ];
 
@@ -205,9 +207,10 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
 
   // ── Base pay ───────────────────────────────────────────────────────────
   const rules = r.pay_rules;
+  const ONE_TIME = ['one_time', 'services', 'hardware'];
   const pick = (want: string) => rules.findIndex((x) => x.applies_to === want);
   let baseRule = [pick('all'), pick('new_business'), pick('recurring')].find((i) => i >= 0) ?? -1;
-  if (baseRule < 0) baseRule = rules.findIndex((x) => x.applies_to !== 'one_time');
+  if (baseRule < 0) baseRule = rules.findIndex((x) => !ONE_TIME.includes(x.applies_to));
   const base = baseRule >= 0 ? rules[baseRule] : null;
 
   let style: CompPlan['commission_style'] | null = null;
@@ -245,10 +248,27 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
   if (base) cover('pay_rules', baseRule, baseStatus, baseNote);
 
   // ── Other pay rules and one-time charges ───────────────────────────────
+  // Hardware with a rate of its own pays that flat, never accelerated. Setup
+  // and services count toward the deal's rate at a weight. A one-time rate
+  // that doesn't say which charges it's for, on a plan that says how setup
+  // counts too, gets asked about rather than blended into one weight.
   let oneTimeWeight: number | null = null;
+  let hardwareRate: number | null = null;
   rules.forEach((rule, i) => {
     if (i === baseRule) return;
-    if (rule.applies_to === 'one_time') {
+    if (rule.applies_to === 'hardware') {
+      if (rule.method === 'percent_of_value' && rule.rate !== null && hardwareRate === null) {
+        hardwareRate = round2(rule.rate);
+        cover('pay_rules', i, 'calculated', 'exact');
+      } else cover('pay_rules', i, 'not_yet', 'other_business_rate');
+      return;
+    }
+    const unsaid = rule.applies_to === 'one_time' && r.one_time.counts_pct !== null && rule.source !== 'answered' && rule.source !== 'corrected';
+    if (unsaid) {
+      gaps.push({ topic: 'one_time_kind', index: i });
+      return cover('pay_rules', i, 'calculated', 'exact');
+    }
+    if (rule.applies_to === 'one_time' || rule.applies_to === 'services') {
       const sameUnits = style === 'percent' && rule.method === 'percent_of_value';
       if (sameUnits && baseRate && rule.rate !== null) {
         const w = (rule.rate / (base!.rate as number)) * 100;
@@ -434,6 +454,7 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
         accelerator_rate: accelStyle === 'none' ? 0 : accelRate,
         ...(accelStyle !== 'none' && steps.length ? { accelerator_steps: steps } : {}),
         one_time_weight: oneTimeWeight ?? 0,
+        ...(hardwareRate !== null ? { hardware_rate: hardwareRate } : {}),
         quarterly_kicker: kicker,
         industry: null,
         company_size_band: null,
@@ -497,6 +518,9 @@ export function recordFromPlan(p: CompPlan): PlanRecord {
         rate: p.base_rate,
         source: 'stated',
       },
+      ...(typeof p.hardware_rate === 'number'
+        ? [{ applies_to: 'hardware' as const, method: 'percent_of_value' as const, value_basis: 'not_applicable' as const, rate: p.hardware_rate, source: 'stated' as const }]
+        : []),
     ],
     one_time: { counts_pct: percent ? p.one_time_weight : 0, source: 'stated' },
     accelerators:
@@ -571,7 +595,8 @@ export function emptyRecord(): PlanRecord {
 export function mergeFormIntoRecord(described: PlanRecord, p: CompPlan): PlanRecord {
   const fromForm = recordFromPlan(p);
   const m = mapRecord(described);
-  const keepRules = described.pay_rules.filter((_, i) => i !== m.baseRule);
+  // The form owns the base rate, how one-time counts and hardware's rate.
+  const keepRules = described.pay_rules.filter((x, i) => i !== m.baseRule && !['one_time', 'services', 'hardware'].includes(x.applies_to));
   const keepAccels = described.accelerators.filter((_, i) => i !== m.accelRule && !m.stepRules.includes(i));
   const keepBonuses = described.bonuses.filter((_, i) => i !== m.kickerRule);
   const corrected = <T extends { source: Source }>(x: T): T => ({ ...x, source: 'corrected' });

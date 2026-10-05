@@ -12,6 +12,7 @@
 import {
   acceleratorSteps,
   calc,
+  paysHardware,
   DEMO_PTD,
   DEMO_QTD,
   isFixedTier,
@@ -67,13 +68,13 @@ export const SAMPLE: DealInput = {
 export const OPENING_PTD: PeriodToDate = DEMO_PTD;
 export const OPENING_QTD: QuarterToDate = DEMO_QTD;
 
-export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0;
+export const isEmpty = (d: DealInput) => d.oneTime === 0 && d.subscription === 0 && !((d.hardware ?? 0) > 0);
 
 export const atFullPrice = (d: DealInput): DealInput => ({
-  ...d, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0,
+  ...d, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0, ...(d.hardwareDiscountPct ? { hardwareDiscountPct: 0 } : {}),
 });
 
-export type DiscountKey = 'oneTimeDiscountPct' | 'subscriptionDiscountPct';
+export type DiscountKey = 'oneTimeDiscountPct' | 'subscriptionDiscountPct' | 'hardwareDiscountPct';
 
 export type OutcomeState = 'empty' | 'blocked' | 'crossed' | 'loss' | 'past' | 'held';
 
@@ -121,7 +122,7 @@ export type Outcome = ReturnType<typeof outcome>;
 
 /** What one discount costs the rep, in dollars, measured against the same deal without it. */
 export function costOf(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, key: DiscountKey): number {
-  if (deal[key] <= 0) return 0;
+  if (!((deal[key] ?? 0) > 0)) return 0;
   const without = calc(plan, { ...deal, [key]: 0 }, ptd);
   return round2(without.totalPayoutImpact - calc(plan, deal, ptd).totalPayoutImpact);
 }
@@ -396,9 +397,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
   const accelRate = fmtRateShort(plan, stepAt(r.step).rate);
   const nextStep: AcceleratorStep | null = steps[r.step + 1] ?? null;
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
-  const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0;
-  const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0;
-  const bothDiscounted = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct > 0;
+  // A hardware discount is a third lever; with it in play the breakdown
+  // falls back to the plain total.
+  const hwOff = (deal.hardware ?? 0) > 0 && (deal.hardwareDiscountPct ?? 0) > 0;
+  const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0 && !hwOff;
+  const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0 && !hwOff;
+  const bothDiscounted = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct > 0 && !hwOff;
   const weighted = plan.commission_style === 'percent' && plan.one_time_weight < 100;
   // Discount-cost breakdown — moved out of the always-read sentence and
   // into OutcomeCopy.detail (the "See the math" disclosure). No leading
@@ -443,7 +447,9 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
     figure: r.commissionEffective,
     figureTone: (accelerated ? 'green' : 'ink') as Tone,
     signed: false,
-    caption: plan.commission_style === 'percent' ? `${fmtMoney(r.commissionable)} commissionable · ${rateLabel}` : `at ${rateLabel}`,
+    caption:
+      (plan.commission_style === 'percent' ? `${fmtMoney(r.commissionable)} commissionable · ${rateLabel}` : `at ${rateLabel}`) +
+      (r.hardwareCommission > 0 ? ` · plus ${fmtMoney(r.hardwareCommission)} on hardware` : ''),
     figureText: fmtMoney(r.commissionEffective),
   };
 
@@ -566,11 +572,20 @@ export function sliderCaption(deal: DealInput, r: CalcResult): string {
 
 /** One line under the one-time products field. */
 export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number): string {
+  const what = paysHardware(plan) ? 'Setup and services' : 'One-time products';
   if (plan.commission_style !== 'percent' || plan.one_time_weight === 0) {
     return 'Discounts here cost you nothing on this plan.';
   }
-  if (deal.oneTimeDiscountPct > 0) return `${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products costs you ${fmtMoney(otCost)}.`;
-  return `One-time products count at ${fmtPctShort(plan.one_time_weight)} toward your commission.`;
+  if (deal.oneTimeDiscountPct > 0) return `${fmtPctShort(deal.oneTimeDiscountPct)} off ${what.toLowerCase()} costs you ${fmtMoney(otCost)}.`;
+  return `${what} count at ${fmtPctShort(plan.one_time_weight)} toward your commission.`;
+}
+
+/** One line under the hardware field, on a plan that pays hardware its own rate. */
+export function hardwareCopy(plan: CompPlan, deal: DealInput, hwCost: number): string {
+  const rate = plan.hardware_rate ?? 0;
+  if (rate === 0) return 'Hardware pays nothing on this plan, so discounts here cost you nothing.';
+  if ((deal.hardwareDiscountPct ?? 0) > 0) return `${fmtPctShort(deal.hardwareDiscountPct as number)} off hardware costs you ${fmtMoney(hwCost)}.`;
+  return `Hardware pays a flat ${fmtPctShort(rate)}, accelerator or not.`;
 }
 
 /** "$3,000 one-time · $1,100 a month × 3 units · 5% off" for the mobile disclosure. */
@@ -578,6 +593,7 @@ export function dealSummary(deal: DealInput): string {
   if (isEmpty(deal)) return 'Nothing yet';
   const parts: string[] = [];
   if (deal.oneTime > 0) parts.push(`${fmtMoney(deal.oneTime)} one-time`);
+  if ((deal.hardware ?? 0) > 0) parts.push(`${fmtMoney(deal.hardware as number)} hardware`);
   if (deal.subscription > 0) {
     parts.push(`${fmtMoney(deal.subscription)} ${deal.subMode === 'acv' ? 'a year' : 'a month'} × ${Math.max(1, Math.round(deal.units))} unit${deal.units === 1 ? '' : 's'}`);
   }

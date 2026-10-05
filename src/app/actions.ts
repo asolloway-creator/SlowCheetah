@@ -33,8 +33,32 @@ function cleanDeal(input: DealInput): DealInput {
     units: Math.max(1, Math.round(Number(input.units) || 1)),
     oneTimeDiscountPct: clampPct(input.oneTimeDiscountPct),
     subscriptionDiscountPct: clampPct(input.subscriptionDiscountPct),
+    hardware: money(Number(input.hardware ?? 0)),
+    hardwareDiscountPct: clampPct(Number(input.hardwareDiscountPct ?? 0)),
   };
 }
+
+/** Nothing on it: no one-time, subscription or hardware line. */
+const isBlank = (deal: DealInput) => deal.oneTime === 0 && deal.subscription === 0 && !((deal.hardware ?? 0) > 0);
+
+/** A deal's stored columns, priced by `r`. */
+const dealColumns = (deal: DealInput, r: ReturnType<typeof calc>) => ({
+  one_time_amount: deal.oneTime,
+  subscription_amount: deal.subscription,
+  subscription_mode: deal.subMode,
+  units: deal.units,
+  one_time_discount_pct: deal.oneTimeDiscountPct,
+  subscription_discount_pct: deal.subscriptionDiscountPct,
+  hardware_amount: deal.hardware ?? 0,
+  hardware_discount_pct: deal.hardwareDiscountPct ?? 0,
+  quota_credit: Number(r.credit.toFixed(2)),
+  arr: Number(r.subAnnual.toFixed(2)),
+  commission_base: Number(r.commissionBase.toFixed(2)),
+  commission_earned: Number(r.commissionEffective.toFixed(2)),
+  money_left_on_table: Number(r.lost.toFixed(2)),
+  saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
+  hardware_commission: Number(r.hardwareCommission.toFixed(2)),
+});
 
 export async function saveDealAction(input: DealInput): Promise<Result> {
   const { supabase, user } = await currentUser();
@@ -56,8 +80,7 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   const compPlan = plan;
 
   const deal = cleanDeal(input);
-  if (deal.oneTime === 0 && deal.subscription === 0)
-    return { error: 'Enter at least one line item before saving.' };
+  if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' };
 
   // Recompute against the live period rather than trusting the browser.
   //
@@ -100,21 +123,7 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
     r = calc(plan, deal, ptd);
   }
 
-  const { error } = await supabase.from('deals').insert({
-    user_id: user.id,
-    one_time_amount: deal.oneTime,
-    subscription_amount: deal.subscription,
-    subscription_mode: deal.subMode,
-    units: deal.units,
-    one_time_discount_pct: deal.oneTimeDiscountPct,
-    subscription_discount_pct: deal.subscriptionDiscountPct,
-    quota_credit: Number(r.credit.toFixed(2)),
-    arr: Number(r.subAnnual.toFixed(2)),
-    commission_base: Number(r.commissionBase.toFixed(2)),
-    commission_earned: Number(r.commissionEffective.toFixed(2)),
-    money_left_on_table: Number(r.lost.toFixed(2)),
-    saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
-  });
+  const { error } = await supabase.from('deals').insert({ user_id: user.id, ...dealColumns(deal, r) });
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
   return {};
@@ -188,6 +197,8 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
     accelerator_threshold: n(input.accelerator_threshold),
     accelerator_rate: clampPct(Number(input.accelerator_rate)),
     one_time_weight: clampPct(Number(input.one_time_weight)),
+    // v14: hardware's own flat rate, or null when hardware counts with the rest of one-time.
+    hardware_rate: typeof input.hardware_rate === 'number' ? clampPct(input.hardware_rate) : null,
     quarterly_kicker,
     // Both optional benchmarking fields — never required to save a plan.
     industry: String(input.industry ?? '').trim() || null,
@@ -290,6 +301,8 @@ const quoteRow = (name: unknown, deal: DealInput) => ({
   units: deal.units,
   one_time_discount_pct: deal.oneTimeDiscountPct,
   subscription_discount_pct: deal.subscriptionDiscountPct,
+  hardware_amount: deal.hardware ?? 0,
+  hardware_discount_pct: deal.hardwareDiscountPct ?? 0,
 });
 
 /**
@@ -304,7 +317,7 @@ export async function saveQuoteAction(input: {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to save quotes.' };
   const deal = cleanDeal(input.deal);
-  if (deal.oneTime === 0 && deal.subscription === 0) return { error: 'Enter at least one line item before saving.' };
+  if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' };
   const row = quoteRow(input.name, deal);
   if (input.id && QUOTE_ID.test(input.id)) {
     const { data, error } = await supabase
@@ -374,7 +387,7 @@ export async function importDemoPlanAction(
   const clean = deals
     .slice(0, 300)
     .map((d) => ({ deal: cleanDeal(d.deal), at: new Date(Math.min(now, Date.parse(d.createdAt) || now)) }))
-    .filter((d) => d.deal.oneTime > 0 || d.deal.subscription > 0)
+    .filter((d) => !isBlank(d.deal))
     .sort((a, b) => a.at.getTime() - b.at.getTime());
 
   const byPeriod = new Map<string, PeriodToDate>();
@@ -386,23 +399,9 @@ export async function importDemoPlanAction(
       creditBooked: ptd.creditBooked + r.credit,
       commissionBooked: ptd.commissionBooked + r.commissionBase,
       earnedBooked: ptd.earnedBooked + r.commissionEffective,
+      hardwareBooked: (ptd.hardwareBooked ?? 0) + r.hardwareCommission,
     });
-    return {
-      user_id: user.id,
-      one_time_amount: deal.oneTime,
-      subscription_amount: deal.subscription,
-      subscription_mode: deal.subMode,
-      units: deal.units,
-      one_time_discount_pct: deal.oneTimeDiscountPct,
-      subscription_discount_pct: deal.subscriptionDiscountPct,
-      quota_credit: Number(r.credit.toFixed(2)),
-      arr: Number(r.subAnnual.toFixed(2)),
-      commission_base: Number(r.commissionBase.toFixed(2)),
-      commission_earned: Number(r.commissionEffective.toFixed(2)),
-      money_left_on_table: Number(r.lost.toFixed(2)),
-      saas_commission: Number(r.saasCommissionEffective.toFixed(2)),
-      created_at: at.toISOString(),
-    };
+    return { user_id: user.id, ...dealColumns(deal, r), created_at: at.toISOString() };
   });
   if (rows.length) {
     const { error } = await supabase.from('deals').insert(rows);
@@ -411,7 +410,7 @@ export async function importDemoPlanAction(
   const quoteRows = quotes
     .slice(0, 50)
     .map((q) => ({ q, deal: cleanDeal(q.deal) }))
-    .filter(({ deal }) => deal.oneTime > 0 || deal.subscription > 0)
+    .filter(({ deal }) => !isBlank(deal))
     .map(({ q, deal }) => ({
       user_id: user.id,
       ...quoteRow(q.name, deal),
