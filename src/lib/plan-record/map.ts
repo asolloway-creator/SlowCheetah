@@ -112,8 +112,10 @@ export type Mapping = {
   assumed: Assumed[];
   /** Index of the pay rule the engine uses as the base rate, if any. */
   baseRule: number | null;
-  /** Index of the accelerator the engine runs, if any. */
+  /** Index of the accelerator the engine runs as its first step, if any. */
   accelRule: number | null;
+  /** Indexes of the accelerators it runs as further steps, in rising order. */
+  stepRules: number[];
   /** Index of the bonus run as the quarterly kicker, if any. */
   kickerRule: number | null;
 };
@@ -290,6 +292,8 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
   let threshold = 0;
   let accelRate = 0;
   let accelRule: number | null = null;
+  const steps: { threshold: number; rate: number }[] = [];
+  const stepRules: number[] = [];
   if (accelOrder.length > 0) {
     const { a, i } = accelOrder[0];
     accelRule = i;
@@ -322,7 +326,36 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
     }
     if (inferred(a.source)) assumed.push({ topic: 'accelerator_kind', index: i, why: 'inferred' });
     cover('accelerators', i, status, note);
-    accelOrder.slice(1).forEach(({ i: j }) => cover('accelerators', j, 'not_yet', 'more_steps'));
+
+    // Further steps run when they work the same way as the first and their
+    // numbers are all there: "12% past 100%, 15% past 125%". A step that pays
+    // some other way, or is missing a number, is kept but not calculated.
+    let last = threshold;
+    accelOrder.slice(1).forEach(({ a: b, i: j }) => {
+      const kind = b.kind === 'unknown' ? a.kind : b.kind;
+      const sameStyle =
+        accelStyle === 'rate_switch'
+          ? kind === 'forward_rate' || kind === 'marginal_tier'
+          : accelStyle === 'retro_bump' && (kind === 'retroactive_bump' || kind === 'retroactive_rate');
+      const at =
+        b.starts_at_amount !== null
+          ? toQuotaUnits(b.starts_at_amount)
+          : b.starts_at_pct !== null && quota !== null
+            ? round2((quota * b.starts_at_pct) / 100)
+            : null;
+      let rate: number | null = null;
+      if (b.rate !== null) {
+        if (kind === 'retroactive_rate') rate = baseRate && base!.rate && b.rate > base!.rate ? round2((b.rate / base!.rate - 1) * 100) : null;
+        else rate = round2(accelStyle === 'rate_switch' ? b.rate * rateFactor : b.rate);
+      }
+      if (!sameStyle || at === null || !(at > last) || rate === null || steps.length >= 3) {
+        return cover('accelerators', j, 'not_yet', 'more_steps');
+      }
+      steps.push({ threshold: at, rate });
+      stepRules.push(j);
+      last = at;
+      cover('accelerators', j, kind === 'marginal_tier' ? 'approximated' : 'calculated', kind === 'marginal_tier' ? 'marginal_split' : 'exact');
+    });
   }
 
   r.floors.forEach((_, i) => cover('floors', i, 'not_yet', 'floor'));
@@ -399,6 +432,7 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
         accelerator_style: accelStyle,
         accelerator_threshold: accelStyle === 'none' ? 0 : threshold,
         accelerator_rate: accelStyle === 'none' ? 0 : accelRate,
+        ...(accelStyle !== 'none' && steps.length ? { accelerator_steps: steps } : {}),
         one_time_weight: oneTimeWeight ?? 0,
         quarterly_kicker: kicker,
         industry: null,
@@ -413,6 +447,7 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
     assumed: dedupe(assumed),
     baseRule: base ? baseRule : null,
     accelRule,
+    stepRules: accelStyle === 'none' ? [] : stepRules,
     kickerRule,
   };
 }
@@ -467,15 +502,13 @@ export function recordFromPlan(p: CompPlan): PlanRecord {
     accelerators:
       p.accelerator_style === 'none'
         ? []
-        : [
-            {
-              kind: p.accelerator_style === 'rate_switch' ? 'forward_rate' : 'retroactive_bump',
-              starts_at_pct: p.quota > 0 ? round2((p.accelerator_threshold / p.quota) * 100) : null,
-              starts_at_amount: p.accelerator_threshold,
-              rate: p.accelerator_rate,
-              source: 'stated',
-            },
-          ],
+        : [{ threshold: p.accelerator_threshold, rate: p.accelerator_rate }, ...(p.accelerator_steps ?? [])].map((st) => ({
+            kind: p.accelerator_style === 'rate_switch' ? 'forward_rate' : 'retroactive_bump',
+            starts_at_pct: p.quota > 0 ? round2((st.threshold / p.quota) * 100) : null,
+            starts_at_amount: st.threshold,
+            rate: st.rate,
+            source: 'stated',
+          })),
     floors: [],
     discount_rules: [],
     bonuses: p.quarterly_kicker
@@ -539,7 +572,7 @@ export function mergeFormIntoRecord(described: PlanRecord, p: CompPlan): PlanRec
   const fromForm = recordFromPlan(p);
   const m = mapRecord(described);
   const keepRules = described.pay_rules.filter((_, i) => i !== m.baseRule);
-  const keepAccels = described.accelerators.filter((_, i) => i !== m.accelRule);
+  const keepAccels = described.accelerators.filter((_, i) => i !== m.accelRule && !m.stepRules.includes(i));
   const keepBonuses = described.bonuses.filter((_, i) => i !== m.kickerRule);
   const corrected = <T extends { source: Source }>(x: T): T => ({ ...x, source: 'corrected' });
   return {

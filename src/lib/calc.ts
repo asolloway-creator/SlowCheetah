@@ -68,6 +68,11 @@ export type CompPlan = {
   /** 'rate_switch': the accelerated rate (same unit as base_rate).
    *  'retro_bump': the % bump applied to the whole period. */
   accelerator_rate: number;
+  /** Further steps past the first one above, same style, each starting
+   *  higher than the last: "12% past $150,000, 15% past $187,500" is the
+   *  first step plus one here. Optional: most plans have a single step, and
+   *  plans saved before steps existed have none. See acceleratorSteps(). */
+  accelerator_steps?: AcceleratorStep[];
   /** % of one-time revenue that is commissionable ('percent' style). One
    *  bucket for every non-recurring cost on the deal — hardware,
    *  implementation, setup fees, whatever a given plan charges once. */
@@ -97,6 +102,28 @@ export const COMPANY_SIZE_BANDS: [string, string][] = [
   ['1001-5000', '1,001-5,000 employees'],
   ['5001+', '5,001+ employees'],
 ];
+
+/** One accelerator step: from `threshold` (in quota's basis), `rate` is the
+ *  rate every deal earns ('rate_switch') or the bump on the whole period's
+ *  commission ('retro_bump'). A higher step replaces the one below it. */
+export type AcceleratorStep = { threshold: number; rate: number };
+
+/** Every accelerator step, the first included, in rising order. Empty without one. */
+export function acceleratorSteps(plan: CompPlan): AcceleratorStep[] {
+  if (plan.accelerator_style === 'none') return [];
+  return [{ threshold: plan.accelerator_threshold, rate: plan.accelerator_rate }, ...(plan.accelerator_steps ?? [])].sort(
+    (a, b) => a.threshold - b.threshold,
+  );
+}
+
+/** The highest step reached at `credit`, as an index into acceleratorSteps(); -1 below the first. */
+export function stepIndexAt(steps: AcceleratorStep[], credit: number): number {
+  let at = -1;
+  steps.forEach((s, i) => {
+    if (credit >= s.threshold) at = i;
+  });
+  return at;
+}
 
 export type DealInput = {
   oneTime: number;
@@ -149,13 +176,22 @@ export type CalcResult = {
   credit: number;
   creditFull: number;
   creditAfter: number;
+  /** Past an accelerator step before this deal, and after it. */
   wasAccelerated: boolean;
   isAccelerated: boolean;
+  /** This deal reaches a higher step than the period was on: the first one,
+   *  or, on a plan with several, the next. */
   crossesAccelerator: boolean;
+  /** The step reached before this deal, after it, and after it at full
+   *  price: indexes into acceleratorSteps(plan), -1 below the first. */
+  stepBefore: number;
+  step: number;
+  stepFull: number;
   /** retro_bump only: extra unlocked on prior deals if this one crosses. */
   retroBump: number;
-  /** retro_bump only: what crossing is worth on prior deals right now. */
+  /** retro_bump only: what crossing the next step is worth on prior deals right now. */
   crossingWorth: number;
+  /** Full price reaches a higher step than the discounted deal does. */
   discountBlocksAccelerator: boolean;
   attained: boolean;
   toQuota: number;
@@ -194,11 +230,13 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   const creditFull = plan.quota_basis === 'units' ? units : subAnnualList;
   const creditAfter = ptd.creditBooked + credit;
 
-  const hasAccel = plan.accelerator_style !== 'none';
-  const threshold = hasAccel ? plan.accelerator_threshold : Infinity;
-  const wasAccelerated = hasAccel && ptd.creditBooked >= threshold;
-  const isAccelerated = hasAccel && creditAfter >= threshold;
-  const crossesAccelerator = !wasAccelerated && isAccelerated;
+  const steps = acceleratorSteps(plan);
+  const stepBefore = stepIndexAt(steps, ptd.creditBooked);
+  const step = stepIndexAt(steps, creditAfter);
+  const stepFull = stepIndexAt(steps, ptd.creditBooked + creditFull);
+  const wasAccelerated = stepBefore >= 0;
+  const isAccelerated = step >= 0;
+  const crossesAccelerator = step > stepBefore;
 
   let commissionEffective = commissionBase;
   let commissionFullEffective = commissionFullBase;
@@ -207,17 +245,20 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   let crossingWorth = 0;
 
   if (plan.accelerator_style === 'rate_switch' && isAccelerated) {
-    effectiveRate = plan.accelerator_rate;
-    commissionEffective = commissionAt(plan.accelerator_rate, false);
-    commissionFullEffective = commissionAt(plan.accelerator_rate, true);
+    effectiveRate = steps[step].rate;
+    commissionEffective = commissionAt(effectiveRate, false);
+    commissionFullEffective = commissionAt(effectiveRate, true);
   } else if (plan.accelerator_style === 'retro_bump') {
-    const mult = 1 + plan.accelerator_rate / 100;
-    crossingWorth = (plan.accelerator_rate / 100) * ptd.commissionBooked;
+    // A higher step's bump replaces the one below it, on the whole period.
+    const bump = (i: number) => (i >= 0 ? steps[i].rate : 0);
+    const next = steps[stepBefore + 1];
+    crossingWorth = next ? ((next.rate - bump(stepBefore)) / 100) * ptd.commissionBooked : 0;
     if (isAccelerated) {
+      const mult = 1 + bump(step) / 100;
       commissionEffective = commissionBase * mult;
       commissionFullEffective = commissionFullBase * mult;
     }
-    if (crossesAccelerator) retroBump = crossingWorth;
+    if (crossesAccelerator) retroBump = ((bump(step) - bump(stepBefore)) / 100) * ptd.commissionBooked;
   }
 
   // The proportional slice of commissionEffective attributable to
@@ -237,8 +278,7 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
   const lost = commissionFullEffective - commissionEffective;
   const customerSavesAnnual = deal.oneTime * dOt + subAnnualList * dSub;
 
-  const fullPriceCrosses = hasAccel && ptd.creditBooked + creditFull >= threshold;
-  const discountBlocksAccelerator = !isAccelerated && fullPriceCrosses;
+  const discountBlocksAccelerator = stepFull > step;
 
   const attained = creditAfter >= plan.quota;
   const toQuota = Math.max(0, plan.quota - creditAfter);
@@ -267,6 +307,9 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
     wasAccelerated,
     isAccelerated,
     crossesAccelerator,
+    stepBefore,
+    step,
+    stepFull,
     retroBump,
     crossingWorth,
     discountBlocksAccelerator,
@@ -279,21 +322,29 @@ export function calc(plan: CompPlan, deal: DealInput, ptd: PeriodToDate): CalcRe
 
 /** Period-level payout from saved deals. Retro bumps are applied here. */
 export function periodSummary(plan: CompPlan, ptd: PeriodToDate) {
-  const hasAccel = plan.accelerator_style !== 'none';
-  const accelerated = hasAccel && ptd.creditBooked >= plan.accelerator_threshold;
+  const steps = acceleratorSteps(plan);
+  const at = stepIndexAt(steps, ptd.creditBooked);
+  const accelerated = at >= 0;
+  const step = accelerated ? steps[at] : null;
+  const next = steps[at + 1] ?? null;
   const attained = ptd.creditBooked >= plan.quota;
   const retro = plan.accelerator_style === 'retro_bump';
-  const payout =
-    retro && accelerated ? ptd.commissionBooked * (1 + plan.accelerator_rate / 100) : ptd.earnedBooked;
+  const payout = retro && step ? ptd.commissionBooked * (1 + step.rate / 100) : ptd.earnedBooked;
   return {
     accelerated,
     attained,
+    /** The step reached, and the next one up (the first, below it). */
+    step,
+    next,
+    /** Only once past more than one step. */
+    stepNumber: at + 1,
     toQuota: Math.max(0, plan.quota - ptd.creditBooked),
-    toAccelerator: hasAccel ? Math.max(0, plan.accelerator_threshold - ptd.creditBooked) : 0,
+    /** To the next step up; 0 past the last. */
+    toAccelerator: next ? Math.max(0, next.threshold - ptd.creditBooked) : 0,
     quotaPct: plan.quota > 0 ? Math.min(100, Math.round((ptd.creditBooked / plan.quota) * 100)) : 0,
     payout,
-    /** retro_bump: bump already earned (if accelerated) or waiting to unlock. */
-    acceleratorValue: retro ? (plan.accelerator_rate / 100) * ptd.commissionBooked : 0,
+    /** retro_bump: the bump already earned (once past a step) or what the first would unlock. */
+    acceleratorValue: retro ? (((step ?? next)?.rate ?? 0) / 100) * ptd.commissionBooked : 0,
   };
 }
 
@@ -435,7 +486,9 @@ export function currentOpening(o: Opening | null, key: string): Opening | null {
  * shows until the rep types their own deal.
  */
 export function starterDeal(plan: CompPlan, creditBooked: number): DealInput {
-  const target = Math.max(1, plan.accelerator_style !== 'none' ? plan.accelerator_threshold : plan.quota);
+  // The next accelerator step up from here, or the quota without one (or past the last).
+  const next = acceleratorSteps(plan).find((s) => s.threshold > creditBooked);
+  const target = Math.max(1, next ? next.threshold : plan.accelerator_style !== 'none' ? plan.accelerator_threshold : plan.quota);
   const typical = target * 0.25;
   const gap = Math.max(0, target - creditBooked);
   const withinReach = gap > 0 && gap <= typical * 1.2;
@@ -484,10 +537,12 @@ export type Pipeline = {
    *  closed (retro_bump plans), rather than commission on the quotes. */
   unlocked: number;
   creditAfter: number;
-  /** Past the accelerator once they all land. */
+  /** Past an accelerator step once they all land. */
   accelerated: boolean;
-  /** ...and not before. */
+  /** ...a higher one than before they did. */
   crossesAccelerator: boolean;
+  /** The next step up once they all land, if there is one. */
+  next: AcceleratorStep | null;
   /** The quarterly bonus once they all land, when the plan has one. */
   kicker: ReturnType<typeof quarterlyKickerSummary>;
 };
@@ -513,15 +568,17 @@ export function pipeline(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
     };
     if (q) q = { saasArrBooked: q.saasArrBooked + r.subAnnual, saasCommissionBooked: q.saasCommissionBooked + r.saasCommissionEffective };
   }
-  const hasAccel = plan.accelerator_style !== 'none';
-  const accelerated = hasAccel && p.creditBooked >= plan.accelerator_threshold;
+  const steps = acceleratorSteps(plan);
+  const before = stepIndexAt(steps, ptd.creditBooked);
+  const after = stepIndexAt(steps, p.creditBooked);
   return {
     count: deals.length,
     commission,
     unlocked,
     creditAfter: p.creditBooked,
-    accelerated,
-    crossesAccelerator: accelerated && ptd.creditBooked < plan.accelerator_threshold,
+    accelerated: after >= 0,
+    crossesAccelerator: after > before,
+    next: steps[after + 1] ?? null,
     kicker: q ? quarterlyKickerSummary(plan, q) : null,
   };
 }

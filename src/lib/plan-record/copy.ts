@@ -346,7 +346,7 @@ export const NOTE_TEXT: Record<Note, string> = {
   one_time_on_mrr_plan: 'IOI’s months-of-MRR math doesn’t pay on one-time charges yet.',
   other_business_rate: 'IOI treats every deal as new business for now.',
   marginal_split: 'IOI pays the deal that crosses the line fully at the new rate. Your plan splits that one deal.',
-  more_steps: 'IOI runs your first step only, so pay past this point will read low.',
+  more_steps: 'IOI can’t run this step yet, so pay past it will read low.',
   floor: 'Deals below that line will read high here.',
   discount_rule: 'Deeply discounted deals will read high here.',
   kicker_more_tiers: 'IOI runs your first two bonus levels.',

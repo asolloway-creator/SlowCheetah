@@ -81,6 +81,9 @@ export default function QuotaLine(props: Props) {
         <span className="line-bar" style={vars({ '--w': pct(m.barW) })} />
         <span className="line-ghost" style={vars({ '--x': pct(m.ghostX), '--w': pct(m.ghostW) })} />
         {m.quotaX !== null && <span className="line-post line-post-quota" style={vars({ '--x': pct(m.quotaX) })} />}
+        {m.stepXs.map((sx) => (
+          <span key={sx} className="line-post line-post-step" style={vars({ '--x': pct(sx) })} />
+        ))}
         {m.ringX !== null && (
           <span key={pulse} className={`line-ring${pulse > 0 ? ' is-pulsing' : ''}`} style={vars({ '--x': pct(m.ringX) })} />
         )}

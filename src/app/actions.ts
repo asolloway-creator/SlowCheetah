@@ -12,6 +12,7 @@ import {
   type DealInput,
   type Opening,
   type OpeningInput,
+  type AcceleratorStep,
   type PeriodToDate,
   type QuarterlyKickerTier,
   type Quote,
@@ -215,6 +216,18 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
     return { error: 'Set a threshold for your accelerator. It can’t kick in at zero.' };
   }
+  // Further accelerator steps (v13): same style as the first, each starting
+  // past the one before it, rates clamped like the first's. Up to three.
+  let accelerator_steps: AcceleratorStep[] | null = null;
+  if (plan.accelerator_style !== 'none' && Array.isArray(input.accelerator_steps) && input.accelerator_steps.length > 0) {
+    const steps = input.accelerator_steps.slice(0, 3).map((st) => ({ threshold: n(st?.threshold), rate: clampPct(Number(st?.rate)) }));
+    let last = plan.accelerator_threshold;
+    for (const st of steps) {
+      if (!(st.threshold > last)) return { error: 'Each accelerator step has to start past the one before it.' };
+      last = st.threshold;
+    }
+    accelerator_steps = steps;
+  }
 
   // A starting point counts in the plan's own measure. If that changed (units
   // to ARR, a month to a quarter), the old one means nothing, so it goes.
@@ -227,7 +240,7 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
 
   const { error } = await supabase
     .from('comp_plans')
-    .upsert({ user_id: user.id, ...plan, ...(measureChanged ? { opening: null } : {}) }, { onConflict: 'user_id' });
+    .upsert({ user_id: user.id, ...plan, accelerator_steps, ...(measureChanged ? { opening: null } : {}) }, { onConflict: 'user_id' });
   if (error) return { error: error.message };
   revalidatePath('/', 'layout');
   return {};

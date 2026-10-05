@@ -1,5 +1,11 @@
 import type { CompPlan } from '@/lib/calc';
 
+/** Further accelerator steps, as ", 15% past $187,500" (calc.ts acceleratorSteps). */
+const moreSteps = (p: CompPlan) =>
+  (p.accelerator_steps ?? [])
+    .map((s) => `, ${p.accelerator_style === 'retro_bump' ? `+${fmtPctShort(s.rate)}` : fmtRateShort(p, s.rate)} past ${fmtCredit(p, s.threshold)}`)
+    .join('');
+
 const usd0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -52,9 +58,10 @@ export function planSentence(p: CompPlan): string {
 
   const th = fmtCredit(p, p.accelerator_threshold);
   const accel =
-    p.accelerator_style === 'retro_bump'
+    (p.accelerator_style === 'retro_bump'
       ? `+${fmtPctShort(p.accelerator_rate)} on the whole ${noun} once you cross ${th}`
-      : `${fmtRateShort(p, p.accelerator_rate)} on every deal once ${p.quota_basis === 'units' ? `${th} land` : `you cross ${th}`}`;
+      : `${fmtRateShort(p, p.accelerator_rate)} on every deal once ${p.quota_basis === 'units' ? `${th} land` : `you cross ${th}`}`) +
+    moreSteps(p);
 
   let weights: string | null = null;
   if (percent && p.one_time_weight !== 100) {

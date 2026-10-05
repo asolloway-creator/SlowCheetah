@@ -12,6 +12,7 @@ import {
   type Opening,
   type PeriodToDate,
   type QuarterToDate,
+  type AcceleratorStep,
   type QuarterlyKicker,
   type QuarterlyKickerTier,
   type Quote,
@@ -76,6 +77,22 @@ function parseKicker(v: unknown): QuarterlyKicker | null {
   return { target, tiers: parsed.length === 1 ? [parsed[0]] : [parsed[0], parsed[1]] };
 }
 
+/** comp_plans.accelerator_steps (v13), validated like the kicker: each step
+ *  past the one before it. Anything malformed reads as no further steps. */
+function parseSteps(v: unknown, first: number): AcceleratorStep[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const steps = v.slice(0, 3).map((s) => {
+    const raw = (s ?? {}) as { threshold?: unknown; rate?: unknown };
+    return { threshold: num(raw.threshold), rate: num(raw.rate) };
+  });
+  let last = first;
+  for (const s of steps) {
+    if (!(s.threshold > last) || !Number.isFinite(s.rate) || s.rate < 0) return null;
+    last = s.threshold;
+  }
+  return steps;
+}
+
 export async function getCompPlan(userId: string): Promise<CompPlan | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('comp_plans').select('*').eq('user_id', userId).maybeSingle();
@@ -92,6 +109,7 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
 
 /** A comp_plans row (or its jsonb twin) as a CompPlan. */
 export function toCompPlan(data: Record<string, unknown>): CompPlan {
+  const steps = data.accelerator_style === 'none' ? null : parseSteps(data.accelerator_steps, num(data.accelerator_threshold));
   return {
     role_name: String(data.role_name),
     period: data.period as CompPlan['period'],
@@ -102,6 +120,7 @@ export function toCompPlan(data: Record<string, unknown>): CompPlan {
     accelerator_style: data.accelerator_style as CompPlan['accelerator_style'],
     accelerator_threshold: num(data.accelerator_threshold),
     accelerator_rate: num(data.accelerator_rate),
+    ...(steps ? { accelerator_steps: steps } : {}),
     one_time_weight: num(data.one_time_weight),
     quarterly_kicker: parseKicker(data.quarterly_kicker),
     industry: data.industry ? String(data.industry) : null,

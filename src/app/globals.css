@@ -710,6 +710,8 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 .line-track { position: absolute; left: 0; right: 0; top: 50%; height: 12px; margin-top: -6px; border-radius: 99px; background: #F1EADB; box-shadow: inset 0 1px 2px rgba(28, 24, 18, 0.08); }
 .line-post { position: absolute; left: var(--x, 0%); top: 0; width: 3px; height: 28px; border-radius: 2px; background: var(--line-2); }
 .line-post-quota { margin-left: -1.5px; }
+/* A plan's other accelerator steps: the ring marks the one in play. */
+.line-post-step { margin-left: -1.5px; top: 4px; height: 20px; background: var(--ink-3); }
 .line-bar {
   position: absolute; left: 0; top: 50%; width: var(--w); height: 12px; margin-top: -6px; border-radius: 99px;
   background: var(--ink); transform-origin: left;
@@ -902,6 +904,7 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 
 /* Where you stand / Your deals before a plan is in, and the starting point. */
 .plan-first .btn { margin-top: 28px; }
+.plan-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; }
 .opening-fields { margin-top: 14px; }
 .quota-start { margin-top: 18px; font: 500 15px/1.5 var(--ui); color: var(--ink-2); }
 .quota-start-edit { margin-top: 28px; }

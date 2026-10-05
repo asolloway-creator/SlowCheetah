@@ -53,11 +53,13 @@ export default function QuotesRail({
     p.unlocked > 0 ? `, plus ${fmtMoney(p.unlocked)} unlocked on deals you’ve already closed` : ''
   }. The ${noun} lands at ${fmtCredit(plan, p.creditAfter)}`;
   if (hasAccel) {
-    sum += p.accelerated
-      ? p.crossesAccelerator
-        ? ', past your accelerator'
-        : ''
-      : `, ${fmtCredit(plan, Math.max(0, plan.accelerator_threshold - p.creditAfter))} short of your accelerator`;
+    // Past a step they weren't before, or short of the next one up.
+    const which = p.accelerated ? 'next accelerator step' : 'accelerator';
+    sum += p.crossesAccelerator
+      ? ', past your accelerator'
+      : p.next
+        ? `, ${fmtCredit(plan, Math.max(0, p.next.threshold - p.creditAfter))} short of your ${which}`
+        : '';
   }
   sum += '.';
   if (p.kicker) {

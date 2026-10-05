@@ -1,8 +1,9 @@
 // Checks the plan record's mapping, wording and questions without calling Claude.
 // Run from ioi-app/:  npx tsx scripts/test-plan-record.ts
 import assert from 'node:assert/strict';
-import { calc, DEMO_PLAN, kickerTierValue, PRESETS, quarterlyKickerSummary, type CompPlan } from '@/lib/calc';
-import { crossEffect, kickerOutcomeCopy, outcome } from '@/components/opening';
+import { calc, DEMO_PLAN, kickerTierValue, periodSummary, PRESETS, quarterlyKickerSummary, type CompPlan } from '@/lib/calc';
+import { planSentence } from '@/lib/format';
+import { crossEffect, dealLine, holdLinePct, kickerOutcomeCopy, outcome, outcomeCopy, quarterLine } from '@/components/opening';
 import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
 import { mapRecord, mergeFormIntoRecord, recordFromPlan } from '@/lib/plan-record/map';
 import { applyAnswer, assumedText, limitCopy, question, readback, workedExample } from '@/lib/plan-record/copy';
@@ -129,7 +130,7 @@ test('a marginal tier runs, flagged as close rather than exact', () => {
   assert.equal(m.coverage.find((c) => c.area === 'accelerators')?.status, 'approximated');
 });
 
-test('a second accelerator step is kept but not calculated', () => {
+test('a second accelerator step runs as a further step, whatever order it was described in', () => {
   const r = recordFromWire(
     wire({
       accelerators: [
@@ -139,9 +140,97 @@ test('a second accelerator step is kept but not calculated', () => {
     }),
   );
   const m = mapRecord(r);
-  assert.equal(m.plan?.accelerator_threshold, 150000, 'the lower step runs, whatever order it was described in');
+  assert.equal(m.plan?.accelerator_threshold, 150000, 'the lower step runs first');
   assert.equal(m.plan?.accelerator_rate, 15);
-  assert.equal(m.coverage.find((c) => c.area === 'accelerators' && c.index === 0)?.status, 'not_yet');
+  assert.deepEqual(m.plan?.accelerator_steps, [{ threshold: 225000, rate: 20 }]);
+  assert.ok(m.coverage.filter((c) => c.area === 'accelerators').every((c) => c.status === 'calculated'));
+  assert.ok(allText(r).includes('Past 150% of quota, that deal and every deal after it pays 20%.'), allText(r).join('\n'));
+});
+
+test('a step that works another way, or misses a number, is kept but not calculated', () => {
+  const r = recordFromWire(
+    wire({
+      accelerators: [
+        { kind: 'forward_rate', starts_at_pct: 100, starts_at_amount: -1, rate: 15, source: 'stated' },
+        { kind: 'retroactive_bump', starts_at_pct: 125, starts_at_amount: -1, rate: 25, source: 'stated' },
+        { kind: 'forward_rate', starts_at_pct: 150, starts_at_amount: -1, rate: -1, source: 'stated' },
+      ],
+    }),
+  );
+  const m = mapRecord(r);
+  assert.equal(m.plan?.accelerator_steps, undefined);
+  assert.deepEqual(
+    m.coverage.filter((c) => c.area === 'accelerators').map((c) => c.status),
+    ['calculated', 'not_yet', 'not_yet'],
+  );
+});
+
+// ── Accelerator steps in the engine ─────────────────────────────────────────
+const STEPPED: CompPlan = {
+  ...PRESETS.find((x) => x.id === 'flat')!.plan,
+  period: 'quarter',
+  quota: 150000,
+  base_rate: 8,
+  one_time_weight: 0,
+  accelerator_style: 'rate_switch',
+  accelerator_threshold: 150000,
+  accelerator_rate: 12,
+  accelerator_steps: [{ threshold: 187500, rate: 15 }],
+};
+const arrDeal = (annual: number, off = 0) => ({ oneTime: 0, subscription: annual, subMode: 'acv' as const, units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: off });
+const at = (credit: number) => ({ creditBooked: credit, commissionBooked: credit * 0.08, earnedBooked: credit * 0.08 });
+
+test('each rate step pays its own rate, and one deal can jump two', () => {
+  assert.equal(calc(STEPPED, arrDeal(10000), at(100000)).effectiveRate, 8);
+  assert.equal(calc(STEPPED, arrDeal(10000), at(145000)).effectiveRate, 12);
+  const second = calc(STEPPED, arrDeal(10000), at(180000));
+  assert.equal(second.effectiveRate, 15);
+  assert.equal(second.crossesAccelerator, true, 'reaching the next step is a crossing');
+  assert.deepEqual([second.stepBefore, second.step], [0, 1]);
+  assert.equal(calc(STEPPED, arrDeal(50000), at(140000)).effectiveRate, 15);
+  assert.equal(calc(STEPPED, arrDeal(10000), at(200000)).crossesAccelerator, false);
+});
+
+test('a retro step bumps the whole period to its own bump', () => {
+  const retro: CompPlan = { ...STEPPED, accelerator_style: 'retro_bump', accelerator_rate: 25, accelerator_steps: [{ threshold: 187500, rate: 40 }] };
+  const r = calc(retro, arrDeal(10000), at(180000));
+  assert.equal(r.retroBump, 0.15 * 180000 * 0.08, 'crossing the second step adds the difference on what is already booked');
+  assert.equal(Math.round(r.commissionEffective), Math.round(10000 * 0.08 * 1.4));
+  const s = periodSummary(retro, at(190000));
+  assert.equal(s.payout, 190000 * 0.08 * 1.4);
+  assert.equal(s.next, null);
+  const before = periodSummary(retro, at(160000));
+  assert.equal(before.step?.rate, 25);
+  assert.equal(before.toAccelerator, 27500, 'to the next step up');
+});
+
+test('a discount that keeps a deal under the next step says so, and hold the line aims at it', () => {
+  // $7,500 of room to the next step: 40% off leaves $7,200 of a $12,000 deal.
+  const deal = arrDeal(12000, 40);
+  const ptd = at(180000);
+  const o = outcome(STEPPED, deal, ptd);
+  assert.equal(o.state, 'blocked');
+  assert.equal(o.safeDiscountPct, 37.5, '$7,500 of room on a $12,000 deal');
+  const copy = outcomeCopy(STEPPED, deal, o, ptd);
+  assert.match(copy.sentence, /under your next accelerator step\. Crossing it would raise pay to 15% on every deal after this one\./);
+  assert.equal(holdLinePct(STEPPED, { ...deal, subscriptionDiscountPct: 50 }, ptd, null), 37.5);
+  const line = dealLine(STEPPED, ptd, o.r);
+  assert.match(line.marker, /\$187,500 · 15% from here/);
+  assert.deepEqual(line.stepXs, [], 'the first step is behind this deal, off the line');
+  const big = dealLine(STEPPED, at(140000), calc(STEPPED, arrDeal(50000), at(140000)));
+  assert.match(big.marker, /\$187,500 · 15% from here/, 'a deal that jumps both steps rings the higher one');
+  assert.equal(big.stepXs.length, 1, 'the step it also passes shows as a post');
+  const quarter = quarterLine(STEPPED, at(160000));
+  assert.match(quarter.marker, /\$187,500 · 15% from here/);
+  assert.equal(quarter.crossed, false);
+  assert.equal(quarter.stepXs.length, 1);
+});
+
+test('a plan with steps survives record -> plan, and reads as one line', () => {
+  const r = recordFromPlan(STEPPED);
+  assert.equal(r.accelerators.length, 2);
+  assert.deepEqual(strip(mapRecord(r).plan!), strip(STEPPED));
+  assert.match(planSentence(STEPPED), /12% on every deal once you cross \$150,000, 15% past \$187,500/);
 });
 
 // ── Gaps, answers and assumptions ────────────────────────────────────────────

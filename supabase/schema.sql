@@ -1,4 +1,4 @@
--- IOI schema v12 (2026-10-02): open quotes.
+-- IOI schema v13 (2026-10-05): accelerator steps.
 -- Run once in the Supabase SQL editor. Drops v4 comp_plans/deals (demo data).
 -- users and its auth trigger are unchanged.
 --
@@ -86,6 +86,15 @@
 --   - admin_plan_data(): the dashboard's plan-data section, one plan per
 --     person, same exclusions as admin_traffic().
 
+-- v13 (2026-10-05) adds comp_plans.accelerator_steps: further accelerator
+-- steps past the first (accelerator_threshold / accelerator_rate), same style,
+-- each starting past the one before ("12% past $150,000, 15% past $187,500").
+-- [{ threshold, rate }, ...] or null; validated app-side (savePlanAction /
+-- parseSteps). Quarterly bonus tiers (quarterly_kicker) may now carry an
+-- `amount`: a fixed bonus in place of the percent. Additive, safe on a live
+-- v12 database:
+--   alter table public.comp_plans add column if not exists accelerator_steps jsonb;
+--
 -- v12 (2026-10-02) adds public.quotes: deals a rep is still working, saved
 -- so they can come back to them and see what their open quotes add up to.
 -- Same deal columns as public.deals plus the rep's own label. Owner-only RLS
@@ -139,8 +148,11 @@ create table public.comp_plans (
   accelerator_style     text not null check (accelerator_style in ('none','rate_switch','retro_bump')),
   accelerator_threshold numeric(14,2) not null default 0 check (accelerator_threshold >= 0),
   accelerator_rate      numeric(8,3)  not null default 0 check (accelerator_rate >= 0),
+  -- v13: [{ threshold, rate }, ...] or null. Steps past the first one above.
+  accelerator_steps     jsonb,
   one_time_weight       numeric(6,2)  not null default 50 check (one_time_weight between 0 and 100),
-  -- { target: number, tiers: [{attainmentPct, kickerPct}, {attainmentPct, kickerPct}] } or null.
+  -- { target: number, tiers: [{attainmentPct, kickerPct, amount?}, ...] } or null; a tier
+  -- with an amount pays that fixed bonus instead of the percent.
   -- Validated app-side (savePlanAction / parseKicker) rather than in SQL —
   -- same trust boundary as every other plan field here.
   quarterly_kicker      jsonb,

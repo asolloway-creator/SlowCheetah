@@ -58,11 +58,17 @@ export default function QuotaView({
   const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
   const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
 
+  // On a plan with more than one step: where the next one is, once past one.
+  const onward = s.step && s.next
+    ? retro
+      ? ` Another ${fmtCredit(plan, s.toAccelerator)} makes it ${fmtPctShort(s.next.rate)}.`
+      : ` Another ${fmtCredit(plan, s.toAccelerator)} and every deal from there earns ${fmtRateShort(plan, s.next.rate)}.`
+    : '';
   const sentence = hasAccel
-    ? s.accelerated
+    ? s.step
       ? retro
-        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(plan.accelerator_rate)} more. That’s ${fmtMoney(s.acceleratorValue)} so far.`
-        : `You’re past your accelerator. Every deal from here earns ${fmtRateShort(plan, plan.accelerator_rate)}.`
+        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(s.step.rate)} more. That’s ${fmtMoney(s.acceleratorValue)} so far.${onward}`
+        : `You’re past your accelerator. Every deal from here earns ${fmtRateShort(plan, s.step.rate)}.${onward}`
       : retro
         ? `Hold the line on the next ${fmtCredit(plan, s.toAccelerator)} and you unlock ${fmtSigned(s.acceleratorValue)} on the deals you’ve already closed.`
         : `${fmtCredit(plan, plan.accelerator_threshold)} land and every deal from there earns ${fmtRateShort(plan, plan.accelerator_rate)}. ${fmtCredit(plan, s.toAccelerator)} to go.`
@@ -90,8 +96,8 @@ export default function QuotaView({
           ? plan.quota_basis === 'arr'
             ? '· what you’d booked before IOI counted at your base rate'
             : '· on deals booked in IOI'
-          : s.accelerated && retro
-            ? `· includes the +${fmtPctShort(plan.accelerator_rate)} bump`
+          : s.step && retro
+            ? `· includes the +${fmtPctShort(s.step.rate)} bump`
             : plan.accelerator_style === 'rate_switch' && s.accelerated
               ? '· as booked'
               : `· at ${fmtRateShort(plan, plan.base_rate)}`,

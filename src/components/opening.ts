@@ -10,6 +10,7 @@
  */
 
 import {
+  acceleratorSteps,
   calc,
   DEMO_PTD,
   DEMO_QTD,
@@ -18,6 +19,8 @@ import {
   kickerTierValue,
   periodSummary,
   quarterlyKickerSummary,
+  stepIndexAt,
+  type AcceleratorStep,
   type CalcResult,
   type CompPlan,
   type DealInput,
@@ -98,19 +101,17 @@ export function outcome(plan: CompPlan, deal: DealInput, ptd: PeriodToDate) {
             : 'held';
 
   // Room to raise: the steepest subscription discount that still crosses
-  // the accelerator. Only meaningful for ARR-quota plans — a discount
-  // shrinks the ARR this deal contributes toward the threshold. Units-basis
-  // plans don't have this: a unit is a unit regardless of price, so
-  // discount never changes whether you cross.
+  // the accelerator step at stake, the highest one full price reaches past
+  // where the period stands. Only meaningful for ARR-quota plans — a
+  // discount shrinks the ARR this deal contributes toward the threshold.
+  // Units-basis plans don't have this: a unit is a unit regardless of
+  // price, so discount never changes whether you cross.
   let safeDiscountPct: number | null = null;
-  if (plan.quota_basis === 'arr' && plan.accelerator_style !== 'none' && r.subMrrList > 0) {
-    const roomDollars = plan.accelerator_threshold - ptd.creditBooked;
+  if (plan.quota_basis === 'arr' && r.stepFull > r.stepBefore && r.subMrrList > 0) {
+    const roomDollars = acceleratorSteps(plan)[r.stepFull].threshold - ptd.creditBooked;
     const listAnnual = r.subMrrList * 12;
-    // Only meaningful if full price would actually cross — otherwise no
-    // discount level gets you there and "room" is a nonsense question.
-    if (listAnnual >= roomDollars) {
-      safeDiscountPct = Math.min(100, Math.max(0, round2(100 * (1 - roomDollars / listAnnual))));
-    }
+    // Full price crosses it by construction, so listAnnual >= roomDollars.
+    safeDiscountPct = Math.min(100, Math.max(0, round2(100 * (1 - roomDollars / listAnnual))));
   }
 
   return { r, rFull, atStake, lostOnDeal, state, safeDiscountPct };
@@ -128,7 +129,7 @@ export function costOf(plan: CompPlan, deal: DealInput, ptd: PeriodToDate, key: 
 /** "2 months of MRR" · "2.5 months of MRR" once a retro bump applies · "10.5%". */
 export function effectiveRateLabel(plan: CompPlan, r: CalcResult): string {
   if (plan.accelerator_style === 'retro_bump' && r.isAccelerated) {
-    return fmtRateShort(plan, round2(plan.base_rate * (1 + plan.accelerator_rate / 100)));
+    return fmtRateShort(plan, round2(plan.base_rate * (1 + acceleratorSteps(plan)[r.step].rate / 100)));
   }
   return fmtRateShort(plan, r.effectiveRate);
 }
@@ -384,9 +385,16 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
   const { r } = o;
   const noun = periodNoun(plan);
   const retro = plan.accelerator_style === 'retro_bump';
-  const th = fmtCredit(plan, plan.accelerator_threshold);
-  const bump = `${fmtPctShort(plan.accelerator_rate)}`;
-  const accelRate = fmtRateShort(plan, plan.accelerator_rate);
+  // The step each state is about: the one this deal reaches, or (blocked)
+  // the one full price would reach, or (held, past) the next one up. A
+  // plan with one step only ever talks about "your accelerator".
+  const steps = acceleratorSteps(plan);
+  const stepAt = (i: number) => steps[Math.max(0, Math.min(i, steps.length - 1))] ?? { threshold: plan.accelerator_threshold, rate: plan.accelerator_rate };
+  const named = (i: number) => (steps.length > 1 && i > 0 ? 'your next accelerator step' : 'your accelerator');
+  const th = fmtCredit(plan, stepAt(r.step).threshold);
+  const bump = `${fmtPctShort(stepAt(r.step).rate)}`;
+  const accelRate = fmtRateShort(plan, stepAt(r.step).rate);
+  const nextStep: AcceleratorStep | null = steps[r.step + 1] ?? null;
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
   const onlySub = deal.subscriptionDiscountPct > 0 && deal.oneTimeDiscountPct === 0;
   const onlyOneTime = deal.oneTimeDiscountPct > 0 && deal.subscriptionDiscountPct === 0;
@@ -453,19 +461,22 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
   const safeCaptionCrossed = safePct !== null ? `room to discount up to ${safePct} and still cross` : undefined;
 
   switch (o.state) {
-    case 'blocked':
+    case 'blocked': {
       // The threshold, the rate, and the dollar breakdown are all already
       // visible as labeled figures elsewhere on the page (the accelerator
       // line, this secondary figure, its caption) — the sentence only needs
       // to name the mechanism, not re-derive numbers a second time.
+      const under = named(r.stepFull);
+      const to = steps.length > 1 && !retro ? `to ${fmtRateShort(plan, stepAt(r.stepFull).rate)} ` : '';
       return {
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
         sentence: retro
-          ? `A ${pct} discount is what's keeping this under your accelerator. Crossing it would raise pay on every deal you've already closed this ${noun}.`
-          : `A ${pct} discount is what's keeping this under your accelerator. Crossing it would raise pay on every deal after this one.`,
+          ? `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay on every deal you've already closed this ${noun}.`
+          : `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay ${to}on every deal after this one.`,
         detail: null,
       };
+    }
     case 'crossed':
       return retro
         ? {
@@ -489,7 +500,10 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
               o.safeDiscountPct !== null
                 ? { label: 'Room to discount and still cross', value: o.safeDiscountPct, tone: 'ink', signed: false, format: fmtPctShort }
                 : null,
-            sentence: `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.`,
+            sentence:
+              r.step > 0
+                ? `This deal reaches your next accelerator step. Every deal after this one earns ${accelRate}.`
+                : `This deal triggers your accelerator. Every deal after this one earns ${accelRate}.`,
             detail: residual,
           };
     case 'loss':
@@ -501,21 +515,29 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year, and you’re paying for part of it.`,
         detail: null,
       };
-    case 'past':
+    case 'past': {
+      const toNext = nextStep ? fmtCredit(plan, Math.max(0, nextStep.threshold - r.creditAfter)) : '';
       return {
         ...base,
         secondary: null,
         sentence: retro
-          ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${bump} more.`
-          : `You’re past your accelerator. Every deal this ${noun}, including this one, earns ${accelRate}.`,
+          ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${bump} more.${
+              nextStep ? ` Another ${toNext} makes it ${fmtPctShort(nextStep.rate)}.` : ''
+            }`
+          : `You’re past your accelerator. Every deal this ${noun}, including this one, earns ${accelRate}.${
+              nextStep ? ` Another ${toNext} and every deal after that earns ${fmtRateShort(plan, nextStep.rate)}.` : ''
+            }`,
         detail: null,
       };
+    }
     case 'held': {
       const opener = r.hasDiscount
         ? 'That discount costs you nothing on this plan. Full commission, full credit.'
         : 'Full price, full credit.';
       const lands = `This lands the ${noun} at ${fmtCredit(plan, r.creditAfter)}`;
-      const toGo = fmtCredit(plan, Math.max(0, plan.accelerator_threshold - r.creditAfter));
+      const ahead = nextStep ?? stepAt(0);
+      const toGo = fmtCredit(plan, Math.max(0, ahead.threshold - r.creditAfter));
+      const aheadRate = fmtRateShort(plan, ahead.rate);
       // No safe-discount clause here: "held" means this deal's price was
       // never going to decide whether the accelerator fires (see
       // outcome()) — safeDiscountPct is always null in this state, by
@@ -525,7 +547,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
           ? `${opener} ${lands} of ${fmtCredit(plan, plan.quota)}.`
           : retro
             ? `${opener} ${lands}. Another ${toGo} unlocks ${fmtSigned(r.crossingWorth)} on deals you’ve already closed.`
-            : `${opener} ${lands}. Another ${toGo} and every deal after that earns ${accelRate}.`;
+            : `${opener} ${lands}. Another ${toGo} and every deal after that earns ${aheadRate}.`;
       return { ...base, secondary: null, sentence, detail: null };
     }
   }
@@ -571,6 +593,8 @@ export type LineModel = {
   ghostX: number;
   ghostW: number;
   ringX: number | null;
+  /** The plan's other accelerator steps, on a plan with more than one. */
+  stepXs: number[];
   quotaX: number | null;
   accelerated: boolean;
   crossed: boolean;
@@ -580,13 +604,18 @@ export type LineModel = {
   callout: { text: string; tone: 'red' | 'green' | 'dim' } | null;
 };
 
-function markerText(plan: CompPlan): string {
+function markerText(plan: CompPlan, step: AcceleratorStep | null): string {
   const noun = periodNoun(plan);
-  if (plan.accelerator_style === 'none') return `Quota · ${fmtCredit(plan, plan.quota)}`;
-  const th = fmtCredit(plan, plan.accelerator_threshold);
+  if (!step) return `Quota · ${fmtCredit(plan, plan.quota)}`;
+  const th = fmtCredit(plan, step.threshold);
   return plan.accelerator_style === 'retro_bump'
-    ? `Accelerator · ${th} · +${fmtPctShort(plan.accelerator_rate)} on the ${noun}`
-    : `Accelerator · ${th} · ${fmtRateShort(plan, plan.accelerator_rate)} from here`;
+    ? `Accelerator · ${th} · +${fmtPctShort(step.rate)} on the ${noun}`
+    : `Accelerator · ${th} · ${fmtRateShort(plan, step.rate)} from here`;
+}
+
+/** Where the line's other steps sit: every one but the ring's, on the track. */
+function otherSteps(steps: AcceleratorStep[], ring: number, x: (v: number) => number): number[] {
+  return steps.filter((_, i) => i !== ring).map((s) => x(s.threshold)).filter((v) => v > 0 && v < 1);
 }
 
 /**
@@ -596,8 +625,8 @@ function markerText(plan: CompPlan): string {
  * ghost move while dragging. Opening state: ring 57.1%, bar 56.6%, ghost 59.5%.
  */
 export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmptyDeal = false): LineModel {
-  const hasAccel = plan.accelerator_style !== 'none';
-  const threshold = hasAccel ? plan.accelerator_threshold : plan.quota;
+  const steps = acceleratorSteps(plan);
+  const hasAccel = steps.length > 0;
   const origin = ptd.creditBooked;
   // An empty deal still carries DealInput's field defaults (EMPTY.units is
   // 1, not 0 — a sensible starting point for the NumField, not a real
@@ -613,11 +642,25 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmp
         creditFull: origin,
         crossesAccelerator: false,
         isAccelerated: r.wasAccelerated,
+        step: r.stepBefore,
+        stepFull: r.stepBefore,
         discountBlocksAccelerator: false,
         attained: ptd.creditBooked >= plan.quota,
         toQuota: Math.max(0, plan.quota - ptd.creditBooked),
       }
     : r;
+  // The step in play gets the ring: the one a discount keeps this deal
+  // under, or the one it crosses, else the next one up, else (past the
+  // last) the last one. The rest are plain posts.
+  const ring = !hasAccel
+    ? -1
+    : r2.discountBlocksAccelerator
+      ? r2.stepFull
+      : r2.crossesAccelerator
+        ? r2.step
+        : Math.min(r2.stepBefore + 1, steps.length - 1);
+  const ringStep = ring >= 0 ? steps[ring] : null;
+  const threshold = ringStep ? ringStep.threshold : plan.quota;
   const toMark = Math.max(threshold, plan.quota) - origin;
   // A deal that could plausibly close the gap gets the wide 1.75x scale —
   // that's the room "crossed by $X" needs past the ring, and it's what the
@@ -635,7 +678,7 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmp
 
   const barW = x(r2.creditAfter);
   const fullEnd = x(origin + creditFull);
-  const crossed = hasAccel && (r2.crossesAccelerator || r2.isAccelerated);
+  const crossed = ringStep !== null && r2.creditAfter >= ringStep.threshold;
   const pct = plan.quota > 0 ? Math.round((origin / plan.quota) * 100) : 0;
 
   let callout: LineModel['callout'];
@@ -654,17 +697,22 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmp
       : { text: `${fmtCredit(plan, r2.toQuota)} to quota`, tone: 'dim' };
   }
 
+  // The quota gets its own post only while it's still ahead on this line
+  // (once behind, the origin label already says how far past it you are)
+  // and isn't one of the accelerator steps, whose post marks it already.
+  const quotaAhead = !hasAccel || (plan.quota > origin && !steps.some((st) => st.threshold === plan.quota));
   return {
     barW,
     ghostX: barW,
     ghostW: Math.max(0, fullEnd - barW),
     ringX: hasAccel ? x(threshold) : null,
-    quotaX: !hasAccel || plan.quota !== threshold ? x(plan.quota) : null,
+    stepXs: otherSteps(steps, ring, x),
+    quotaX: quotaAhead ? x(plan.quota) : null,
     accelerated: r2.isAccelerated,
     crossed,
-    marker: markerText(plan),
+    marker: markerText(plan, ringStep),
     origin: `${fmtCredit(plan, origin)} booked · ${pct}% of quota`,
-    quotaLabel: hasAccel && plan.quota !== threshold ? `Quota · ${fmtCredit(plan, plan.quota)}` : null,
+    quotaLabel: hasAccel && quotaAhead ? `Quota · ${fmtCredit(plan, plan.quota)}` : null,
     callout,
   };
 }
@@ -672,13 +720,21 @@ export function dealLine(plan: CompPlan, ptd: PeriodToDate, r: CalcResult, isEmp
 /** Quarter mode (`/quota`): the same line drawn from zero. */
 export function quarterLine(plan: CompPlan, ptd: PeriodToDate): LineModel {
   const s = periodSummary(plan, ptd);
-  const hasAccel = plan.accelerator_style !== 'none';
-  const threshold = hasAccel ? plan.accelerator_threshold : plan.quota;
-  const span = Math.max(plan.quota, threshold, ptd.creditBooked, 1) * 1.08;
+  const steps = acceleratorSteps(plan);
+  const hasAccel = steps.length > 0;
+  // The ring is on the next step up, or the last one once past them all.
+  const ring = hasAccel ? Math.min(stepIndexAt(steps, ptd.creditBooked) + 1, steps.length - 1) : -1;
+  const ringStep = ring >= 0 ? steps[ring] : null;
+  const threshold = ringStep ? ringStep.threshold : plan.quota;
+  const top = hasAccel ? steps[steps.length - 1].threshold : plan.quota;
+  const span = Math.max(plan.quota, top, ptd.creditBooked, 1) * 1.08;
   const x = (v: number) => clamp01(v / span);
+  const reached = ringStep !== null && ptd.creditBooked >= ringStep.threshold;
+  // An accelerator step at the quota marks it already.
+  const quotaOwnPost = !hasAccel || !steps.some((st) => st.threshold === plan.quota);
 
   const callout: LineModel['callout'] = hasAccel
-    ? s.accelerated
+    ? reached
       ? { text: 'Crossed', tone: 'green' }
       : { text: `${fmtCredit(plan, s.toAccelerator)} to go`, tone: 'dim' }
     : s.attained
@@ -690,12 +746,13 @@ export function quarterLine(plan: CompPlan, ptd: PeriodToDate): LineModel {
     ghostX: 0,
     ghostW: 0,
     ringX: hasAccel ? x(threshold) : null,
-    quotaX: !hasAccel || plan.quota !== threshold ? x(plan.quota) : null,
+    stepXs: otherSteps(steps, ring, x),
+    quotaX: quotaOwnPost ? x(plan.quota) : null,
     accelerated: s.accelerated,
-    crossed: s.accelerated,
-    marker: markerText(plan),
+    crossed: reached,
+    marker: markerText(plan, ringStep),
     origin: fmtCredit(plan, 0),
-    quotaLabel: hasAccel && plan.quota !== threshold ? `Quota · ${fmtCredit(plan, plan.quota)}` : null,
+    quotaLabel: hasAccel && quotaOwnPost ? `Quota · ${fmtCredit(plan, plan.quota)}` : null,
     callout,
   };
 }

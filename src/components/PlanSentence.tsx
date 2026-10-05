@@ -6,6 +6,7 @@ import {
   COMPANY_SIZE_BANDS,
   isFixedTier,
   PRESETS,
+  type AcceleratorStep,
   type AcceleratorStyle,
   type CommissionStyle,
   type CompPlan,
@@ -18,6 +19,14 @@ import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
 import NumField from '@/components/NumField';
 import Segmented from '@/components/Segmented';
+
+/** The plan with these further accelerator steps, or none: no empty list
+ *  left behind, so a one-step plan stays exactly what it was. */
+function withSteps(plan: CompPlan, steps: AcceleratorStep[]): CompPlan {
+  const { accelerator_steps: _drop, ...rest } = plan;
+  void _drop;
+  return steps.length ? { ...rest, accelerator_steps: steps } : rest;
+}
 
 const matchPreset = (plan: CompPlan) =>
   PRESETS.find((p) => JSON.stringify(p.plan) === JSON.stringify(plan))?.id ?? null;
@@ -134,22 +143,51 @@ export default function PlanSentence({
   const setQuotaBasis = (v: QuotaBasis) => {
     setPreset(null);
     setMsg({});
-    setP((x) => ({ ...x, quota_basis: v, quota: 0, accelerator_threshold: 0 }));
+    setP((x) => withSteps({ ...x, quota_basis: v, quota: 0, accelerator_threshold: 0 }, []));
   };
   const setCommissionStyle = (v: CommissionStyle) => {
     setPreset(null);
     setMsg({});
-    setP((x) => ({
-      ...x,
-      commission_style: v,
-      base_rate: 0,
-      accelerator_rate: x.accelerator_style === 'rate_switch' ? 0 : x.accelerator_rate,
-    }));
+    setP((x) =>
+      withSteps(
+        {
+          ...x,
+          commission_style: v,
+          base_rate: 0,
+          accelerator_rate: x.accelerator_style === 'rate_switch' ? 0 : x.accelerator_rate,
+        },
+        x.accelerator_style === 'rate_switch' ? (x.accelerator_steps ?? []).map((st) => ({ ...st, rate: 0 })) : (x.accelerator_steps ?? []),
+      ),
+    );
   };
   const setAcceleratorStyle = (v: AcceleratorStyle) => {
     setPreset(null);
     setMsg({});
-    setP((x) => ({ ...x, accelerator_style: v, accelerator_rate: 0 }));
+    setP((x) => withSteps({ ...x, accelerator_style: v, accelerator_rate: 0 }, []));
+  };
+
+  // Further accelerator steps past the first: "12% past $150,000, then 15%
+  // past $187,500". Each starts past the one before it; up to three.
+  const steps = p.accelerator_steps ?? [];
+  const setStep = (i: number, field: keyof AcceleratorStep, v: number) => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => withSteps(x, (x.accelerator_steps ?? []).map((st, k) => (k === i ? { ...st, [field]: v } : st))));
+  };
+  const addStep = () => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => {
+      const list = x.accelerator_steps ?? [];
+      const last = list.length ? list[list.length - 1].threshold : x.accelerator_threshold;
+      const next = x.quota_basis === 'units' ? Math.max(last + 1, Math.ceil(last * 1.25)) : Math.round(last * 1.25);
+      return withSteps(x, [...list, { threshold: next, rate: 0 }]);
+    });
+  };
+  const removeStep = () => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => withSteps(x, (x.accelerator_steps ?? []).slice(0, -1)));
   };
 
   // Independent of accelerator_style above — a second, optional bonus, not
@@ -227,6 +265,12 @@ export default function PlanSentence({
   function validate(plan: CompPlan): string | null {
     if (plan.accelerator_style !== 'none' && !(plan.accelerator_threshold > 0)) {
       return `Set a threshold for your accelerator. It can’t kick in at ${arr ? '$0' : '0 units'}.`;
+    }
+    let last = plan.accelerator_threshold;
+    for (const st of plan.accelerator_steps ?? []) {
+      if (!(st.threshold > last)) return 'Each accelerator step has to start past the one before it.';
+      if (!(st.rate > 0)) return 'Set a rate for each accelerator step.';
+      last = st.threshold;
     }
     if (plan.quarterly_kicker) {
       if (!(plan.quarterly_kicker.target > 0)) {
@@ -422,6 +466,42 @@ export default function PlanSentence({
             max={p.accelerator_style === 'retro_bump' || percent ? 100 : 36}
             onChange={(n) => set('accelerator_rate', n)}
           />
+        </div>
+      )}
+      {p.accelerator_style !== 'none' &&
+        steps.map((st, i) => (
+          <div key={i} className="field-grid">
+            <NumField
+              id={`th-${i + 2}`}
+              label={`Step ${i + 2} kicks in at`}
+              value={st.threshold}
+              prefix={arr ? '$' : undefined}
+              suffix={arr ? undefined : 'units'}
+              integer={!arr}
+              onChange={(n) => setStep(i, 'threshold', n)}
+            />
+            <NumField
+              id={`arate-${i + 2}`}
+              label={p.accelerator_style === 'retro_bump' ? `Step ${i + 2} bump, on everything closed` : `Step ${i + 2} rate`}
+              value={st.rate}
+              suffix={p.accelerator_style === 'retro_bump' ? '%' : percent ? '%' : 'months of MRR'}
+              max={p.accelerator_style === 'retro_bump' || percent ? 100 : 36}
+              onChange={(n) => setStep(i, 'rate', n)}
+            />
+          </div>
+        ))}
+      {p.accelerator_style !== 'none' && (
+        <div className="plan-steps">
+          {steps.length < 3 && (
+            <button type="button" className="btn-text" onClick={addStep}>
+              Add another step
+            </button>
+          )}
+          {steps.length > 0 && (
+            <button type="button" className="btn-text" onClick={removeStep}>
+              Remove the last step
+            </button>
+          )}
         </div>
       )}
 

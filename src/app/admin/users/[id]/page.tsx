@@ -74,7 +74,9 @@ export default async function AdminUserPage({
                   <dd>
                     {p.accelerator_style === 'none'
                       ? 'None'
-                      : `${p.accelerator_style === 'retro_bump' ? `+${fmtPctShort(p.accelerator_rate)} retroactive` : fmtRateShort(p, p.accelerator_rate)} at ${fmtCredit(p, p.accelerator_threshold)}`}
+                      : [{ threshold: p.accelerator_threshold, rate: p.accelerator_rate }, ...(p.accelerator_steps ?? [])]
+                          .map((st) => `${p.accelerator_style === 'retro_bump' ? `+${fmtPctShort(st.rate)} retroactive` : fmtRateShort(p, st.rate)} at ${fmtCredit(p, st.threshold)}`)
+                          .join(', ')}
                   </dd>
                 </div>
                 <div>
