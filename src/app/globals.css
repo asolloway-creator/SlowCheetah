@@ -784,7 +784,11 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 }
 .beat-label .sq { width: 12px; height: 12px; border-radius: 3px; }
 .beat h3 { margin-top: 26px; font: 750 34px/1.05 var(--display); letter-spacing: -0.025em; }
-.beat-copy > p:last-child { margin-top: 14px; font: 400 17px/1.6 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.beat-copy > h3 + p { margin-top: 14px; font: 400 17px/1.6 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* Step 1: what IOI runs today, and what it keeps for later. */
+.beat-scope { display: grid; gap: 16px; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line-2); }
+.beat-scope dt { font: 650 11.5px/1 var(--ui); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); }
+.beat-scope dd { margin: 7px 0 0; font: 500 14.5px/1.5 var(--ui); color: var(--ink-2); }
 .beat-copy b { font-weight: 650; color: var(--ink); }
 .beat-stage { position: relative; height: 510px; border-radius: 36px; overflow: hidden; }
 .beat-stage.is-sun { background: radial-gradient(100% 90% at 15% 0%, #FFD75E 0%, rgba(255, 215, 94, 0) 60%), linear-gradient(160deg, #FFC62A, #F7B500); }

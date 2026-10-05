@@ -86,6 +86,19 @@ export default function HowItWorks() {
                 Type it or talk it through, the way you&rsquo;d explain it to a friend: your quota, what a deal pays, what
                 changes past quota. IOI reads it back so you can check every rule before it counts.
               </p>
+              <dl className="beat-scope">
+                <div>
+                  <dt>In the numbers</dt>
+                  <dd>
+                    Quotas in new ARR or units, a percent of the deal or months of MRR, setup fees and hardware,
+                    accelerators with one step or several, and Quarterly Bonuses that pay a percent or a fixed amount.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Noted, not in the numbers yet</dt>
+                  <dd>Caps, clawbacks, SPIFs, draws and multi-year credit.</dd>
+                </div>
+              </dl>
             </div>
             <div className="beat-stage is-sun" aria-hidden="true">
               <span className="beat-ring" />
