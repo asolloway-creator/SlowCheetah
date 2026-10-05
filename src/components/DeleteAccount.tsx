@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { deleteAccountAction } from '@/app/actions';
+import { ACCOUNT_KEY } from '@/lib/demo-flag';
 import { markContributed } from '@/lib/plan-record/client';
 import { visitorId } from '@/lib/track';
 
@@ -40,6 +41,9 @@ export default function DeleteAccount() {
               return;
             }
             markContributed(false);
+            try {
+              localStorage.removeItem(ACCOUNT_KEY);
+            } catch {}
             router.replace('/');
             router.refresh();
           }}

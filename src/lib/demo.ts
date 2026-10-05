@@ -22,7 +22,7 @@ import {
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { track } from '@/lib/track';
-import { DEMO_KEY } from '@/lib/demo-flag';
+import { ACCOUNT_KEY, DEMO_KEY } from '@/lib/demo-flag';
 
 /**
  * Demo mode: the whole app running against the visitor's browser. Deals never
@@ -195,8 +195,19 @@ export function clearDemoState() {
   } catch {}
 }
 
+const noop = () => () => {};
+const hasAccount = () => {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 export function useDemoStore() {
   const state = useSyncExternalStore(subscribe, read, () => null);
+  // Signed in here before: the plan is in their account (lib/demo-flag.ts).
+  const account = useSyncExternalStore(noop, hasAccount, () => false);
 
   const update = useCallback((fn: (s: DemoState) => DemoState) => {
     write(fn(read()));
@@ -230,6 +241,8 @@ export function useDemoStore() {
     // Whether savePlan() has ever succeeded, independent of whether the
     // values entered happen to match the stock plan's own numbers.
     seeded,
+    /** A seeded store in a browser whose owner has an account: sign in, don't put a plan in. */
+    account: account && seeded,
     plan,
     deals,
     periodDeals,

@@ -105,6 +105,7 @@ export default function DealStage({
   initialDeal,
   intro,
   sample = true,
+  account = false,
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
@@ -125,6 +126,9 @@ export default function DealStage({
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
+  /** Demo only: signed out in a browser that has signed in before, so the
+   *  sample card asks them to sign in rather than put a plan in. */
+  account?: boolean;
   /** Demo only: still on the stock sample plan (the store's own `seeded`
    *  flag), as opposed to a plan the visitor saved. Keeps sample-deal play
    *  out of real-usage analytics. */
@@ -703,10 +707,21 @@ export default function DealStage({
               {/* After the story, never between a verdict and the control that acts on it. */}
               {showcase && (
                 <footer className="dc-promo">
-                  <p>Every plan has a line like this. Put yours in and see where it is.</p>
-                  <button type="button" className="btn btn-sun" onClick={() => setPlanOpen(true)}>
-                    Put your plan in
-                  </button>
+                  {account ? (
+                    <>
+                      <p>Every plan has a line like this. Sign in to see where yours is.</p>
+                      <Link className="btn btn-sun" href="/login">
+                        Sign in
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <p>Every plan has a line like this. Put yours in and see where it is.</p>
+                      <button type="button" className="btn btn-sun" onClick={() => setPlanOpen(true)}>
+                        Put your plan in
+                      </button>
+                    </>
+                  )}
                 </footer>
               )}
             </article>

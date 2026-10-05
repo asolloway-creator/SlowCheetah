@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { DEMO_PLAN } from '@/lib/calc';
 import { useDemoStore } from '@/lib/demo';
 import { Shell } from '@/app/AccountViews';
@@ -45,11 +46,12 @@ export function DemoDeal() {
         onSaveQuote={d.saveQuote}
         onDeleteQuote={d.deleteQuote}
         initialDeal={SAMPLE}
-        intro={pitch ? <LandingHero /> : undefined}
+        intro={pitch ? <LandingHero account={d.account} /> : undefined}
         sample={d.seeded}
+        account={d.account}
       />
       {pitch && <HowItWorks />}
-      {pitch && <ClosingCta />}
+      {pitch && <ClosingCta account={d.account} />}
     </Shell>
   );
 }
@@ -59,7 +61,7 @@ export function DemoQuota() {
   return (
     <Shell current="/quota" email={null} width="narrow" own={d.ready && !d.seeded} pending={!d.ready}>
       {d.seeded ? (
-        <PlanFirst page="quota" />
+        <PlanFirst page="quota" account={d.account} />
       ) : (
         <QuotaView plan={d.plan} ptd={d.ptd} qtd={d.qtd} deals={d.periodDeals} opening={d.opening} onOpening={d.setOpening} />
       )}
@@ -71,7 +73,7 @@ export function DemoHistory() {
   const d = useDemoStore();
   return (
     <Shell current="/history" email={null} width="table" own={d.ready && !d.seeded} pending={!d.ready}>
-      {d.seeded ? <PlanFirst page="history" /> : <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo />}
+      {d.seeded ? <PlanFirst page="history" account={d.account} /> : <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo />}
     </Shell>
   );
 }
@@ -85,6 +87,16 @@ export function DemoPlan() {
           opens depends on whether there's a plan, which only the loaded store
           knows, so it starts over once it has (keyed on `ready`, not on
           `seeded`, which flips mid-flow when a first plan is saved). */}
+      {d.account && (
+        <div className="plan-account">
+          <p>
+            <b>Your plan is already in your account.</b> Sign in to see it or change it.
+          </p>
+          <Link className="btn btn-primary" href="/login">
+            Sign in
+          </Link>
+        </div>
+      )}
       <PlanCapture
         key={d.ready ? 'ready' : 'pending'}
         current={d.seeded ? null : d.plan}

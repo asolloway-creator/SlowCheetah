@@ -10,4 +10,13 @@ export const DEMO_KEY = 'ioi-demo-v3';
  * first paint, and marks <html> with `data-own`; CSS keeps the default
  * hidden until the store loads (`.demo-view.is-pending` in globals.css).
  */
-export const OWN_PLAN_SCRIPT = `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(DEMO_KEY)})||'null');if(s&&s.seeded===false)document.documentElement.setAttribute('data-own','')}catch(e){}})()`;
+export const OWN_PLAN_SCRIPT = `(function(){try{var s=JSON.parse(localStorage.getItem(${JSON.stringify(DEMO_KEY)})||'null');if((s&&s.seeded===false)||localStorage.getItem(${JSON.stringify('ioi-account')})==='1')document.documentElement.setAttribute('data-own','')}catch(e){}})()`;
+
+/**
+ * Set whenever a signed-in page renders (RememberAccount), cleared when the
+ * account is deleted. Signed out again (after signing out, or when a session
+ * lapses), this browser then offers "Sign in" where a first-time visitor sees
+ * "Put your plan in": their plan is already in their account. It marks
+ * <html> like an own plan does, so the first-visit pitch never flashes past.
+ */
+export const ACCOUNT_KEY = 'ioi-account';

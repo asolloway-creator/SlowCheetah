@@ -1,5 +1,6 @@
 import Masthead from '@/components/Masthead';
 import Footer from '@/components/Footer';
+import RememberAccount from '@/components/RememberAccount';
 
 export type ShellWidth = 'wide' | 'narrow' | 'table' | 'plan' | 'auth' | 'full';
 
@@ -41,6 +42,7 @@ export function Shell({
   const layout = width === 'full' ? 'main-full' : `container ${WIDTH[width]}`;
   return (
     <>
+      {email && <RememberAccount />}
       <Masthead current={current} email={email} own={own} pending={pending} />
       <main className={pending ? `${layout} is-pending` : layout}>{children}</main>
       <Footer />

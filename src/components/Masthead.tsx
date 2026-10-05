@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import NavLink from '@/components/NavLink';
+import SignedOutAsk from '@/components/SignedOutAsk';
 import Wordmark from '@/components/Wordmark';
 
 const NAV = [
@@ -73,26 +74,7 @@ export default function Masthead({
             </div>
           </>
         ) : (
-          <div className="auth">
-            {current === '/' ? (
-              <a className="nav-link hide-sm" href="#how">
-                How it works
-              </a>
-            ) : (
-              <NavLink className="nav-link hide-sm" href="/">
-                &larr; Back to your deal
-              </NavLink>
-            )}
-            <NavLink className="nav-link" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
-              Sign in
-            </NavLink>
-            {/* Already on the page where you put your plan in. */}
-            {current !== '/plan' && (
-              <Link className="btn btn-primary" href="/?plan=1" scroll={false}>
-                Put your plan in
-              </Link>
-            )}
-          </div>
+          <SignedOutAsk current={current} />
         )}
       </div>
     </header>

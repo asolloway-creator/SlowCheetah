@@ -17,24 +17,34 @@ function watchSample() {
   window.dispatchEvent(new Event(SHOWCASE_EVENT));
 }
 
-/** The landing page's intro, beside the live result card. */
-export function LandingHero() {
+/** The landing page's intro, beside the live result card. `account`: this
+ *  browser has signed in before, so the ask is to sign back in (lib/demo-flag.ts). */
+export function LandingHero({ account = false }: { account?: boolean }) {
   return (
     <div className="hero">
       <p className="hero-chip">
-        <span className="mark-dot" aria-hidden="true" />Pricing and deal intelligence for sales reps
+        <span className="mark-dot" aria-hidden="true" />
+        {account ? 'Welcome back' : 'Pricing and deal intelligence for sales reps'}
       </p>
       <h1 className="hero-h">
         Know what a deal pays. <br />
         <span className="hero-hl">And what it costs.</span>
       </h1>
       <p className="hero-lede">
-        Your commission, your accelerator and your bonus, <b>before you make the offer</b>. Not after it lands in your
-        check.
+        {account ? (
+          <>
+            Your plan, your deals and where you stand are in your account. <b>Sign in to pick up where you left off.</b>
+          </>
+        ) : (
+          <>
+            Your commission, your accelerator and your bonus, <b>before you make the offer</b>. Not after it lands in your
+            check.
+          </>
+        )}
       </p>
       <div className="hero-ctas">
-        <Link className="btn btn-primary btn-lg" href="/?plan=1" scroll={false}>
-          Put your plan in
+        <Link className="btn btn-primary btn-lg" href={account ? '/login' : '/?plan=1'} scroll={false}>
+          {account ? 'Sign in' : 'Put your plan in'}
           <span className="btn-arrow">
             <Arrow />
           </span>
@@ -44,7 +54,9 @@ export function LandingHero() {
           <Arrow />
         </button>
       </div>
-      <p className="hero-note">Free. No sign-up. Your plan stays anonymous.</p>
+      <p className="hero-note">
+        {account ? 'A link or a code by email, on any device. No password.' : 'Free. No sign-up. Your plan stays anonymous.'}
+      </p>
     </div>
   );
 }
@@ -96,7 +108,7 @@ export function WelcomeBack({
           </span>
         </Link>
         <Link className="hero-try" href="/plan">
-          Your plan
+          Edit your plan
           <Arrow />
         </Link>
       </div>
@@ -106,7 +118,7 @@ export function WelcomeBack({
 }
 
 /** The page's closing ask. */
-export function ClosingCta() {
+export function ClosingCta({ account = false }: { account?: boolean }) {
   return (
     <section className="closing" aria-labelledby="closing-h">
       <div className="container">
@@ -114,17 +126,32 @@ export function ClosingCta() {
           <span className="closing-ring" aria-hidden="true" />
           <div className="closing-copy">
             <h2 id="closing-h">Stop finding out on payday.</h2>
-            <p>Sample numbers are a demo. Put in your own comp plan and every figure becomes yours.</p>
+            <p>
+              {account
+                ? 'Sample numbers are a demo. Your plan is in your account: sign in and every figure is yours again.'
+                : 'Sample numbers are a demo. Put in your own comp plan and every figure becomes yours.'}
+            </p>
             <div className="hero-ctas">
-              <Link className="btn btn-primary btn-lg" href="/?plan=1" scroll={false}>
-                Put your plan in
-                <span className="btn-arrow">
-                  <Arrow />
-                </span>
-              </Link>
-              <Link className="btn btn-line btn-lg" href="/login">
-                Sign in
-              </Link>
+              {account ? (
+                <Link className="btn btn-primary btn-lg" href="/login">
+                  Sign in
+                  <span className="btn-arrow">
+                    <Arrow />
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <Link className="btn btn-primary btn-lg" href="/?plan=1" scroll={false}>
+                    Put your plan in
+                    <span className="btn-arrow">
+                      <Arrow />
+                    </span>
+                  </Link>
+                  <Link className="btn btn-line btn-lg" href="/login">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
           </div>
           <div className="closing-art" aria-hidden="true">

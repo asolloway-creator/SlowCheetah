@@ -451,7 +451,8 @@ main { display: block; padding-bottom: 80px; }
    sees. A visitor with one (marked before first paint, lib/demo-flag.ts)
    waits for their own pages instead of watching the default flash past. */
 html[data-own] main.is-pending,
-html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; }
+html[data-own] .masthead-bar.is-pending > :not(.wordmark),
+html[data-own] .auth.ask-pending { visibility: hidden; }
 
 /* the floating nav */
 .masthead { position: sticky; top: 14px; z-index: 50; margin-top: 14px; padding: 0 var(--gutter); }
@@ -914,6 +915,13 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 
 /* Where you stand / Your deals before a plan is in, and the starting point. */
 .plan-first .btn { margin-top: 28px; }
+/* Signed out on /plan, with a plan already in their account. */
+.plan-account {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap;
+  margin-top: 40px; padding: 18px 20px; border-radius: 18px; background: var(--sun-wash); box-shadow: inset 0 0 0 1px rgba(214, 150, 0, 0.35);
+  font: 500 15.5px/1.45 var(--ui); color: var(--ink-2);
+}
+.plan-account b { color: var(--ink); font-weight: 650; }
 .plan-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; }
 .opening-fields { margin-top: 14px; }
 .quota-start { margin-top: 18px; font: 500 15px/1.5 var(--ui); color: var(--ink-2); }
