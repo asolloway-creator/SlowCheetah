@@ -1,4 +1,4 @@
-import type { CompPlan, QuarterlyKicker } from '@/lib/calc';
+import { isFixedTier, type CompPlan, type QuarterlyKicker } from '@/lib/calc';
 import {
   cleanTitle,
   FORMAT_VERSION,
@@ -329,12 +329,15 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
   r.discount_rules.forEach((_, i) => cover('discount_rules', i, 'not_yet', 'discount_rule'));
 
   // ── Bonuses ────────────────────────────────────────────────────────────
+  // A quarterly bonus measured on new ARR runs as the plan's quarterly
+  // kicker, whether it pays a percent of the quarter's commission
+  // (period_kicker) or a fixed amount (attainment_bonus).
   let kicker: QuarterlyKicker | null = null;
   let kickerRule: number | null = null;
   r.bonuses.forEach((b, i) => {
-    if (b.kind === 'attainment_bonus') return cover('bonuses', i, 'not_yet', 'attainment_bonus');
     if (b.kind === 'spiff') return cover('bonuses', i, 'not_yet', 'spiff');
     if (b.kind === 'other') return cover('bonuses', i, 'not_yet', 'other_bonus');
+    const fixed = b.kind === 'attainment_bonus';
     if (kickerRule !== null) return cover('bonuses', i, 'not_yet', 'second_kicker');
     const periodOk = b.period === 'quarter' || (b.period === 'unknown' && period === 'quarter');
     if (!periodOk) return cover('bonuses', i, 'not_yet', 'kicker_not_quarterly');
@@ -348,16 +351,23 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
       assumed.push({ topic: 'kicker_target', index: i, why: 'default' });
     }
     if (target === null || target <= 0) gaps.push({ topic: 'kicker_target', index: i });
+    const pays = (t: (typeof b.tiers)[number]) => (fixed ? t.pays_amount : t.pays_pct);
     const tiers = b.tiers
-      .filter((t) => t.at_pct !== null && t.at_pct > 0 && t.pays_pct !== null)
+      .filter((t) => t.at_pct !== null && t.at_pct > 0 && pays(t) !== null)
       .sort((x, y) => (x.at_pct as number) - (y.at_pct as number));
     if (tiers.length === 0) {
       const first = b.tiers[0];
       if (!first || first.at_pct === null || first.at_pct <= 0) gaps.push({ topic: 'kicker_start', index: i });
-      if (!first || first.pays_pct === null) gaps.push({ topic: 'kicker_pay', index: i });
+      if (!first || pays(first) === null) gaps.push({ topic: 'kicker_pay', index: i });
     }
     if (target && target > 0 && tiers.length > 0) {
-      const t = tiers.slice(0, 2).map((x) => ({ attainmentPct: x.at_pct as number, kickerPct: x.pays_pct as number }));
+      const t = tiers
+        .slice(0, 2)
+        .map((x) =>
+          fixed
+            ? { attainmentPct: x.at_pct as number, kickerPct: 0, amount: x.pays_amount as number }
+            : { attainmentPct: x.at_pct as number, kickerPct: x.pays_pct as number },
+        );
       kicker = { target, tiers: t.length === 1 ? [t[0]] : [t[0], t[1]] };
     }
     if (inferred(b.source)) assumed.push({ topic: 'kicker_pay', index: i, why: 'inferred' });
@@ -471,12 +481,16 @@ export function recordFromPlan(p: CompPlan): PlanRecord {
     bonuses: p.quarterly_kicker
       ? [
           {
-            kind: 'period_kicker',
+            kind: p.quarterly_kicker.tiers.some(isFixedTier) ? 'attainment_bonus' : 'period_kicker',
             period: 'quarter',
             measure: 'new_arr',
             target_amount: p.quarterly_kicker.target,
             spiff_for: 'not_applicable',
-            tiers: p.quarterly_kicker.tiers.map((t) => ({ at_pct: t.attainmentPct, pays_pct: t.kickerPct, pays_amount: null })),
+            tiers: p.quarterly_kicker.tiers.map((t) =>
+              isFixedTier(t)
+                ? { at_pct: t.attainmentPct, pays_pct: null, pays_amount: t.amount as number }
+                : { at_pct: t.attainmentPct, pays_pct: t.kickerPct, pays_amount: null },
+            ),
             source: 'stated',
           },
         ]

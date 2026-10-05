@@ -18,11 +18,26 @@ export type AcceleratorStyle = 'none' | 'rate_switch' | 'retro_bump';
 export type SubscriptionMode = 'mrr' | 'acv';
 
 /** One tier of a quarterly kicker: cross this % of the quarterly SaaS
- *  target, and the whole quarter's SaaS commission gets this % bump. */
+ *  target, and the whole quarter's SaaS commission gets this % bump, or,
+ *  on a tier with an `amount`, a fixed bonus of that many dollars instead
+ *  ("$9,000 at 100% of quota"). */
 export type QuarterlyKickerTier = {
   attainmentPct: number;
+  /** The % bump. 0 on a fixed-amount tier. */
   kickerPct: number;
+  /** A fixed bonus, in dollars. Absent on a percent tier, which is every
+   *  plan saved before fixed bonuses existed. */
+  amount?: number;
 };
+
+/** A tier that pays a fixed amount rather than a share of commission. */
+export const isFixedTier = (t: QuarterlyKickerTier) => typeof t.amount === 'number';
+
+/** What reaching `tier` pays, given the quarter's SaaS commission. */
+export function kickerTierValue(tier: QuarterlyKickerTier | null, saasCommission: number): number {
+  if (!tier) return 0;
+  return isFixedTier(tier) ? Math.max(0, tier.amount as number) : saasCommission * (tier.kickerPct / 100);
+}
 
 /**
  * A second, independent incentive some real plans stack on top of whatever
@@ -332,7 +347,7 @@ export function quarterlyKickerSummary(plan: CompPlan, qtd: QuarterToDate) {
   return {
     tier,
     attainmentPct,
-    bumpValue: tier ? qtd.saasCommissionBooked * (tier.kickerPct / 100) : 0,
+    bumpValue: kickerTierValue(tier, qtd.saasCommissionBooked),
     nextTier,
     toNextTierArr: nextTier ? Math.max(0, (kicker.target * nextTier.attainmentPct) / 100 - qtd.saasArrBooked) : 0,
   };

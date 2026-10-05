@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, type CSSProperties } from 'react';
 import {
+  isFixedTier,
   needsQuarterArr,
   periodLabel,
   periodSummary,
@@ -162,9 +163,10 @@ function BonusStanding({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate }) {
   const top = Math.max(tiers[tiers.length - 1].attainmentPct * 1.08, s.attainmentPct * 1.04, 110);
   const x = (attainment: number) => attainment / top;
   const attained = Math.round(s.attainmentPct * 10) / 10;
-  const worth = (t: QuarterlyKickerTier) => `+${fmtPctShort(t.kickerPct)} on the quarter’s SaaS commission`;
+  const worth = (t: QuarterlyKickerTier) =>
+    isFixedTier(t) ? fmtMoney(t.amount as number) : `+${fmtPctShort(t.kickerPct)} on the quarter’s SaaS commission`;
   const sentence = s.tier
-    ? `${name(s.tier)} unlocked: ${worth(s.tier)}, ${fmtMoney(s.bumpValue)} so far.${
+    ? `${name(s.tier)} unlocked: ${worth(s.tier)}${isFixedTier(s.tier) ? '' : `, ${fmtMoney(s.bumpValue)} so far`}.${
         s.nextTier ? ` ${fmt(s.toNextTierArr)} more new ARR reaches the ${name(s.nextTier)}.` : ''
       }`
     : s.nextTier

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Shell } from '@/app/AccountViews';
-import { COMPANY_SIZE_BANDS } from '@/lib/calc';
+import { COMPANY_SIZE_BANDS, isFixedTier } from '@/lib/calc';
 import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, periodNoun, planSentence } from '@/lib/format';
 import { listDeals } from '@/lib/queries';
 import { adminTimeZone, getAccounts, requireAdmin } from '@/lib/admin';
@@ -81,7 +81,9 @@ export default async function AdminUserPage({
                   <dt>Quarterly bonus</dt>
                   <dd>
                     {p.quarterly_kicker
-                      ? p.quarterly_kicker.tiers.map((t) => `+${fmtPctShort(t.kickerPct)} at ${fmtPctShort(t.attainmentPct)}`).join(', ') +
+                      ? p.quarterly_kicker.tiers
+                          .map((t) => `${isFixedTier(t) ? fmtMoney(t.amount as number) : `+${fmtPctShort(t.kickerPct)}`} at ${fmtPctShort(t.attainmentPct)}`)
+                          .join(', ') +
                         ` of ${fmtMoney(p.quarterly_kicker.target)}`
                       : 'None'}
                   </dd>

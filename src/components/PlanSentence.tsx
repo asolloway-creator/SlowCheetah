@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { trackOnce, type TrackContext } from '@/lib/track';
 import {
   COMPANY_SIZE_BANDS,
+  isFixedTier,
   PRESETS,
   type AcceleratorStyle,
   type CommissionStyle,
@@ -170,6 +171,21 @@ export default function PlanSentence({
     setMsg({});
     setP((x) => (x.quarterly_kicker ? { ...x, quarterly_kicker: { ...x.quarterly_kicker, target: v } } : x));
   };
+  // What every level pays: a percent of the quarter's commission, or a fixed
+  // amount. One choice for the whole bonus, so its levels never mix.
+  const setKickerPays = (mode: 'percent' | 'fixed') => {
+    setPreset(null);
+    setMsg({});
+    setP((x) => {
+      if (!x.quarterly_kicker) return x;
+      const tiers = x.quarterly_kicker.tiers.map((t) =>
+        mode === 'fixed'
+          ? { attainmentPct: t.attainmentPct, kickerPct: 0, amount: t.amount ?? 0 }
+          : { attainmentPct: t.attainmentPct, kickerPct: t.kickerPct },
+      ) as QuarterlyKicker['tiers'];
+      return { ...x, quarterly_kicker: { ...x.quarterly_kicker, tiers } };
+    });
+  };
   const setKickerTier = (idx: 0 | 1, field: keyof QuarterlyKickerTier, v: number) => {
     setPreset(null);
     setMsg({});
@@ -187,8 +203,9 @@ export default function PlanSentence({
     setP((x) => {
       if (!x.quarterly_kicker) return x;
       const [t0] = x.quarterly_kicker.tiers;
+      const at = Math.max(t0.attainmentPct + 20, 140);
       const tiers: QuarterlyKicker['tiers'] = on
-        ? [t0, { attainmentPct: Math.max(t0.attainmentPct + 20, 140), kickerPct: 0 }]
+        ? [t0, isFixedTier(t0) ? { attainmentPct: at, kickerPct: 0, amount: 0 } : { attainmentPct: at, kickerPct: 0 }]
         : [t0];
       return { ...x, quarterly_kicker: { ...x.quarterly_kicker, tiers } };
     });
@@ -218,6 +235,9 @@ export default function PlanSentence({
       const [t0, t1] = plan.quarterly_kicker.tiers;
       if (t1 && !(t1.attainmentPct > t0.attainmentPct)) {
         return 'Quarterly Bonus (Stretch) attainment must be higher than the base tier’s.';
+      }
+      if (plan.quarterly_kicker.tiers.some((t) => isFixedTier(t) && !((t.amount as number) > 0))) {
+        return 'Set what the Quarterly Bonus pays.';
       }
     }
     return null;
@@ -263,6 +283,28 @@ export default function PlanSentence({
     tiers: [{ attainmentPct: 110, kickerPct: 0 }, { attainmentPct: 140, kickerPct: 0 }],
   };
   const stretch = kicker.tiers[1] ?? null;
+  const fixedBonus = kicker.tiers.some(isFixedTier);
+  // The second field of each level: its percent, or its fixed amount.
+  const paysField = (idx: 0 | 1, t: QuarterlyKickerTier, name: string) =>
+    fixedBonus ? (
+      <NumField
+        id={`kk-t${idx + 1}-amount`}
+        label={`${name} amount`}
+        value={t.amount ?? 0}
+        prefix="$"
+        max={10_000_000}
+        onChange={(n) => setKickerTier(idx, 'amount', n)}
+      />
+    ) : (
+      <NumField
+        id={`kk-t${idx + 1}-kick`}
+        label={`${name} kicker`}
+        value={t.kickerPct}
+        suffix="%"
+        max={200}
+        onChange={(n) => setKickerTier(idx, 'kickerPct', n)}
+      />
+    );
 
   return (
     <div className="plan">
@@ -383,11 +425,11 @@ export default function PlanSentence({
         </div>
       )}
 
-      <h2 className="section-h">Quarterly SaaS kicker</h2>
+      <h2 className="section-h">Quarterly Bonus</h2>
       <div className="field">
         <span className="field-label">Style</span>
         <Segmented
-          label="Quarterly SaaS kicker"
+          label="Quarterly Bonus"
           value={kickerOn ? 'on' : 'off'}
           options={[
             ['off', 'Off'],
@@ -397,18 +439,33 @@ export default function PlanSentence({
         />
       </div>
       <p className="field-note">
-        A second, independent bonus some plans stack on top of the accelerator above. Cross a set % of cumulative
-        quarterly SaaS attainment and the whole quarter&rsquo;s SaaS commission gets a kicker.
+        A second, independent bonus some plans stack on top of the accelerator above. Cross a set % of the
+        quarter&rsquo;s new ARR target and it pays out: a kicker on the whole quarter&rsquo;s SaaS commission, or a
+        fixed amount.
       </p>
       {kickerOn && (
         <>
-          <NumField
-            id="kk-target"
-            label="Quarterly SaaS target"
-            value={kicker.target}
-            prefix="$"
-            onChange={setKickerTarget}
-          />
+          <div className="field-grid">
+            <NumField
+              id="kk-target"
+              label="Quarterly SaaS target"
+              value={kicker.target}
+              prefix="$"
+              onChange={setKickerTarget}
+            />
+            <div className="field">
+              <span className="field-label">Pays</span>
+              <Segmented
+                label="Quarterly Bonus pays"
+                value={fixedBonus ? 'fixed' : 'percent'}
+                options={[
+                  ['percent', 'A kicker %'],
+                  ['fixed', 'A fixed amount'],
+                ]}
+                onChange={setKickerPays}
+              />
+            </div>
+          </div>
           <div className="field-grid">
             <NumField
               id="kk-t1-pct"
@@ -418,14 +475,7 @@ export default function PlanSentence({
               max={1000}
               onChange={(n) => setKickerTier(0, 'attainmentPct', n)}
             />
-            <NumField
-              id="kk-t1-kick"
-              label="Quarterly Bonus kicker"
-              value={kicker.tiers[0].kickerPct}
-              suffix="%"
-              max={200}
-              onChange={(n) => setKickerTier(0, 'kickerPct', n)}
-            />
+            {paysField(0, kicker.tiers[0], 'Quarterly Bonus')}
           </div>
           {stretch ? (
             <>
@@ -438,14 +488,7 @@ export default function PlanSentence({
                   max={1000}
                   onChange={(n) => setKickerTier(1, 'attainmentPct', n)}
                 />
-                <NumField
-                  id="kk-t2-kick"
-                  label="Quarterly Bonus (Stretch) kicker"
-                  value={stretch.kickerPct}
-                  suffix="%"
-                  max={200}
-                  onChange={(n) => setKickerTier(1, 'kickerPct', n)}
-                />
+                {paysField(1, stretch, 'Quarterly Bonus (Stretch)')}
               </div>
               <button type="button" className="btn-text" onClick={() => setStretch(false)}>
                 Remove the stretch tier

@@ -1,7 +1,8 @@
 // Checks the plan record's mapping, wording and questions without calling Claude.
 // Run from ioi-app/:  npx tsx scripts/test-plan-record.ts
 import assert from 'node:assert/strict';
-import { calc, DEMO_PLAN, PRESETS, type CompPlan } from '@/lib/calc';
+import { calc, DEMO_PLAN, kickerTierValue, PRESETS, quarterlyKickerSummary, type CompPlan } from '@/lib/calc';
+import { crossEffect, kickerOutcomeCopy, outcome } from '@/components/opening';
 import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
 import { mapRecord, mergeFormIntoRecord, recordFromPlan } from '@/lib/plan-record/map';
 import { applyAnswer, assumedText, limitCopy, question, readback, workedExample } from '@/lib/plan-record/copy';
@@ -192,6 +193,70 @@ test('a single-tier quarterly bonus runs against the quota by default', () => {
   assert.deepEqual(m.plan?.quarterly_kicker, { target: 150000, tiers: [{ attainmentPct: 110, kickerPct: 10 }] });
   assert.ok(allText(r).includes('A quarterly bonus: hit 110% and the quarter’s commission goes up 10%.'), allText(r).join('\n'));
   assert.ok(m.assumed.some((x) => x.topic === 'kicker_target'));
+});
+
+test('a fixed quarterly bonus runs as the quarterly kicker and pays its amount', () => {
+  const r = recordFromWire(
+    wire({
+      bonus_levels: [
+        {
+          kind: 'attainment_bonus', period: 'unknown', measure: 'unknown', target_amount: -1, spiff_for: 'not_applicable',
+          at_pct: 100, pays_pct: -1, pays_amount: 9000, source: 'stated',
+        },
+      ],
+    }),
+  );
+  const m = mapRecord(r);
+  assert.deepEqual(m.plan?.quarterly_kicker, { target: 150000, tiers: [{ attainmentPct: 100, kickerPct: 0, amount: 9000 }] });
+  assert.equal(m.coverage.find((c) => c.area === 'bonuses')?.status, 'calculated');
+  assert.ok(allText(r).includes('A quarterly bonus: $9,000 at 100% of quota.'), allText(r).join('\n'));
+
+  const plan = m.plan!;
+  const kicker = plan.quarterly_kicker!;
+  assert.equal(kickerTierValue(kicker.tiers[0], 123456), 9000, 'a fixed tier ignores commission');
+  assert.equal(kickerTierValue({ attainmentPct: 105, kickerPct: 25 }, 40000), 10000);
+  const qtd = { saasArrBooked: 140000, saasCommissionBooked: 11200 };
+  assert.equal(quarterlyKickerSummary(plan, qtd)?.bumpValue, 0);
+  assert.equal(quarterlyKickerSummary(plan, { ...qtd, saasArrBooked: 150000 })?.bumpValue, 9000);
+
+  // A $12,000 ARR deal reaches it; 20% off leaves it short and costs the whole $9,000.
+  const deal = { oneTime: 0, subscription: 12000, subMode: 'acv' as const, units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 20 };
+  const ptd = { creditBooked: 140000, commissionBooked: 11200, earnedBooked: 11200 };
+  const x = crossEffect(plan, outcome(plan, deal, ptd), qtd);
+  assert.equal(x?.costsATier, true);
+  assert.equal(x?.value, 9000);
+  const copy = kickerOutcomeCopy(plan, x, qtd);
+  assert.equal(copy?.tone, 'red');
+  assert.match(copy && copy.tone === 'red' ? copy.sentence : '', /below 100% of your quarterly target/);
+  const kept = crossEffect(plan, outcome(plan, { ...deal, subscriptionDiscountPct: 0 }, ptd), qtd);
+  assert.equal(kept?.costsATier, false);
+  assert.equal(kept?.value, 9000);
+});
+
+test('a plan with a fixed bonus survives record -> plan', () => {
+  const p = { ...DEMO_PLAN, quarterly_kicker: { target: 540000, tiers: [{ attainmentPct: 100, kickerPct: 0, amount: 9000 }] } } as typeof DEMO_PLAN;
+  const r = recordFromPlan(p);
+  assert.equal(r.bonuses[0].kind, 'attainment_bonus');
+  assert.deepEqual(strip(mapRecord(r).plan!), strip(p));
+});
+
+test('a missing bonus amount asks in dollars', () => {
+  const r = recordFromWire(
+    wire({
+      bonus_levels: [
+        {
+          kind: 'attainment_bonus', period: 'quarter', measure: 'new_arr', target_amount: -1, spiff_for: 'not_applicable',
+          at_pct: 100, pays_pct: -1, pays_amount: -1, source: 'stated',
+        },
+      ],
+    }),
+  );
+  const m = mapRecord(r);
+  assert.deepEqual(m.gaps.map((g) => g.topic), ['kicker_pay']);
+  const q = question(r, 'kicker_pay', 0);
+  assert.equal(q.kind === 'number' && q.prefix, '$');
+  const answered = applyAnswer(r, 'kicker_pay', 0, 7500, 'answered');
+  assert.equal(mapRecord(answered).plan?.quarterly_kicker?.tiers[0].amount, 7500);
 });
 
 test('caps, clawbacks and draws are kept with the right status', () => {

@@ -284,6 +284,8 @@ export const CASES: Case[] = [
       ['record.bonuses.0.kind', 'attainment_bonus'],
       ['record.bonuses.0.tiers.0.at_pct', 100],
       ['record.bonuses.0.tiers.0.pays_amount', 9000],
+      ['plan.quarterly_kicker.target', 150000],
+      ['plan.quarterly_kicker.tiers.0.amount', 9000],
       ['record.clawbacks.0.of', 'bonus'],
       ['record.clawbacks.0.within_months', 3],
       ['record.paid_cadence', 'monthly'],

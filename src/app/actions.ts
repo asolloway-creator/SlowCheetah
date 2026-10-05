@@ -13,6 +13,7 @@ import {
   type Opening,
   type OpeningInput,
   type PeriodToDate,
+  type QuarterlyKickerTier,
   type Quote,
 } from '@/lib/calc';
 import { serviceClient } from '@/lib/supabase/service';
@@ -136,16 +137,24 @@ export async function savePlanAction(input: CompPlan): Promise<Result> {
   // Optional and independent of accelerator_style — most plans send null
   // here. When present, target and each tier's attainment must be real
   // numbers greater than zero; kickerPct is clamped like every other rate
-  // rather than rejected, same reasoning as base_rate above. The stretch
-  // tier is optional: many plans have a single bonus level.
+  // rather than rejected, same reasoning as base_rate above. A tier with an
+  // amount pays that fixed bonus instead, and the amount has to be real.
+  // The stretch tier is optional: many plans have a single bonus level.
   let quarterly_kicker: CompPlan['quarterly_kicker'] = null;
   if (input.quarterly_kicker) {
     const target = n(input.quarterly_kicker.target);
     const [t0, t1] = input.quarterly_kicker.tiers ?? [];
-    const tier0 = { attainmentPct: n(t0?.attainmentPct), kickerPct: clampPct(Number(t0?.kickerPct)) };
-    const tier1 = t1 ? { attainmentPct: n(t1.attainmentPct), kickerPct: clampPct(Number(t1.kickerPct)) } : null;
+    const tierOf = (t: QuarterlyKickerTier): QuarterlyKickerTier =>
+      typeof t.amount === 'number'
+        ? { attainmentPct: n(t.attainmentPct), kickerPct: 0, amount: n(t.amount) }
+        : { attainmentPct: n(t.attainmentPct), kickerPct: clampPct(Number(t.kickerPct)) };
+    const tier0 = tierOf(t0 ?? { attainmentPct: NaN, kickerPct: 0 });
+    const tier1 = t1 ? tierOf(t1) : null;
     if (!(target > 0) || !(tier0.attainmentPct > 0) || (tier1 && !(tier1.attainmentPct > 0))) {
-      return { error: 'Quarterly kicker target and tier attainment must be greater than zero.' };
+      return { error: 'Quarterly Bonus target and attainment must be greater than zero.' };
+    }
+    if ([tier0, tier1].some((t) => t && t.amount !== undefined && !(t.amount > 0))) {
+      return { error: 'Set what the Quarterly Bonus pays.' };
     }
     // kickerTierAt/quarterlyKickerSummary (calc.ts) sort tiers by
     // attainmentPct rather than trust array position — so a Stretch tier at

@@ -13,6 +13,7 @@ import {
   type PeriodToDate,
   type QuarterToDate,
   type QuarterlyKicker,
+  type QuarterlyKickerTier,
   type Quote,
   type SubscriptionMode,
 } from '@/lib/calc';
@@ -64,11 +65,14 @@ function parseKicker(v: unknown): QuarterlyKicker | null {
   const target = num(k.target);
   const tiers = Array.isArray(k.tiers) ? k.tiers : [];
   if (!(target > 0) || tiers.length < 1 || tiers.length > 2) return null;
-  const parsed = tiers.map((t) => ({
-    attainmentPct: num((t as { attainmentPct?: unknown })?.attainmentPct),
-    kickerPct: num((t as { kickerPct?: unknown })?.kickerPct),
-  }));
-  if (parsed.some((t) => !(t.attainmentPct > 0) || !Number.isFinite(t.kickerPct))) return null;
+  const parsed = tiers.map((t) => {
+    const raw = (t ?? {}) as { attainmentPct?: unknown; kickerPct?: unknown; amount?: unknown };
+    const tier: QuarterlyKickerTier = { attainmentPct: num(raw.attainmentPct), kickerPct: num(raw.kickerPct ?? 0) };
+    // A fixed-amount tier; plans saved before those existed have no amount.
+    if (raw.amount !== undefined && raw.amount !== null) tier.amount = num(raw.amount);
+    return tier;
+  });
+  if (parsed.some((t) => !(t.attainmentPct > 0) || !Number.isFinite(t.kickerPct) || (t.amount !== undefined && !(t.amount >= 0)))) return null;
   return { target, tiers: parsed.length === 1 ? [parsed[0]] : [parsed[0], parsed[1]] };
 }
 

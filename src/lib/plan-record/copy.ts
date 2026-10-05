@@ -272,8 +272,12 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
       return line('bonuses', i, parts.length ? `${capital(PERIOD_ADJ[bp])} bonus${on}: ${parts.join(', ')}.` : `${capital(PERIOD_ADJ[bp])} bonus on your commission.`);
     }
     if (b.kind === 'attainment_bonus') {
-      const parts = tiers.map((t) => `${t.pays_amount !== null ? fmtMoney(t.pays_amount) : 'a bonus'} at ${fmtPctShort(t.at_pct as number)} of quota`);
-      return line('bonuses', i, parts.length ? `A fixed bonus: ${parts.join('; ')}.` : 'A fixed bonus for hitting attainment levels.');
+      const bp = b.period === 'unknown' ? r.quota.period : b.period;
+      const of = b.target_amount !== null ? ` of a ${fmt(b.target_amount)} target` : ' of quota';
+      const parts = tiers.map(
+        (t, k) => `${t.pays_amount !== null ? fmtMoney(t.pays_amount) : 'a set amount'} at ${fmtPctShort(t.at_pct as number)}${k === 0 ? of : ''}`,
+      );
+      return line('bonuses', i, parts.length ? `${capital(PERIOD_ADJ[bp])} bonus: ${parts.join(', ')}.` : `${capital(PERIOD_ADJ[bp])} bonus for hitting your numbers.`);
     }
     if (b.kind === 'spiff') {
       const amt = b.tiers[0]?.pays_amount;
@@ -542,10 +546,15 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
         prompt: 'What attainment unlocks the bonus?',
       };
     case 'kicker_pay':
-      return {
-        topic, index, kind: 'number', current: r.bonuses[index]?.tiers[0]?.pays_pct ?? null, max: 200, suffix: '%',
-        prompt: 'How much does it add to that quarter’s commission?',
-      };
+      return r.bonuses[index]?.kind === 'attainment_bonus'
+        ? {
+            topic, index, kind: 'number', current: r.bonuses[index]?.tiers[0]?.pays_amount ?? null, max: 1e7, prefix: '$',
+            prompt: 'How much is the bonus?',
+          }
+        : {
+            topic, index, kind: 'number', current: r.bonuses[index]?.tiers[0]?.pays_pct ?? null, max: 200, suffix: '%',
+            prompt: 'How much does it add to that quarter’s commission?',
+          };
   }
 }
 
@@ -637,7 +646,10 @@ export function applyAnswer(r: PlanRecord, topic: Topic, index: number, value: s
       if (!b) break;
       if (topic === 'kicker_target') b.target_amount = num;
       if (topic === 'kicker_start') ensureTier(b).at_pct = num;
-      if (topic === 'kicker_pay') ensureTier(b).pays_pct = num;
+      if (topic === 'kicker_pay') {
+        if (b.kind === 'attainment_bonus') ensureTier(b).pays_amount = num;
+        else ensureTier(b).pays_pct = num;
+      }
       b.source = how;
       break;
     }
@@ -689,7 +701,7 @@ export const GAP_WORDS: Record<Topic, string> = {
   accelerator_rate: 'your accelerated rate',
   kicker_target: 'your bonus target',
   kicker_start: 'what unlocks your bonus',
-  kicker_pay: 'what your bonus adds',
+  kicker_pay: 'what your bonus pays',
 };
 
 export const gapsToAsk = (gaps: Gap[]) => gaps.slice(0, 2);

@@ -13,7 +13,9 @@ import {
   calc,
   DEMO_PTD,
   DEMO_QTD,
+  isFixedTier,
   kickerTierAt,
+  kickerTierValue,
   periodSummary,
   quarterlyKickerSummary,
   type CalcResult,
@@ -148,10 +150,11 @@ export type CrossEffect = {
    *  already secured regardless of this deal." */
   tierAtBooked: QuarterlyKickerTier | null;
   costsATier: boolean;
-  /** costsATier: the lost kicker %, applied to the whole quarter's SaaS
-   *  commission. Otherwise, when tierAtActual is held: what that tier is
-   *  actually worth right now — the "what you're getting" figure for the
-   *  positive case. Zero when neither applies. */
+  /** costsATier: what the lost tier is worth over the one still held (the
+   *  lost % on the whole quarter's SaaS commission, or a fixed bonus).
+   *  Otherwise, when tierAtActual is held: what that tier is actually worth
+   *  right now, the "what you're getting" figure for the positive case.
+   *  Zero when neither applies. */
   value: number;
 };
 
@@ -169,15 +172,12 @@ export function crossEffect(plan: CompPlan, o: Outcome, qtd: QuarterToDate): Cro
   const tierAtActual = kickerTierAt(kicker, qtd.saasArrBooked + r.subAnnual);
   const tierAtFull = kickerTierAt(kicker, qtd.saasArrBooked + rFull.subAnnual);
   const tierAtBooked = kickerTierAt(kicker, qtd.saasArrBooked);
-  const fullPct = tierAtFull?.kickerPct ?? 0;
-  const actualPct = tierAtActual?.kickerPct ?? 0;
-  const costsATier = fullPct > actualPct;
+  // A tier is lost when full price reaches a higher one than the discount
+  // does; tiers rank by attainment, whatever each one pays.
+  const costsATier = tierAtFull !== null && (tierAtActual === null || tierAtFull.attainmentPct > tierAtActual.attainmentPct);
   const saasBase = qtd.saasCommissionBooked + r.saasCommissionEffective;
-  const value = costsATier
-    ? round2((saasBase * (fullPct - actualPct)) / 100)
-    : tierAtActual
-      ? round2((saasBase * actualPct) / 100)
-      : 0;
+  const held = kickerTierValue(tierAtActual, saasBase);
+  const value = costsATier ? round2(Math.max(0, kickerTierValue(tierAtFull, saasBase) - held)) : round2(held);
   return { tierAtFull, tierAtActual, tierAtBooked, costsATier, value };
 }
 
@@ -289,13 +289,16 @@ export function kickerOutcomeCopy(plan: CompPlan, x: CrossEffect | null, qtd: Qu
   const bookedPct = qtd && kicker.target > 0 ? (qtd.saasArrBooked / kicker.target) * 100 : null;
 
   if (x.costsATier) {
-    const name = tierName(numOf(x.tierAtFull!));
+    const lost = x.tierAtFull!;
+    const name = tierName(numOf(lost));
     const grounding = bookedPct !== null ? ` You're at ${fmtPctShort(bookedPct)} booked this quarter already.` : '';
     return {
       tone: 'red',
       label: `This deal costs you your ${name}`,
       value: x.value,
-      sentence: `Dropping below ${fmtPctShort(x.tierAtFull!.attainmentPct)} quarterly SaaS attainment loses it, across the whole quarter's SaaS commission.${grounding}`,
+      sentence: isFixedTier(lost)
+        ? `Dropping below ${fmtPctShort(lost.attainmentPct)} of your quarterly target loses it.${grounding}`
+        : `Dropping below ${fmtPctShort(lost.attainmentPct)} quarterly SaaS attainment loses it, across the whole quarter's SaaS commission.${grounding}`,
     };
   }
 
@@ -328,7 +331,7 @@ export function kickerGroundingDetail(plan: CompPlan, qtd: QuarterToDate | null)
   const sorted = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
   const numOf = (t: QuarterlyKickerTier) => sorted.findIndex((x) => x.attainmentPct === t.attainmentPct) + 1;
   const tail = s.tier
-    ? ` · ${tierName(numOf(s.tier))} locked in: +${fmtPctShort(s.tier.kickerPct)} on the quarter`
+    ? ` · ${tierName(numOf(s.tier))} locked in: ${isFixedTier(s.tier) ? fmtMoney(s.bumpValue) : `+${fmtPctShort(s.tier.kickerPct)} on the quarter`}`
     : s.nextTier
       ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
       : '';
