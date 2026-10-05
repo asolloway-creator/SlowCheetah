@@ -26,6 +26,7 @@ export type Status =
 
 export type Area =
   | 'quota'
+  | 'quota_excludes'
   | 'pay_rules'
   | 'one_time'
   | 'accelerators'
@@ -44,6 +45,7 @@ export type Note =
   | 'mrr_rate_as_annual'
   | 'as_quarterly'
   | 'tcv_as_first_year'
+  | 'quota_exclusion'
   | 'one_time_from_rates'
   | 'one_time_above_base'
   | 'one_time_on_mrr_plan'
@@ -193,6 +195,11 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
   // One source covers the whole quota line, so the fix reopens all of it.
   if (inferred(r.quota.source)) assumed.push({ topic: 'quota_period', index: 0, why: 'inferred' });
   cover('quota', 0, quotaStatus, quotaNote);
+  // What doesn't count toward quota. One-time charges never do in IOI's math;
+  // IOI treats every deal as new business, so the rest are kept as noted.
+  if (r.quota.excludes.length > 0) {
+    cover('quota_excludes', 0, r.quota.excludes.every((x) => x === 'one_time') ? 'calculated' : 'recorded', 'quota_exclusion');
+  }
 
   // ── Base pay ───────────────────────────────────────────────────────────
   const rules = r.pay_rules;
@@ -361,7 +368,9 @@ export function mapRecord(r: PlanRecord, choices: CalcChoices = NO_CHOICES): Map
   r.caps.forEach((_, i) => cover('caps', i, 'not_yet', 'cap'));
   r.clawbacks.forEach((_, i) => cover('clawbacks', i, 'recorded', 'clawback'));
   r.draws.forEach((_, i) => cover('draws', i, 'recorded', 'draw'));
-  if (r.paid_when !== 'unknown') cover('paid_when', 0, 'recorded', 'paid_when');
+  if (r.paid_when !== 'unknown' || r.paid_cadence !== 'unknown' || r.paid_lag_months !== null) {
+    cover('paid_when', 0, 'recorded', 'paid_when');
+  }
   r.other_features.forEach((f, i) =>
     cover('other_features', i, f === 'territory_rules' || f === 'overlay' || f === 'other' ? 'recorded' : 'not_yet', 'feature'),
   );
@@ -433,6 +442,7 @@ export function recordFromPlan(p: CompPlan): PlanRecord {
       measure: p.quota_basis === 'units' ? 'units' : 'new_arr',
       amount: p.quota,
       source: 'stated',
+      excludes: [],
     },
     pay_rules: [
       {
@@ -475,7 +485,10 @@ export function recordFromPlan(p: CompPlan): PlanRecord {
     clawbacks: [],
     draws: [],
     paid_when: 'unknown',
+    paid_cadence: 'unknown',
+    paid_lag_months: null,
     other_features: [],
+    other_note: null,
   };
 }
 
@@ -484,7 +497,7 @@ export function emptyRecord(): PlanRecord {
   return {
     format: FORMAT_VERSION,
     role: { level: 'unknown', title: null },
-    quota: { period: 'unknown', measure: 'unknown', amount: null, source: 'stated' },
+    quota: { period: 'unknown', measure: 'unknown', amount: null, source: 'stated', excludes: [] },
     pay_rules: [],
     one_time: { counts_pct: null, source: 'stated' },
     accelerators: [],
@@ -495,15 +508,18 @@ export function emptyRecord(): PlanRecord {
     clawbacks: [],
     draws: [],
     paid_when: 'unknown',
+    paid_cadence: 'unknown',
+    paid_lag_months: null,
     other_features: [],
+    other_note: null,
   };
 }
 
 /**
  * Someone described their plan, then adjusted the numbers in the form. The
  * form only knows what the engine runs, so its numbers replace those parts of
- * the record and everything else they described (caps, clawbacks, further
- * accelerator steps, other bonuses) is kept.
+ * the record and everything else they described (what doesn't count toward
+ * quota, caps, clawbacks, further accelerator steps, other bonuses) is kept.
  */
 export function mergeFormIntoRecord(described: PlanRecord, p: CompPlan): PlanRecord {
   const fromForm = recordFromPlan(p);
@@ -515,7 +531,7 @@ export function mergeFormIntoRecord(described: PlanRecord, p: CompPlan): PlanRec
   return {
     ...described,
     role: { level: described.role.level, title: fromForm.role.title ?? described.role.title },
-    quota: corrected(fromForm.quota),
+    quota: { ...corrected(fromForm.quota), excludes: described.quota.excludes },
     pay_rules: [...fromForm.pay_rules.map(corrected), ...keepRules],
     one_time: corrected(fromForm.one_time),
     accelerators: [...fromForm.accelerators.map(corrected), ...keepAccels],

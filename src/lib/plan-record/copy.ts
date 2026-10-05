@@ -78,18 +78,45 @@ const FEATURE_WORDS: Record<PlanRecord['other_features'][number], string> = {
   mbo: 'A goals-based bonus',
   territory_rules: 'Territory rules',
   overlay: 'An overlay role',
-  renewal_rules: 'Separate rules for renewals',
+  renewal_rules: 'Renewals are paid on rules of their own',
   windfall: 'A limit on unusually large deals',
   other: 'Something else we noted',
 };
-const PAID_WHEN_WORDS: Record<PlanRecord['paid_when'], string> = {
-  booking: 'Commission is paid when a deal is booked.',
-  invoice: 'Commission is paid when the customer is invoiced.',
-  collection: 'Commission is paid when the customer pays.',
-  go_live: 'Commission is paid when the customer goes live.',
-  other: 'Commission is paid on a schedule of its own.',
+/** What makes commission payable, as the end of "when ..." or "after ...". */
+const PAID_ON: Record<PlanRecord['paid_when'], string> = {
+  booking: 'a deal is booked',
+  invoice: 'the customer is invoiced',
+  collection: 'the customer pays',
+  go_live: 'the customer goes live',
+  other: '',
   unknown: '',
 };
+const CADENCE_WORDS: Record<PlanRecord['paid_cadence'], string> = { monthly: 'monthly', quarterly: 'quarterly', other: '', unknown: '' };
+const EXCLUDE_WORDS: Record<PlanRecord['quota']['excludes'][number], string> = {
+  renewals: 'renewals',
+  expansion: 'expansion deals',
+  one_time: 'one-time charges',
+  other: 'some other deals',
+};
+
+const andList = (items: string[]) =>
+  items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
+/** "Commission is paid monthly, a month in arrears." from what makes it
+ *  payable, how often it's paid and how long after. Empty when none is known. */
+export function payoutText(r: PlanRecord): string {
+  const on = PAID_ON[r.paid_when];
+  const every = CADENCE_WORDS[r.paid_cadence];
+  const lag = r.paid_lag_months;
+  const later = lag ? (lag === 1 ? 'a month' : plural(lag, 'months')) : '';
+  const parts: string[] = [];
+  if (every) parts.push(every);
+  if (on && later) parts.push(`${later} after ${on}`);
+  else if (on) parts.push(every ? `once ${on}` : `when ${on}`);
+  else if (later) parts.push(`${later} in arrears`);
+  if (parts.length) return `Commission is paid ${parts.join(', ')}.`;
+  return r.paid_when === 'other' || r.paid_cadence === 'other' ? 'Commission is paid on a schedule of its own.' : '';
+}
 
 const PERIOD_ADJ: Record<Period, string> = {
   month: 'a monthly',
@@ -143,6 +170,12 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
     quota.push(line('quota', 0, `Your quota is ${quotaAmount(r, r.quota.amount)} ${PER_PERIOD[r.quota.period]}.`.replace(' .', '.')));
   } else if (r.quota.measure !== 'unknown') {
     quota.push(line('quota', 0, `Your quota counts ${MEASURE_WORDS[r.quota.measure]}.`));
+  }
+  if (r.quota.excludes.length > 0) {
+    const named = r.quota.excludes.filter((x) => x !== 'other').map((x) => EXCLUDE_WORDS[x]);
+    if (r.quota.excludes.includes('other')) named.push(named.length ? EXCLUDE_WORDS.other : 'some deals');
+    const toward = quota.length ? 'toward it' : 'toward your quota';
+    quota.push(line('quota_excludes', 0, `${capital(andList(named))} don’t count ${toward}.`));
   }
 
   const pay: ReadbackLine[] = r.pay_rules.map((p, i) => {
@@ -268,7 +301,7 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
       line(
         'clawbacks',
         i,
-        `If a customer cancels${c.within_months !== null ? ` within ${plural(c.within_months, 'months')}` : ''}, ${c.share_pct !== null && c.share_pct < 100 ? `${fmtPctShort(c.share_pct)} of ` : ''}the commission comes back.`,
+        `If a customer cancels${c.within_months !== null ? ` within ${plural(c.within_months, 'months')}` : ''}, ${c.share_pct !== null && c.share_pct < 100 ? `${fmtPctShort(c.share_pct)} of ` : ''}the ${c.of === 'bonus' ? 'bonus' : 'commission'} comes back.`,
       ),
     ),
   );
@@ -281,8 +314,11 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
       ),
     ),
   );
-  if (r.paid_when !== 'unknown') limits.push(line('paid_when', 0, PAID_WHEN_WORDS[r.paid_when]));
-  r.other_features.forEach((f, i) => limits.push(line('other_features', i, `${FEATURE_WORDS[f]}.`)));
+  const payout = payoutText(r);
+  if (payout) limits.push(line('paid_when', 0, payout));
+  r.other_features.forEach((f, i) =>
+    limits.push(line('other_features', i, `${f === 'other' && r.other_note ? capital(r.other_note) : FEATURE_WORDS[f]}.`)),
+  );
 
   return [
     { title: 'Quota', lines: quota },
@@ -300,6 +336,7 @@ export const NOTE_TEXT: Record<Note, string> = {
   mrr_rate_as_annual: '',
   as_quarterly: 'Run as a quarterly quota, so accelerators reset every quarter. Yours don’t.',
   tcv_as_first_year: 'Run on first-year value, so multi-year deals read lower than your plan pays.',
+  quota_exclusion: '',
   one_time_from_rates: '',
   one_time_above_base: 'IOI can’t pay one-time charges above your base rate yet.',
   one_time_on_mrr_plan: 'IOI’s months-of-MRR math doesn’t pay on one-time charges yet.',

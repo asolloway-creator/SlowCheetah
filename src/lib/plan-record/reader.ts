@@ -17,7 +17,7 @@ import { MAX_DESCRIPTION } from './limits';
 export const READER = {
   model: 'claude-opus-5-5',
   effort: 'low',
-  prompt: 'v1',
+  prompt: 'v2',
 } as const;
 export type ReaderMeta = { model: string; effort: string; prompt: string };
 
@@ -41,6 +41,7 @@ Vocabulary
 - Quota in "units", "locations", "seats", "licenses": measure units. "Number of deals" or "logos": deals. "Bookings" with no detail: bookings.
 - One-time charges are setup fees, implementation, onboarding, installation, hardware and professional services. "Commission on ARR only" or "subscription only": one_time_counts_pct 0. "Setup counts at half": 50. A separate rate for one-time charges ("5% on services"): its own pay rule with applies_to one_time. Not mentioned at all: -1.
 - Different rates for different business ("10% new business, 3% renewals"): one pay rule each, with applies_to set.
+- What doesn't count toward quota goes in quota_excludes. "Renewals don't count toward quota": renewals. "Upsells and add-ons don't count": expansion. "Only new logos count": renewals and expansion. "Setup fees don't count toward quota": one_time. This is quota credit only; how renewals pay is a pay rule.
 
 Accelerators (anything that pays more past a point)
 - "Every deal after I hit quota pays 15%", "from then on": forward_rate.
@@ -57,10 +58,10 @@ Other rules
 - Discount rules ("deals over 20% off pay half rate", "over 30% off pays nothing"): a limits entry, discount_reduced_rate or discount_no_commission, pct 20. Ordinary "commission is on what the customer actually pays" is not a discount rule.
 - Bonuses: a percent boost on a period's commission for hitting attainment levels is period_kicker. A fixed dollar bonus at an attainment level is attainment_bonus. A bonus for selling a particular product, multi-year deals, prepaid deals, new logos or an activity is spiff. Each level is its own bonus_levels entry.
 - "Capped at 2x target": a limits entry, cap_total, pct 200. "Uncapped": no cap entry.
-- "If a customer churns in the first 6 months I lose the commission": a limits entry, clawback, months 6, pct 100.
+- "If a customer churns in the first 6 months I lose the commission": a limits entry, clawback, months 6, pct 100. When it's a bonus that's taken back ("the bonus is clawed back if a customer churns within 90 days"): clawback_bonus, months 3, pct 100.
 - Draws: recoverable (paid back from future commission) or non_recoverable (guaranteed).
-- paid_when: booking, invoice, collection (when the customer pays), go_live, or unknown.
-- other_features only for things mentioned that have no field above: a ramped quota, split deals, extra credit for multi-year deals, a team bonus, goals-based bonuses (MBOs), territory rules, an overlay role, separate renewal rules, a windfall clause.
+- When commission is paid, in three parts. paid_when is what makes it payable: booking, invoice, collection (when the customer pays), go_live, or unknown. paid_cadence is how often it's paid out: monthly, quarterly, or unknown. paid_lag_months is how long after: "a month in arrears" or "the month after" is 1, otherwise -1. "Paid monthly, one month in arrears": paid_when unknown, paid_cadence monthly, paid_lag_months 1.
+- other_features only for things mentioned that have no field above: a ramped quota, split deals, extra credit for multi-year deals, a team bonus, goals-based bonuses (MBOs), territory rules, an overlay role, renewals paid on rules of their own (never for renewals that just don't count toward quota), a windfall clause. Anything else that fits nowhere is "other", and other_note says what it is in your own plain words.
 
 What kind of input this is
 - "plan": someone describing how they're paid, in their own words.
@@ -160,6 +161,7 @@ const FIXTURE: WireRead = {
   quota_measure: 'new_arr',
   quota_amount: 150000,
   quota_source: 'stated',
+  quota_excludes: ['renewals'],
   pay_rules: [{ applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 10, source: 'stated' }],
   one_time_counts_pct: -1,
   one_time_source: 'stated',
@@ -175,5 +177,8 @@ const FIXTURE: WireRead = {
     { kind: 'clawback', pct: 100, amount: -1, rate: -1, months: 6, source: 'stated' },
   ],
   paid_when: 'collection',
+  paid_cadence: 'monthly',
+  paid_lag_months: -1,
   other_features: [],
+  other_note: '',
 };

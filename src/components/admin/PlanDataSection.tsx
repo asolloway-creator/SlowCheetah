@@ -38,7 +38,7 @@ const NOTE: Record<string, string> = {
   second_kicker: 'A second periodic bonus', kicker_more_tiers: 'Bonuses with 3+ levels', other_business_rate: 'Different rates by kind of business',
   one_time_above_base: 'One-time charges paid above base', one_time_on_mrr_plan: 'One-time pay on months-of-MRR plans',
   as_quarterly: 'Annual quotas run as quarterly', tcv_as_first_year: 'TCV run as first-year value',
-  clawback: 'Clawbacks', draw: 'Draws', paid_when: 'Payment timing',
+  clawback: 'Clawbacks', draw: 'Draws', paid_when: 'Payment timing', quota_exclusion: 'Business that doesn’t count toward quota',
 };
 const FEATURE: Record<string, string> = {
   ramp: 'Ramped quotas', deal_splits: 'Split deals', multi_year_credit: 'Multi-year credit', team_bonus: 'Team bonuses',
@@ -52,6 +52,8 @@ const CORRECTION: Record<string, string> = {
   'accelerators.rate': 'Accelerator rate', 'accelerators.starts_at_pct': 'Where the accelerator starts',
   'accelerators.starts_at_amount': 'Where the accelerator starts', 'bonuses.target_amount': 'Bonus target',
   'bonuses.tiers.at_pct': 'Bonus level', 'bonuses.tiers.pays_pct': 'Bonus size', 'role.title': 'Job title', 'role.level': 'Role',
+  'quota.excludes': 'What doesn’t count toward quota', paid_when: 'What makes commission payable', paid_cadence: 'How often it’s paid',
+  paid_lag_months: 'How long after it’s paid', 'clawbacks.of': 'What a clawback takes back',
 };
 const labels = (pairs: readonly (readonly [string, string])[]) => ({ ...Object.fromEntries(pairs), unset: 'Not given' });
 const CONTEXT: [key: string, title: string, names: Record<string, string>][] = [

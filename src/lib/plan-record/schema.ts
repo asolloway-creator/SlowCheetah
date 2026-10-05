@@ -16,6 +16,10 @@ import { COMPANY_SIZE_BANDS } from '@/lib/calc';
  * caps, clawbacks, draws and multi-step accelerators even though IOI can't
  * calculate them yet, so plans collected today can be recalculated later
  * without asking anyone again. map.ts derives the calculable plan.
+ *
+ * Fields added since format 1 first shipped (quota exclusions, payout cadence
+ * and lag, what a clawback takes back, the note on an uncategorized feature)
+ * default when absent, so records confirmed before them still parse.
  */
 
 export const FORMAT_VERSION = 1;
@@ -39,6 +43,10 @@ export const SPIFF_FOR = ['product', 'multi_year', 'prepay', 'new_logo', 'activi
 export const CAP_KINDS = ['total_commission', 'per_deal', 'other'] as const;
 export const DRAW_KINDS = ['recoverable', 'non_recoverable', 'unknown'] as const;
 export const PAY_TIMING = ['booking', 'invoice', 'collection', 'go_live', 'other', 'unknown'] as const;
+export const PAY_CADENCES = ['monthly', 'quarterly', 'other', 'unknown'] as const;
+/** Business the person says doesn't count toward quota. */
+export const QUOTA_EXCLUDES = ['renewals', 'expansion', 'one_time', 'other'] as const;
+export const CLAWBACK_OF = ['commission', 'bonus'] as const;
 export const OTHER_FEATURES = [
   'ramp', 'deal_splits', 'multi_year_credit', 'team_bonus', 'mbo', 'territory_rules', 'overlay', 'renewal_rules', 'windfall', 'other',
 ] as const;
@@ -60,6 +68,9 @@ export type SpiffFor = (typeof SPIFF_FOR)[number];
 export type CapKind = (typeof CAP_KINDS)[number];
 export type DrawKind = (typeof DRAW_KINDS)[number];
 export type PayTiming = (typeof PAY_TIMING)[number];
+export type PayCadence = (typeof PAY_CADENCES)[number];
+export type QuotaExclude = (typeof QUOTA_EXCLUDES)[number];
+export type ClawbackOf = (typeof CLAWBACK_OF)[number];
 export type OtherFeature = (typeof OTHER_FEATURES)[number];
 export type RoleLevel = (typeof ROLE_LEVELS)[number];
 export type InputKind = (typeof INPUT_KINDS)[number];
@@ -152,7 +163,7 @@ const readSource = z
  *  five separate nested lists blew past it. */
 export const LIMIT_KINDS = [
   'floor_no_commission', 'floor_reduced_rate', 'discount_reduced_rate', 'discount_no_commission', 'discount_needs_approval',
-  'cap_total', 'cap_per_deal', 'clawback', 'draw_recoverable', 'draw_non_recoverable',
+  'cap_total', 'cap_per_deal', 'clawback', 'clawback_bonus', 'draw_recoverable', 'draw_non_recoverable',
 ] as const;
 
 export const WireRead = z.object({
@@ -175,6 +186,11 @@ export const WireRead = z.object({
     ),
   quota_amount: unknownNumber('Quota for one period, in the measure: dollars for money measures, a count for units or deals.'),
   quota_source: readSource,
+  quota_excludes: z
+    .array(z.enum(QUOTA_EXCLUDES))
+    .describe(
+      "Business the person says doesn't count toward quota: renewals, expansion (upsells, add-ons), one_time (setup, services, hardware), other. Empty if they don't say.",
+    ),
   pay_rules: z
     .array(
       z.object({
@@ -232,18 +248,25 @@ export const WireRead = z.object({
         kind: z
           .enum(LIMIT_KINDS)
           .describe(
-            'floor_no_commission: nothing paid below an attainment level. floor_reduced_rate: a lower rate below an attainment level. discount_reduced_rate / discount_no_commission / discount_needs_approval: what happens to deals discounted past a point (ordinary "commission is on the discounted price" is not one). cap_total: total commission is capped. cap_per_deal: commission on one deal is capped. clawback: commission taken back when a customer cancels or doesn\'t pay. draw_recoverable / draw_non_recoverable: an advance against future commission.',
+            'floor_no_commission: nothing paid below an attainment level. floor_reduced_rate: a lower rate below an attainment level. discount_reduced_rate / discount_no_commission / discount_needs_approval: what happens to deals discounted past a point (ordinary "commission is on the discounted price" is not one). cap_total: total commission is capped. cap_per_deal: commission on one deal is capped. clawback: commission taken back when a customer cancels or doesn\'t pay. clawback_bonus: a bonus, not commission, taken back that way. draw_recoverable / draw_non_recoverable: an advance against future commission.',
           ),
-        pct: unknownNumber('floor: the attainment percent. discount: the discount percent. cap_total: the cap as a percent of target pay. clawback: the share taken back.'),
+        pct: unknownNumber('floor: the attainment percent. discount: the discount percent. cap_total: the cap as a percent of target pay. clawback, clawback_bonus: the share taken back.'),
         amount: unknownNumber('cap: the cap in dollars. draw: the draw per month in dollars.'),
         rate: unknownNumber('floor_reduced_rate and discount_reduced_rate: the lower rate, same unit as the base rate.'),
-        months: unknownNumber('clawback: within how many months of the sale. draw: how many months it lasts.'),
+        months: unknownNumber('clawback, clawback_bonus: within how many months of the sale (90 days is 3). draw: how many months it lasts.'),
         source: readSource,
       }),
     )
     .describe('Floors, discount rules, caps, clawbacks and draws. "Uncapped" means no cap entry. Empty if none.'),
-  paid_when: z.enum(PAY_TIMING).describe("When commission is paid out. 'unknown' if not said."),
+  paid_when: z.enum(PAY_TIMING).describe("What makes commission payable: booking, invoice, collection (the customer pays), go_live. 'unknown' if not said."),
+  paid_cadence: z.enum(PAY_CADENCES).describe("How often commission is paid out: monthly, quarterly. 'unknown' if not said."),
+  paid_lag_months: unknownNumber('How many months after it is earned commission is paid ("a month in arrears" is 1).'),
   other_features: z.array(z.enum(OTHER_FEATURES)).describe('Other plan features mentioned but not captured above. Empty if none.'),
+  other_note: z
+    .string()
+    .describe(
+      "When other_features includes 'other': what it is, in under 12 plain words of your own, like \"A bonus for booking 20 demos a month\". Never their wording, never a name. Empty string otherwise.",
+    ),
 });
 export type WireRead = z.infer<typeof WireRead>;
 
@@ -282,7 +305,13 @@ export const PlanRecord = z.object({
       .nullable()
       .refine((t) => t === null || cleanTitle(t) === t, 'Role title must be a generic job title.'),
   }),
-  quota: z.object({ period: z.enum(PERIODS), measure: z.enum(MEASURES), amount, source }),
+  quota: z.object({
+    period: z.enum(PERIODS),
+    measure: z.enum(MEASURES),
+    amount,
+    source,
+    excludes: z.array(z.enum(QUOTA_EXCLUDES)).max(4).default([]),
+  }),
   pay_rules: z
     .array(
       z.object({
@@ -324,10 +353,16 @@ export const PlanRecord = z.object({
     )
     .max(6),
   caps: z.array(z.object({ kind: z.enum(CAP_KINDS), pct_of_target: pct, amount, source })).max(3),
-  clawbacks: z.array(z.object({ within_months: pct, share_pct: pct, source })).max(3),
+  clawbacks: z
+    .array(z.object({ of: z.enum(CLAWBACK_OF).default('commission'), within_months: pct, share_pct: pct, source }))
+    .max(3),
   draws: z.array(z.object({ kind: z.enum(DRAW_KINDS), monthly_amount: amount, months: pct, source })).max(2),
   paid_when: z.enum(PAY_TIMING),
+  paid_cadence: z.enum(PAY_CADENCES).default('unknown'),
+  paid_lag_months: z.number().min(0).max(24).nullable().default(null),
   other_features: z.array(z.enum(OTHER_FEATURES)).max(10),
+  /** The reader's own words for an 'other' feature: never the person's. */
+  other_note: z.string().max(100).nullable().default(null),
 });
 export type PlanRecord = z.infer<typeof PlanRecord>;
 
@@ -369,7 +404,13 @@ export function recordFromWire(w: WireRead): PlanRecord {
   return {
     format: FORMAT_VERSION,
     role: { level: w.role_level, title: cleanTitle(w.role_title) },
-    quota: { period: w.quota_period, measure: w.quota_measure, amount: val(w.quota_amount), source: w.quota_source },
+    quota: {
+      period: w.quota_period,
+      measure: w.quota_measure,
+      amount: val(w.quota_amount),
+      source: w.quota_source,
+      excludes: [...new Set(w.quota_excludes)].slice(0, 4),
+    },
     pay_rules: w.pay_rules.slice(0, 6).map((r) => ({
       applies_to: r.applies_to,
       method: r.method,
@@ -410,9 +451,14 @@ export function recordFromWire(w: WireRead): PlanRecord {
         amount: val(l.amount),
         source: l.source,
       })),
-    clawbacks: limits(['clawback'])
+    clawbacks: limits(['clawback', 'clawback_bonus'])
       .slice(0, 3)
-      .map((l) => ({ within_months: val(l.months), share_pct: val(l.pct), source: l.source })),
+      .map((l) => ({
+        of: l.kind === 'clawback_bonus' ? 'bonus' : 'commission',
+        within_months: val(l.months),
+        share_pct: val(l.pct),
+        source: l.source,
+      })),
     draws: limits(['draw_recoverable', 'draw_non_recoverable'])
       .slice(0, 2)
       .map((l) => ({
@@ -422,8 +468,23 @@ export function recordFromWire(w: WireRead): PlanRecord {
         source: l.source,
       })),
     paid_when: w.paid_when,
+    paid_cadence: w.paid_cadence,
+    paid_lag_months: (() => {
+      const lag = val(w.paid_lag_months);
+      return lag === null ? null : Math.min(24, lag);
+    })(),
     other_features: [...new Set(w.other_features)].slice(0, 10),
+    other_note: w.other_features.includes('other') ? cleanNote(w.other_note) : null,
   };
+}
+
+/** One short line, in the reader's words: trimmed, one sentence, no closing stop. */
+export function cleanNote(raw: string | null | undefined): string | null {
+  const note = String(raw ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.\s]+$/, '');
+  return note && note.length <= 100 ? note : null;
 }
 
 // ── Record -> wire, for corrections ─────────────────────────────────────────
@@ -448,6 +509,7 @@ export function wireFromRecord(r: PlanRecord): Omit<WireRead, 'input_kind'> {
     quota_measure: r.quota.measure,
     quota_amount: n(r.quota.amount),
     quota_source: s(r.quota.source),
+    quota_excludes: r.quota.excludes,
     pay_rules: r.pay_rules.map((p) => ({ applies_to: p.applies_to, method: p.method, value_basis: p.value_basis, rate: n(p.rate), source: s(p.source) })),
     one_time_counts_pct: n(r.one_time.counts_pct),
     one_time_source: s(r.one_time.source),
@@ -470,10 +532,13 @@ export function wireFromRecord(r: PlanRecord): Omit<WireRead, 'input_kind'> {
         ),
       ),
       ...r.caps.map((c) => limit(c.kind === 'per_deal' ? 'cap_per_deal' : 'cap_total', { pct: c.pct_of_target, amount: c.amount }, c.source)),
-      ...r.clawbacks.map((c) => limit('clawback', { pct: c.share_pct, months: c.within_months }, c.source)),
+      ...r.clawbacks.map((c) => limit(c.of === 'bonus' ? 'clawback_bonus' : 'clawback', { pct: c.share_pct, months: c.within_months }, c.source)),
       ...r.draws.map((d) => limit(d.kind === 'non_recoverable' ? 'draw_non_recoverable' : 'draw_recoverable', { amount: d.monthly_amount, months: d.months }, d.source)),
     ],
     paid_when: r.paid_when,
+    paid_cadence: r.paid_cadence,
+    paid_lag_months: n(r.paid_lag_months),
     other_features: r.other_features,
+    other_note: r.other_note ?? '',
   };
 }

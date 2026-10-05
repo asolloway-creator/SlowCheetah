@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { calc, DEMO_PLAN, PRESETS, type CompPlan } from '@/lib/calc';
 import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
-import { mapRecord, recordFromPlan } from '@/lib/plan-record/map';
+import { mapRecord, mergeFormIntoRecord, recordFromPlan } from '@/lib/plan-record/map';
 import { applyAnswer, assumedText, limitCopy, question, readback, workedExample } from '@/lib/plan-record/copy';
 
 let passed = 0;
@@ -32,6 +32,7 @@ const wire = (over: Partial<WireRead>): WireRead => ({
   quota_measure: 'new_arr',
   quota_amount: 150000,
   quota_source: 'stated',
+  quota_excludes: [],
   pay_rules: [{ applies_to: 'all', method: 'percent_of_value', value_basis: 'first_year_value', rate: 10, source: 'stated' }],
   one_time_counts_pct: 0,
   one_time_source: 'stated',
@@ -39,7 +40,10 @@ const wire = (over: Partial<WireRead>): WireRead => ({
   bonus_levels: [],
   limits: [],
   paid_when: 'unknown',
+  paid_cadence: 'unknown',
+  paid_lag_months: -1,
   other_features: [],
+  other_note: '',
   ...over,
 });
 
@@ -209,6 +213,69 @@ test('caps, clawbacks and draws are kept with the right status', () => {
   assert.ok(text.includes('Commission stops at 200% of target.'), text.join('\n'));
   assert.ok(text.includes('If a customer cancels within 6 months, the commission comes back.'), text.join('\n'));
   assert.ok(text.includes('A recoverable draw of $3,000 a month for 3 months.'), text.join('\n'));
+});
+
+test('what doesn’t count toward quota reads under Quota, not as a renewal rule', () => {
+  const r = recordFromWire(wire({ quota_excludes: ['renewals'] }));
+  const m = mapRecord(r);
+  const quota = readback(r, m).find((g) => g.title === 'Quota');
+  assert.deepEqual(
+    quota?.lines.map((l) => l.text),
+    ['Your quota is $150,000 of new ARR a quarter.', 'Renewals don’t count toward it.'],
+  );
+  assert.equal(m.coverage.find((c) => c.area === 'quota_excludes')?.status, 'recorded');
+  assert.ok(m.plan, 'an exclusion never blocks the numbers');
+  const both = recordFromWire(wire({ quota_excludes: ['renewals', 'expansion', 'renewals'] }));
+  assert.ok(allText(both).includes('Renewals and expansion deals don’t count toward it.'), allText(both).join('\n'));
+  const setup = mapRecord(recordFromWire(wire({ quota_excludes: ['one_time'] })));
+  assert.equal(setup.coverage.find((c) => c.area === 'quota_excludes')?.status, 'calculated', 'IOI never counts one-time charges toward quota');
+});
+
+test('when commission is paid reads as said: trigger, cadence and lag', () => {
+  const text = (over: Partial<WireRead>) => allText(recordFromWire(wire(over))).find((t) => t.startsWith('Commission is paid'));
+  assert.equal(text({ paid_cadence: 'monthly', paid_lag_months: 1 }), 'Commission is paid monthly, a month in arrears.');
+  assert.equal(text({ paid_when: 'collection' }), 'Commission is paid when the customer pays.');
+  assert.equal(text({ paid_when: 'booking', paid_lag_months: 2 }), 'Commission is paid 2 months after a deal is booked.');
+  assert.equal(text({ paid_when: 'invoice', paid_cadence: 'quarterly' }), 'Commission is paid quarterly, once the customer is invoiced.');
+  assert.equal(text({ paid_when: 'other' }), 'Commission is paid on a schedule of its own.');
+  assert.equal(text({}), undefined);
+  const m = mapRecord(recordFromWire(wire({ paid_cadence: 'monthly' })));
+  assert.equal(m.coverage.find((c) => c.area === 'paid_when')?.status, 'recorded');
+});
+
+test('a bonus clawback says it’s the bonus that comes back', () => {
+  const r = recordFromWire(wire({ limits: [{ kind: 'clawback_bonus', pct: 100, amount: -1, rate: -1, months: 3, source: 'stated' }] }));
+  assert.equal(r.clawbacks[0].of, 'bonus');
+  assert.ok(allText(r).includes('If a customer cancels within 3 months, the bonus comes back.'), allText(r).join('\n'));
+});
+
+test('an uncategorized feature reads back in the reader’s words, cleaned', () => {
+  const r = recordFromWire(wire({ other_features: ['other'], other_note: '  a bonus for booking 20 demos a month. ' }));
+  assert.equal(r.other_note, 'a bonus for booking 20 demos a month');
+  assert.ok(allText(r).includes('A bonus for booking 20 demos a month.'), allText(r).join('\n'));
+  assert.equal(recordFromWire(wire({ other_note: 'stray note' })).other_note, null, 'no note without an "other" feature');
+  assert.ok(allText(recordFromWire(wire({ other_features: ['other'] }))).includes('Something else we noted.'));
+});
+
+test('records confirmed before these fields existed still parse', () => {
+  const old = structuredClone(recordFromWire(wire({}))) as Record<string, unknown>;
+  delete old.paid_cadence;
+  delete old.paid_lag_months;
+  delete old.other_note;
+  delete (old.quota as Record<string, unknown>).excludes;
+  old.clawbacks = [{ within_months: 6, share_pct: 100, source: 'stated' }];
+  const r = PlanRecord.parse(old);
+  assert.deepEqual(r.quota.excludes, []);
+  assert.equal(r.paid_cadence, 'unknown');
+  assert.equal(r.paid_lag_months, null);
+  assert.equal(r.other_note, null);
+  assert.equal(r.clawbacks[0].of, 'commission');
+});
+
+test('adjusting the numbers keeps what doesn’t count toward quota', () => {
+  const described = recordFromWire(wire({ quota_excludes: ['renewals'] }));
+  const merged = mergeFormIntoRecord(described, mapRecord(described).plan!);
+  assert.deepEqual(merged.quota.excludes, ['renewals']);
 });
 
 test('flat per-deal pay is described but blocks the numbers', () => {
