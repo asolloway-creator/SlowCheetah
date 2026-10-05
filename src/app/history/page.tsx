@@ -2,14 +2,13 @@ import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, listDeals } from '@/lib/queries';
 import { deleteDealAction } from '../actions';
 import { Shell } from '../AccountViews';
-import { DemoHistory } from '../demo/DemoViews';
 import HistoryView from '@/components/HistoryView';
 
 export const metadata = { title: 'Your deals · IOI' };
 
 export default async function HistoryPage() {
   const { user } = await currentUser();
-  if (!user) return <DemoHistory />;
+  if (!user) redirect('/login');
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
   const deals = await listDeals(user.id);

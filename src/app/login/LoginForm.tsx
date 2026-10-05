@@ -1,22 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { track } from '@/lib/track';
 
 /**
- * Passwordless sign-in. The email carries a link and a code. The link works
+ * Passwordless sign-in, and creating an account (`mode="signup"`, the start of
+ * "Put your plan in"): the same email, link and code either way. Signing in
+ * never makes an account; an email without one is pointed to creating it.
+ * The email carries a link and a code. The link works
  * in any browser on any device (it's verified by token hash in
  * app/auth/confirm, not tied to this browser), and the code signs you in
  * right here: what you need when the email opens on your phone and IOI is
  * open on your laptop, or the other way round.
  */
-export default function LoginForm() {
+export default function LoginForm({ mode }: { mode: 'signin' | 'signup' }) {
+  const signup = mode === 'signup';
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [noAccount, setNoAccount] = useState(false);
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -52,14 +58,20 @@ export default function LoginForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNoAccount(false);
     setStatus('sending');
 
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm`, shouldCreateUser: signup },
     });
 
+    if (error && !signup && /signups not allowed|not found|no user/i.test(error.message)) {
+      setNoAccount(true);
+      setStatus('idle');
+      return;
+    }
     if (error) {
       // The service's own wording ("Failed to fetch", rate-limit seconds) reads
       // as a raw error next to everything else here.
@@ -82,8 +94,7 @@ export default function LoginForm() {
       <div className="auth-page">
         <h1 className="page-title">Check your email</h1>
         <p className="auth-copy">
-          We sent a sign-in link and a code to <strong>{email}</strong>. Open the link on any device, or enter the code
-          here.
+          We sent a link and a code to <strong>{email}</strong>. Open the link on any device, or enter the code here.
         </p>
         <form className="auth-form" onSubmit={onCode}>
           {codeError && <p className="auth-error">{codeError}</p>}
@@ -106,7 +117,7 @@ export default function LoginForm() {
             </div>
           </div>
           <button className="btn btn-primary btn-block" type="submit" disabled={checking}>
-            {checking ? 'Signing in…' : 'Sign in'}
+            {checking ? (signup ? 'Creating your account…' : 'Signing in…') : signup ? 'Create my account' : 'Sign in'}
           </button>
         </form>
         <p className="auth-copy">
@@ -128,13 +139,22 @@ export default function LoginForm() {
 
   return (
     <div className="auth-page">
-      <h1 className="page-title">Sign in</h1>
+      <h1 className="page-title">{signup ? 'Create your account' : 'Sign in'}</h1>
       <p className="auth-copy">
-        Keep your plan, your deals and where you stand, on any device. We&rsquo;ll email you a link and a code;
-        there&rsquo;s no password.
+        {signup
+          ? 'Then tell IOI how you’re paid, once, and every deal you price runs on your plan. We’ll email you a link and a code; there’s no password.'
+          : 'Your plan, your deals and where you stand, on any device. We’ll email you a link and a code; there’s no password.'}
       </p>
       <form className="auth-form" onSubmit={onSubmit} noValidate={false}>
         {error && <p className="auth-error">{error}</p>}
+        {noAccount && (
+          <p className="auth-error">
+            There’s no IOI account for that email yet.{' '}
+            <Link className="btn-text" href="/signup">
+              Create one
+            </Link>
+          </p>
+        )}
         <div className="field">
           <label className="field-label" htmlFor="email">
             Email
@@ -154,9 +174,15 @@ export default function LoginForm() {
           </div>
         </div>
         <button className="btn btn-primary btn-block" type="submit" disabled={status === 'sending'}>
-          {status === 'sending' ? 'Sending…' : 'Send sign-in link'}
+          {status === 'sending' ? 'Sending…' : signup ? 'Create my account' : 'Send sign-in link'}
         </button>
       </form>
+      <p className="auth-copy auth-switch">
+        {signup ? 'Already have an account? ' : 'New to IOI? '}
+        <Link className="btn-text" href={signup ? '/login' : '/signup'}>
+          {signup ? 'Sign in' : 'Create an account'}
+        </Link>
+      </p>
     </div>
   );
 }

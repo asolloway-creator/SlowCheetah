@@ -2,14 +2,13 @@ import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate } from '@/lib/queries';
 import { saveOpeningAction } from '../actions';
 import { Shell } from '../AccountViews';
-import { DemoQuota } from '../demo/DemoViews';
 import QuotaView from '@/components/QuotaView';
 
 export const metadata = { title: 'Where you stand · IOI' };
 
 export default async function QuotaPage() {
   const { user } = await currentUser();
-  if (!user) return <DemoQuota />;
+  if (!user) redirect('/login');
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
   const [{ deals, opening, ...ptd }, qtd] = await Promise.all([

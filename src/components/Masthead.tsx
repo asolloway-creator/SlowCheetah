@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import NavLink from '@/components/NavLink';
-import SignedOutAsk from '@/components/SignedOutAsk';
 import Wordmark from '@/components/Wordmark';
 
 const NAV = [
@@ -12,33 +11,14 @@ const NAV = [
 
 /**
  * A floating pill. Signed in: the four app pages plus sign out. Signed out:
- * "Sign in" and "Put your plan in" everywhere, plus one contextual link,
- * "How it works" on `/` or a way back to the deal from any other page
- * (the deal page links visitors onward to /quota and /history, which have
- * no nav of their own). "Put your plan in" links to `/?plan=1`, which opens
- * the inline plan dialog DealStage renders, from any page.
- *
- * Signed out with a plan of their own already in this browser (`own`), they
- * get the same four pages a signed-in rep does, and the ask is no longer
- * "put your plan in" but "keep it": sign in. The server can't tell those
- * visitors apart, so until the store loads (`pending`) their links stay
- * hidden rather than offering them a plan they've already put in.
+ * "How it works" (on the home page) or a way home, "Sign in" for an account
+ * you have, and "Put your plan in", which creates one (/signup). A plan lives
+ * in an account; nothing is kept in the browser.
  */
-export default function Masthead({
-  current,
-  email,
-  own = false,
-  pending = false,
-}: {
-  current: string;
-  email: string | null;
-  own?: boolean;
-  /** Before the browser store loads: see Shell. */
-  pending?: boolean;
-}) {
+export default function Masthead({ current, email }: { current: string; email: string | null }) {
   return (
     <header className="masthead">
-      <div className={`masthead-bar${email || own ? ' is-signed-in' : ''}${pending ? ' is-pending' : ''}`}>
+      <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
         <Wordmark />
         {email ? (
           <>
@@ -58,23 +38,26 @@ export default function Masthead({
               </form>
             </div>
           </>
-        ) : own ? (
-          <>
-            <nav className="nav" aria-label="Primary">
-              {NAV.map((t) => (
-                <NavLink key={t.href} href={t.href} aria-current={t.href === current ? 'page' : undefined}>
-                  {t.label}
-                </NavLink>
-              ))}
-            </nav>
-            <div className="auth">
-              <Link className="btn btn-primary" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
-                Sign in
-              </Link>
-            </div>
-          </>
         ) : (
-          <SignedOutAsk current={current} />
+          <div className="auth">
+            {current === '/' ? (
+              <a className="nav-link hide-sm" href="#how">
+                How it works
+              </a>
+            ) : (
+              <NavLink className="nav-link hide-sm" href="/">
+                &larr; Home
+              </NavLink>
+            )}
+            <NavLink className="nav-link" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
+              Sign in
+            </NavLink>
+            {current !== '/signup' && (
+              <Link className="btn btn-primary" href="/signup">
+                Put your plan in
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </header>

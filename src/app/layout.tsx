@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Bricolage_Grotesque, Inter } from 'next/font/google';
 import SetTimeZoneCookie from '@/components/SetTimeZoneCookie';
 import Tracker from '@/components/Tracker';
-import { OWN_PLAN_SCRIPT } from '@/lib/demo-flag';
 import './globals.css';
 
 // Bricolage for display and money (it carries true tabular figures), Inter
@@ -24,11 +23,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // The script below marks <html> before React hydrates, hence the warning suppressed here.
-    <html lang="en" className={`${inter.variable} ${display.variable}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: OWN_PLAN_SCRIPT }} />
-      </head>
+    <html lang="en" className={`${inter.variable} ${display.variable}`}>
       <body>
         <SetTimeZoneCookie />
         <Tracker />

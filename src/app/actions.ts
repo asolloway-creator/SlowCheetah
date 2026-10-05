@@ -1,21 +1,18 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { currentUser, getCompPlan, getOpening, getPeriodToDate, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getPeriodToDate, repTimeZone } from '@/lib/queries';
 import {
   calc,
   COMPANY_SIZE_BANDS,
   needsQuarterArr,
   periodKeyInZone,
-  withPeriodOpening,
   type CompPlan,
   type DealInput,
   type Opening,
   type OpeningInput,
   type AcceleratorStep,
-  type PeriodToDate,
   type QuarterlyKickerTier,
-  type Quote,
 } from '@/lib/calc';
 import { serviceClient } from '@/lib/supabase/service';
 
@@ -344,83 +341,6 @@ export async function deleteQuoteAction(id: string): Promise<Result> {
   if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to remove quotes.' };
   const { error } = await supabase.from('quotes').delete().eq('id', id).eq('user_id', user.id);
   if (error) return { error: 'That didn’t go through. Try again in a moment.' };
-  revalidatePath('/', 'layout');
-  return {};
-}
-
-export type ImportedDeal = { deal: DealInput; createdAt: string };
-
-/**
- * Carries what a visitor set up in the browser (lib/demo.ts) into their new
- * account on first sign-in: the plan, the starting point for this period when
- * they'd given one, and the deals they booked, kept on the days they booked
- * them. Each deal is re-run here, oldest first, against its own period (and
- * the starting point, in that period), rather than trusting the browser's
- * figures. Same validation as every other save.
- */
-export async function importDemoPlanAction(
-  input: CompPlan,
-  opening?: OpeningInput | null,
-  deals: ImportedDeal[] = [],
-  quotes: Quote[] = [],
-): Promise<Result> {
-  const res = await savePlanAction(input);
-  if (res.error) return res;
-  if (opening) {
-    const saved = await saveOpeningAction(opening);
-    if (saved.error) return saved;
-  }
-  if (!deals.length && !quotes.length) return {};
-
-  const { supabase, user } = await currentUser();
-  if (!user) return { error: 'Sign in to save deals.' };
-  let plan: CompPlan | null;
-  try {
-    plan = await getCompPlan(user.id);
-  } catch {
-    return { error: 'Your plan is in, but your deals didn’t come across. Try again in a moment.' };
-  }
-  if (!plan) return {};
-  const tz = await repTimeZone();
-  const start = await getOpening(user.id);
-  const now = Date.now();
-  const clean = deals
-    .slice(0, 300)
-    .map((d) => ({ deal: cleanDeal(d.deal), at: new Date(Math.min(now, Date.parse(d.createdAt) || now)) }))
-    .filter((d) => !isBlank(d.deal))
-    .sort((a, b) => a.at.getTime() - b.at.getTime());
-
-  const byPeriod = new Map<string, PeriodToDate>();
-  const rows = clean.map(({ deal, at }) => {
-    const key = periodKeyInZone(plan.period, tz, at);
-    const ptd = byPeriod.get(key) ?? withPeriodOpening(plan, { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 }, start, key);
-    const r = calc(plan, deal, ptd);
-    byPeriod.set(key, {
-      creditBooked: ptd.creditBooked + r.credit,
-      commissionBooked: ptd.commissionBooked + r.commissionBase,
-      earnedBooked: ptd.earnedBooked + r.commissionEffective,
-      hardwareBooked: (ptd.hardwareBooked ?? 0) + r.hardwareCommission,
-    });
-    return { user_id: user.id, ...dealColumns(deal, r), created_at: at.toISOString() };
-  });
-  if (rows.length) {
-    const { error } = await supabase.from('deals').insert(rows);
-    if (error) return { error: 'Your plan is in, but your deals didn’t come across. Try again in a moment.' };
-  }
-  const quoteRows = quotes
-    .slice(0, 50)
-    .map((q) => ({ q, deal: cleanDeal(q.deal) }))
-    .filter(({ deal }) => !isBlank(deal))
-    .map(({ q, deal }) => ({
-      user_id: user.id,
-      ...quoteRow(q.name, deal),
-      created_at: new Date(Math.min(now, Date.parse(q.createdAt) || now)).toISOString(),
-      updated_at: new Date(Math.min(now, Date.parse(q.updatedAt) || now)).toISOString(),
-    }));
-  if (quoteRows.length) {
-    const { error } = await supabase.from('quotes').insert(quoteRows);
-    if (error) return { error: 'Your plan and deals are in, but your quotes didn’t come across. Try again in a moment.' };
-  }
   revalidatePath('/', 'layout');
   return {};
 }

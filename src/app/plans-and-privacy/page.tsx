@@ -15,7 +15,7 @@ export default async function PlansAndPrivacyPage() {
       <Doc
         title="How IOI handles your plan"
         lede="Commission software is built for the company: it tracks what you’re owed once a deal is done. IOI is built for you. It shows what a deal pays before you sign it, what a discount will cost you, and where your next accelerator is. To do that it needs your plan’s rules, and it treats them carefully."
-        updated="October 2, 2026"
+        updated="October 5, 2026"
       >
         <DocSection title="What IOI keeps">
           <ul>
@@ -28,7 +28,7 @@ export default async function PlansAndPrivacyPage() {
               and an earnings range. All optional.
             </li>
             <li>
-              <b>A way to find your plan again.</b> A random ID in your browser, or your account if you’re signed in.
+              <b>A way to find your plan again.</b> Your account, and a random ID in your browser.
             </li>
           </ul>
         </DocSection>
@@ -42,8 +42,7 @@ export default async function PlansAndPrivacyPage() {
               <b>Your company’s name</b>, your customers, or anyone’s name. IOI never asks for them.
             </li>
             <li>
-              <b>Your deals.</b> What you enter on the deal page is never part of your plan. It stays in your browser, or
-              in your account if you sign in.
+              <b>Your deals.</b> What you enter on the deal page is never part of your plan. It stays in your account.
             </li>
             <li>
               <b>Your exact pay.</b> Earnings are a range, and optional.

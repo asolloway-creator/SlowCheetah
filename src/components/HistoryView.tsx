@@ -22,13 +22,10 @@ export default function HistoryView({
   plan,
   deals,
   onDelete,
-  demo = false,
 }: {
   plan: CompPlan;
   deals: DealRow[];
   onDelete: (id: string) => Promise<{ error?: string }>;
-  /** Signed out: these live in this browser only. */
-  demo?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -144,14 +141,6 @@ export default function HistoryView({
         </>
       )}
 
-      {demo && (
-        <p className="history-foot">
-          These live in this browser only.{' '}
-          <Link className="btn-text" href="/login">
-            Sign in to keep them on any device &rarr;
-          </Link>
-        </p>
-      )}
     </div>
   );
 }

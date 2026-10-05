@@ -1,109 +1,44 @@
 'use client';
 
-import Link from 'next/link';
+import { useEffect } from 'react';
 import { DEMO_PLAN } from '@/lib/calc';
-import { useDemoStore } from '@/lib/demo';
 import { Shell } from '@/app/AccountViews';
 import DealStage from '@/components/DealStage';
-import QuotaView from '@/components/QuotaView';
-import HistoryView from '@/components/HistoryView';
-import PlanCapture from '@/components/capture/PlanCapture';
 import HowItWorks from '@/components/HowItWorks';
-import PlanFirst from '@/components/PlanFirst';
 import { ClosingCta, LandingHero } from '@/components/Landing';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 
+/** Never called: the sample card can't book a deal. */
+const noSave = async () => ({});
+
 /**
- * Demo mode: the whole app against the visitor's browser. The server can't
- * see the browser store, so every view renders what a visitor without a plan
- * of their own sees until it loads: the pitch over the sample's fixed
- * position (OPENING_PTD/OPENING_QTD) on the deal page, the put-your-plan-in
- * pages elsewhere. A first visit hydrates into the same frame, and crawlers
- * get real pages. `pending` keeps that default out of sight for a visitor
- * who has a plan of their own (lib/demo-flag.ts).
+ * Signed out, everyone gets the same home page: the pitch beside the sample
+ * card playing its story, How it works, and the closing ask. A plan of your own
+ * lives in an account ("Put your plan in" creates one); nothing is kept in the
+ * browser.
  */
 export function DemoDeal() {
-  const d = useDemoStore();
-
-  // A visitor with a plan of their own gets the tool, not the pitch: a plain
-  // title over their deal, the builder, and no sales sections to scroll past.
-  const pitch = d.seeded;
+  // Plans and flags an earlier version kept in this browser are no longer read.
+  useEffect(() => {
+    try {
+      localStorage.removeItem('ioi-demo-v3');
+      localStorage.removeItem('ioi-account');
+    } catch {}
+  }, []);
 
   return (
-    <Shell current="/" email={null} width="full" own={d.ready && !d.seeded} pending={!d.ready}>
+    <Shell current="/" email={null} width="full">
       <DealStage
-        plan={d.ready ? d.plan : DEMO_PLAN}
-        ptd={d.ready ? d.ptd : OPENING_PTD}
-        // The quarter too, or the first paint has no bonus line, bonus box or
-        // story to tell, and they all arrive with a jump once the store loads.
-        qtd={d.ready ? d.qtd : OPENING_QTD}
+        plan={DEMO_PLAN}
+        ptd={OPENING_PTD}
+        qtd={OPENING_QTD}
         demo
-        onSave={d.saveDeal}
-        onSavePlan={d.savePlan}
-        onSaveOpening={d.setOpening}
-        onStartOver={d.reset}
-        quotes={d.quotes}
-        onSaveQuote={d.saveQuote}
-        onDeleteQuote={d.deleteQuote}
+        onSave={noSave}
         initialDeal={SAMPLE}
-        intro={pitch ? <LandingHero account={d.account} /> : undefined}
-        sample={d.seeded}
-        account={d.account}
+        intro={<LandingHero />}
       />
-      {pitch && <HowItWorks />}
-      {pitch && <ClosingCta account={d.account} />}
-    </Shell>
-  );
-}
-
-export function DemoQuota() {
-  const d = useDemoStore();
-  return (
-    <Shell current="/quota" email={null} width="narrow" own={d.ready && !d.seeded} pending={!d.ready}>
-      {d.seeded ? (
-        <PlanFirst page="quota" account={d.account} />
-      ) : (
-        <QuotaView plan={d.plan} ptd={d.ptd} qtd={d.qtd} deals={d.periodDeals} opening={d.opening} onOpening={d.setOpening} />
-      )}
-    </Shell>
-  );
-}
-
-export function DemoHistory() {
-  const d = useDemoStore();
-  return (
-    <Shell current="/history" email={null} width="table" own={d.ready && !d.seeded} pending={!d.ready}>
-      {d.seeded ? <PlanFirst page="history" account={d.account} /> : <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo />}
-    </Shell>
-  );
-}
-
-export function DemoPlan() {
-  const d = useDemoStore();
-  return (
-    <Shell current="/plan" email={null} width="plan" own={d.ready && !d.seeded} pending={!d.ready}>
-      {/* The stock sample isn't anyone's plan: a visitor who hasn't put theirs
-          in yet starts by describing it, not by editing the sample. Where it
-          opens depends on whether there's a plan, which only the loaded store
-          knows, so it starts over once it has (keyed on `ready`, not on
-          `seeded`, which flips mid-flow when a first plan is saved). */}
-      {d.account && (
-        <div className="plan-account">
-          <p>
-            <b>Your plan is already in your account.</b> Sign in to see it or change it.
-          </p>
-          <Link className="btn btn-primary" href="/login">
-            Sign in
-          </Link>
-        </div>
-      )}
-      <PlanCapture
-        key={d.ready ? 'ready' : 'pending'}
-        current={d.seeded ? null : d.plan}
-        onSave={d.savePlan}
-        onOpening={d.setOpening}
-        account={false}
-      />
+      <HowItWorks />
+      <ClosingCta />
     </Shell>
   );
 }

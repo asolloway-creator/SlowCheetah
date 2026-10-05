@@ -16,13 +16,13 @@ export default async function PrivacyPage() {
       <Doc
         title="Privacy"
         lede="IOI is a small, independent tool. This is what it collects, why, and who helps run it. The short version: your deals stay yours, your words are never kept, and your plan is only ever counted anonymously."
-        updated="October 2, 2026"
+        updated="October 5, 2026"
       >
         <DocSection title="Without an account">
           <p>
-            The plan, deals and quotes you enter, and what you tell IOI you’d already booked, live in your browser. They aren’t sent to IOI unless you confirm
-            your plan, which files its rules anonymously as described in{' '}
-            <Link href="/plans-and-privacy">how IOI handles your plan</Link>.
+            Without an account you can watch and play with the sample deal, and nothing you do there is kept. Your plan,
+            deals and quotes live in your account once you create one, and confirming your plan files its rules
+            anonymously as described in <Link href="/plans-and-privacy">how IOI handles your plan</Link>.
           </p>
         </DocSection>
 
@@ -83,7 +83,6 @@ export default async function PrivacyPage() {
               <a href="mailto:privacy@tryioi.com?subject=IOI%3A%20delete%20my%20account">privacy@tryioi.com</a> from the
               address you sign in with, and it’s done within 30 days.
             </li>
-            <li>Clearing this site’s data in your browser removes the plan and deals kept there.</li>
           </ul>
           {user && <DeleteAccount />}
         </DocSection>

@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  DEMO_PLAN,
   periodLabel,
   starterDeal,
   type CompPlan,
   type DealInput,
-  type OpeningInput,
   type PeriodToDate,
   type QuarterToDate,
   type Quote,
@@ -22,7 +20,6 @@ import DiscountSlider from '@/components/DiscountSlider';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
 import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
-import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
 import { WelcomeBack } from '@/components/Landing';
@@ -99,13 +96,8 @@ export default function DealStage({
   qtd,
   demo,
   onSave,
-  onSavePlan,
-  onSaveOpening,
-  onStartOver,
   initialDeal,
   intro,
-  sample = true,
-  account = false,
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
@@ -118,21 +110,9 @@ export default function DealStage({
   qtd?: QuarterToDate | null;
   demo: boolean;
   onSave: (deal: DealInput) => Promise<{ error?: string }>;
-  /** Demo only: swap in the visitor's own plan without leaving this page. */
-  onSavePlan?: (plan: CompPlan) => Promise<{ error?: string }>;
-  /** Demo only: where the visitor says they already stand, asked right after their plan goes in. */
-  onSaveOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
-  onStartOver?: () => void;
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
-  /** Demo only: signed out in a browser that has signed in before, so the
-   *  sample card asks them to sign in rather than put a plan in. */
-  account?: boolean;
-  /** Demo only: still on the stock sample plan (the store's own `seeded`
-   *  flag), as opposed to a plan the visitor saved. Keeps sample-deal play
-   *  out of real-usage analytics. */
-  sample?: boolean;
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
   onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
@@ -149,8 +129,6 @@ export default function DealStage({
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
-  const [planSaved, setPlanSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
@@ -159,7 +137,7 @@ export default function DealStage({
   // of their own. No deal builder and no booking. The card plays its one
   // story by itself (useShowcase), then hands the slider over. The builder
   // arrives with their own plan, where its numbers mean something.
-  const showcase = demo && sample && !planSaved;
+  const showcase = demo;
   const script = useMemo(() => (showcase ? showcaseScript(plan, SAMPLE, ptd, qtd ?? null) : null), [showcase, plan, ptd, qtd]);
   // The story's own moves are never the visitor's input: never dirty, so
   // they can't count as a drag or a bonus-line crossing.
@@ -181,56 +159,15 @@ export default function DealStage({
   // nothing to book or save until they make it theirs (or open a quote).
   const starterOnly = !showcase && !active && !dirty;
 
-  // The header's "Put your plan in" works from any page — it links here with
-  // ?plan=1 to open the same inline dialog. A client-side nav to the same
-  // route updates searchParams without remounting this component, so this
-  // has to react to the param on every value it takes, including the first.
+  // Old "?plan=1" links (the plan dialog this page used to open) now go to
+  // creating an account, where a plan is put in.
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (demo && searchParams.get('plan') === '1') {
-      // Syncing to an external signal (the URL) from a sibling route with
-      // no other path to this component's state — the case the lint rule's
-      // own guidance calls out as legitimate.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPlanOpen(true);
-      router.replace('/', { scroll: false });
-    }
+    if (demo && searchParams.get('plan') === '1') router.replace('/signup');
   }, [demo, searchParams, router]);
 
-  // `deal` only reads `initialDeal` on the very first render, which can't yet
-  // know what's in localStorage. A saved custom plan needs a starter shaped to
-  // it and to where the visitor stands (SAMPLE is sized for the stock plan). A
-  // ref latch, not just `!dirty`, so it can never fire again and clobber
-  // startOver()/a later savePlan(), which set `deal` themselves.
-  //
-  // Until the visitor touches it, the starter then follows where they stand
-  // (`starterAt`, the position it was sized for): a starting point added after
-  // their plan went in re-sizes it. Booking a deal stops it following.
-  const caughtUpToSavedState = useRef(false);
   const starterAt = useRef<number | null>(null);
-  useEffect(() => {
-    if (!demo) return;
-    if (!caughtUpToSavedState.current) {
-      if (dirty || JSON.stringify(plan) === JSON.stringify(DEMO_PLAN)) return;
-      caughtUpToSavedState.current = true;
-      // A returning visitor with open quotes comes back to the latest one.
-      const latest = quotes[0];
-      if (latest) {
-        starterAt.current = null;
-        // Catching up to the browser store once it has loaded (an external
-        // system), the same as the starter below.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setActiveQuote(latest.id);
-        setDeal(latest.deal);
-        return;
-      }
-    } else if (dirty || starterAt.current === null || starterAt.current === ptd.creditBooked) {
-      return;
-    }
-    starterAt.current = ptd.creditBooked;
-    setDeal(starterDeal(plan, ptd.creditBooked));
-  }, [demo, plan, dirty, ptd.creditBooked, quotes]);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
@@ -255,7 +192,7 @@ export default function DealStage({
   // ahead, click this", exactly wrong while the page says this costs you.
   const isCostly = copy.secondary?.tone === 'red' || xCopy?.tone === 'red';
 
-  const ctx: TrackContext = !demo ? 'account' : sample ? 'sample' : 'own';
+  const ctx: TrackContext = demo ? 'sample' : 'account';
   // The signature moment: a discount the rep chose just cost them a bonus
   // tier. Only counted when their own edit caused it (dirty), never a deal
   // that loads already past the line.
@@ -367,38 +304,15 @@ export default function DealStage({
   // On the sample: put the whole sample back. On your own plan: an open quote
   // goes back to how it was saved, anything else to a fresh starter. Your plan
   // and booked deals stay.
-  const ownPlan = !showcase;
   function startOver() {
-    if (active) {
-      setDeal(active.deal);
-    } else if (ownPlan) {
-      starterAt.current = demo ? ptd.creditBooked : null;
+    if (active) setDeal(active.deal);
+    else if (showcase) setDeal(SAMPLE);
+    else {
+      starterAt.current = null;
       setDeal(starterDeal(plan, ptd.creditBooked));
-    } else {
-      onStartOver?.();
-      setDeal(SAMPLE);
-      setPlanSaved(false);
     }
     setDirty(false);
     setMsg({});
-  }
-
-  // Swapping in a real plan leaves the sample deal's numbers behind too —
-  // they were sized for the sample plan's quota, not this one.
-  async function savePlan(p: CompPlan) {
-    const res = await onSavePlan!(p);
-    if (!res.error) {
-      // The dialog stays open on its "saved" step; the deal behind it updates
-      // now, sized from a standing start, and re-sizes itself (starterAt) once
-      // the store reports where the visitor really stands.
-      caughtUpToSavedState.current = true;
-      starterAt.current = -1;
-      setDeal(starterDeal(p, 0));
-      setDirty(false);
-      setMsg({});
-      setPlanSaved(true);
-    }
-    return res;
   }
 
   const { r } = o;
@@ -428,7 +342,7 @@ export default function DealStage({
 
   const introBlock = intro ?? (
     <div className="ds-title">
-      <WelcomeBack plan={plan} ptd={ptd} qtd={qtd ?? null} label={label} planSaved={planSaved} />
+      <WelcomeBack plan={plan} ptd={ptd} qtd={qtd ?? null} label={label} />
       {quotesOn && (
         <QuotesRail
           plan={plan}
@@ -526,14 +440,6 @@ export default function DealStage({
                   </p>
                 ) : (
                   <>
-                    {demo && !showcase && (
-                      <p className="dc-note">
-                        <b>{planSaved ? 'Your plan is in.' : 'Your plan.'}</b>{' '}
-                        <Link className="btn-text" href="/login">
-                          Sign in to keep it on any device &rarr;
-                        </Link>
-                      </p>
-                    )}
                     {!demo && (
                       <p className="dc-note">
                         <b>{plan.role_name}</b> · {label}
@@ -679,26 +585,7 @@ export default function DealStage({
                           See where you stand &rarr;
                         </Link>
                       </p>
-                      {demo && (
-                        <p className="after-note">
-                          Saved in this browser only ·{' '}
-                          <Link className="btn-text" href="/login">
-                            Sign in to keep it &rarr;
-                          </Link>
-                          {' · '}
-                          <Link className="btn-text" href="/history">
-                            See it in your deals &rarr;
-                          </Link>
-                        </p>
-                      )}
                     </>
-                  )}
-                  {!msg.booked && !msg.error && demo && dirty && (
-                    <p className="after">
-                      <Link className="btn-text" href="/login">
-                        Sign in to keep it &rarr;
-                      </Link>
-                    </p>
                   )}
                 </div>
                 )}
@@ -707,21 +594,10 @@ export default function DealStage({
               {/* After the story, never between a verdict and the control that acts on it. */}
               {showcase && (
                 <footer className="dc-promo">
-                  {account ? (
-                    <>
-                      <p>Every plan has a line like this. Sign in to see where yours is.</p>
-                      <Link className="btn btn-sun" href="/login">
-                        Sign in
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <p>Every plan has a line like this. Put yours in and see where it is.</p>
-                      <button type="button" className="btn btn-sun" onClick={() => setPlanOpen(true)}>
-                        Put your plan in
-                      </button>
-                    </>
-                  )}
+                  <p>Every plan has a line like this. Put yours in and see where it is.</p>
+                  <Link className="btn btn-sun" href="/signup">
+                    Put your plan in
+                  </Link>
                 </footer>
               )}
             </article>
@@ -770,9 +646,6 @@ export default function DealStage({
         </div>
       </section>
 
-      {demo && planOpen && onSavePlan && (
-        <PlanDialog onSave={savePlan} onOpening={onSaveOpening} onClose={() => setPlanOpen(false)} />
-      )}
     </>
   );
 }
