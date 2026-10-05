@@ -763,6 +763,10 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
 }
 .hero-lede { margin-top: 26px; max-width: 30em; font: 400 19.5px/1.5 var(--ui); color: var(--ink-2); text-wrap: pretty; }
 .hero-lede b { font-weight: 600; color: var(--ink); }
+/* The returning rep's hero: the landing voice, sized for a headline that's a sentence. */
+.hero.is-standing .hero-h { font-size: 62px; line-height: 1.02; letter-spacing: -0.024em; }
+.hero.is-standing .hero-hl { white-space: normal; }
+.ds-title .quotes { margin-top: 44px; }
 .hero-ctas { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 26px; margin-top: 34px; }
 .hero-try {
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1.5px solid var(--ink);
@@ -1263,6 +1267,7 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
   .ds-grid { grid-template-columns: minmax(0, 1fr) 520px; column-gap: 56px; }
   .ds-aside { padding: 44px 36px 96px; }
   .hero-h { font-size: clamp(56px, calc((100vw - 640px) / 7.7), 80px); }
+  .hero.is-standing .hero-h { font-size: clamp(44px, calc((100vw - 640px) / 11), 62px); }
 }
 
 @media (max-width: 1180px) {
@@ -1277,6 +1282,7 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
   .ds-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; column-gap: 0; }
   .ds-intro { grid-row: 1; padding: 20px 0 40px; }
   .hero-h { font-size: clamp(45px, 9vw, 80px); }
+  .hero.is-standing .hero-h { font-size: clamp(40px, 8vw, 62px); }
   .ds-block { grid-column: 1; grid-row: 2; width: 100%; max-width: 620px; justify-self: center; margin-bottom: 0; min-height: 0; border-radius: 36px; }
   .ds-aside { grid-column: 1; grid-row: 2; width: 100%; max-width: 620px; justify-self: center; padding: 36px 28px 40px; }
   .ds-panel { grid-row: 3 / span 2; margin-top: 48px; border-radius: 40px 40px 0 0; }
@@ -1315,6 +1321,7 @@ html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; 
   .ds { padding-top: 10px; }
   .hero-chip { height: 30px; font-size: 12.5px; }
   .hero-h { margin-top: 20px; font-size: clamp(34px, 11.2vw, 45px); line-height: 0.98; }
+  .hero.is-standing .hero-h { font-size: clamp(32px, 9.4vw, 40px); line-height: 1.04; }
   .hero-lede { margin-top: 20px; font-size: 17px; }
   .hero-ctas { margin-top: 26px; gap: 16px 22px; }
   .hero .btn-lg { width: 100%; justify-content: space-between; }

@@ -29,7 +29,7 @@ import {
   type QuarterToDate,
   type QuarterlyKickerTier,
 } from '@/lib/calc';
-import { fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 
 export const EMPTY: DealInput = {
   oneTime: 0, subscription: 0, subMode: 'mrr', units: 1,
@@ -338,6 +338,98 @@ export function kickerGroundingDetail(plan: CompPlan, qtd: QuarterToDate | null)
       ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
       : '';
   return `Already booked this quarter: ${fmtMoney(qtd.saasArrBooked)} of ${fmtMoney(kicker.target)} (${fmtPctShort(s.attainmentPct)})${tail}`;
+}
+
+// ── Welcome back ────────────────────────────────────────────────────────────
+
+/** The returning rep's opening line: what's at stake right now, said the way
+ *  the landing page says it. `head` is the headline in pieces, the figure or
+ *  phrase that matters marked `hl` (it gets the sunflower underline). */
+export type Standing = {
+  head: { text: string; hl?: boolean }[];
+  lede: string;
+  /** Where they stand this period, one line. */
+  note: string;
+};
+
+/**
+ * The nearest thing the rep can win or lose, in order: a Quarterly Bonus not
+ * yet reached, the next accelerator step, a Quarterly Bonus already locked in,
+ * an accelerator they're past, and without any of those, quota. Pure: the
+ * same position always reads the same way, and it moves as they book deals.
+ */
+export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate | null, label: string): Standing {
+  const s = periodSummary(plan, ptd);
+  const k = qtd ? quarterlyKickerSummary(plan, qtd) : null;
+  const kicker = plan.quarterly_kicker;
+  const noun = periodNoun(plan);
+  const retro = plan.accelerator_style === 'retro_bump';
+  const tiers = kicker ? [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct) : [];
+  const name = (t: QuarterlyKickerTier) => tierName(tiers.findIndex((x) => x.attainmentPct === t.attainmentPct) + 1);
+  const worth = (t: QuarterlyKickerTier) => (isFixedTier(t) ? fmtMoney(t.amount as number) : `+${fmtPctShort(t.kickerPct)} on the quarter’s SaaS commission`);
+
+  const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
+  const note =
+    plan.quota_basis === 'arr'
+      ? `${label} · ${fmtMoney(ptd.creditBooked)} booked toward your ${fmtMoney(plan.quota)} quota, ${pct}% there.`
+      : `${label} · ${Math.round(ptd.creditBooked)} of ${fmtCredit(plan, plan.quota)}, ${pct}% there.`;
+  const ask = 'Drag the discount before you make the offer.';
+
+  const nothing = ptd.creditBooked === 0 && (!qtd || qtd.saasArrBooked === 0);
+  if (nothing) {
+    return {
+      head: [{ text: 'Nothing booked', hl: true }, { text: ` yet this ${noun}.` }],
+      lede: 'Price your first deal before you quote it: what it pays, what a discount costs, and where your line is.',
+      note,
+    };
+  }
+
+  if (k && !k.tier && k.nextTier) {
+    return {
+      head: [{ text: fmt(k.toNextTierArr), hl: true }, { text: ` more new ARR unlocks your ${name(k.nextTier)}.` }],
+      lede: `Worth ${worth(k.nextTier)}. Your next quote can win it or lose it. ${ask}`,
+      note,
+    };
+  }
+
+  if (s.next) {
+    const first = !s.step;
+    const unlock = retro ? ((s.next.rate - (s.step?.rate ?? 0)) / 100) * ptd.commissionBooked : 0;
+    return {
+      head: [{ text: fmtCredit(plan, s.toAccelerator), hl: true }, { text: ` from your ${first ? 'accelerator' : 'next accelerator step'}.` }],
+      lede:
+        retro && unlock > 0
+          ? `Crossing it unlocks ${fmtMoney(unlock)} on the deals you’ve already closed. ${ask}`
+          : retro
+            ? `Past it, the whole ${noun}’s commission goes up ${fmtPctShort(s.next.rate)}. ${ask}`
+            : `Past it, every deal earns ${fmtRateShort(plan, s.next.rate)}. ${ask}`,
+      note,
+    };
+  }
+
+  if (k?.tier) {
+    return {
+      head: [{ text: `Your ${name(k.tier)} is ` }, { text: 'locked in', hl: true }, { text: '.' }],
+      lede: `Worth ${fmtMoney(k.bumpValue)} so far.${k.nextTier ? ` ${fmt(k.toNextTierArr)} more new ARR reaches your ${name(k.nextTier)}.` : ''} ${ask}`,
+      note,
+    };
+  }
+
+  if (s.step) {
+    return {
+      head: [{ text: 'You’re ' }, { text: 'past your accelerator', hl: true }, { text: '.' }],
+      lede: `Every deal this ${noun} ${retro ? `pays ${fmtPctShort(s.step.rate)} more` : `earns ${fmtRateShort(plan, s.step.rate)}`}. Each discount from here comes straight out of your commission.`,
+      note,
+    };
+  }
+
+  return s.attained
+    ? { head: [{ text: 'Quota made', hl: true }, { text: '.' }], lede: `Same rate on every deal. ${ask}`, note }
+    : {
+        head: [{ text: fmtCredit(plan, s.toQuota), hl: true }, { text: ' to quota.' }],
+        lede: `Same rate on every deal. ${ask}`,
+        note,
+      };
 }
 
 // ── Copy ────────────────────────────────────────────────────────────────────

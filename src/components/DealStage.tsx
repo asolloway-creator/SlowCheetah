@@ -25,6 +25,7 @@ import TweenedMoney from '@/components/TweenedMoney';
 import PlanDialog from '@/components/PlanDialog';
 import KickerOutcome from '@/components/KickerOutcome';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
+import { WelcomeBack } from '@/components/Landing';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import {
   EMPTY,
@@ -423,12 +424,7 @@ export default function DealStage({
 
   const introBlock = intro ?? (
     <div className="ds-title">
-      <h1 className="page-title">New deal · {label}</h1>
-      <p className="ds-title-sub">
-        {quotesOn
-          ? 'Drag the discount before you quote it. Save it while it’s open, and book it when it closes.'
-          : 'Drag the discount before you quote it. Book it when it’s right.'}
-      </p>
+      <WelcomeBack plan={plan} ptd={ptd} qtd={qtd ?? null} label={label} planSaved={planSaved} />
       {quotesOn && (
         <QuotesRail
           plan={plan}

@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import type { CompPlan, PeriodToDate, QuarterToDate } from '@/lib/calc';
+import { standing } from '@/components/opening';
 import Sculpture from '@/components/Sculpture';
 import { SHOWCASE_EVENT } from '@/components/useShowcase';
 
@@ -43,6 +45,62 @@ export function LandingHero() {
         </button>
       </div>
       <p className="hero-note">Free. No sign-up. Your plan stays anonymous.</p>
+    </div>
+  );
+}
+
+/**
+ * The returning rep's intro, in the landing page's voice: a welcome, then the
+ * one thing they can win or lose right now as the headline (standing() in
+ * opening.ts), and where they stand underneath. The deal page below it is
+ * their tool; this is the greeting.
+ */
+export function WelcomeBack({
+  plan,
+  ptd,
+  qtd,
+  label,
+  planSaved,
+}: {
+  plan: CompPlan;
+  ptd: PeriodToDate;
+  qtd: QuarterToDate | null;
+  label: string;
+  /** They just put the plan in, so it's not yet a "back". */
+  planSaved: boolean;
+}) {
+  const s = standing(plan, ptd, qtd, label);
+  return (
+    <div className="hero is-standing">
+      <p className="hero-chip">
+        <span className="mark-dot" aria-hidden="true" />
+        {planSaved ? 'Your plan is in' : `Welcome back · ${label}`}
+      </p>
+      <h1 className="hero-h">
+        {s.head.map((h, i) =>
+          h.hl ? (
+            <span key={i} className="hero-hl">
+              {h.text}
+            </span>
+          ) : (
+            <span key={i}>{h.text}</span>
+          ),
+        )}
+      </h1>
+      <p className="hero-lede">{s.lede}</p>
+      <div className="hero-ctas">
+        <Link className="btn btn-primary btn-lg" href="/quota">
+          See where you stand
+          <span className="btn-arrow">
+            <Arrow />
+          </span>
+        </Link>
+        <Link className="hero-try" href="/plan">
+          Your plan
+          <Arrow />
+        </Link>
+      </div>
+      <p className="hero-note">{s.note}</p>
     </div>
   );
 }

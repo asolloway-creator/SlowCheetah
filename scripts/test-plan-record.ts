@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { calc, DEMO_PLAN, kickerTierValue, periodSummary, periodToDateFrom, PRESETS, quarterlyKickerSummary, type CompPlan, type DealInput } from '@/lib/calc';
 import { planSentence } from '@/lib/format';
-import { crossEffect, dealLine, holdLinePct, kickerOutcomeCopy, outcome, outcomeCopy, quarterLine } from '@/components/opening';
+import { crossEffect, dealLine, holdLinePct, kickerOutcomeCopy, outcome, outcomeCopy, quarterLine, standing } from '@/components/opening';
 import { cleanTitle, NO_CHOICES, PlanRecord, recordFromWire, wireFromRecord, type WireRead } from '@/lib/plan-record/schema';
 import { mapRecord, mergeFormIntoRecord, recordFromPlan } from '@/lib/plan-record/map';
 import { applyAnswer, assumedText, limitCopy, question, readback, workedExample } from '@/lib/plan-record/copy';
@@ -305,6 +305,30 @@ test('a discount that keeps a deal under the next step says so, and hold the lin
   assert.match(quarter.marker, /\$187,500 · 15% from here/);
   assert.equal(quarter.crossed, false);
   assert.equal(quarter.stepXs.length, 1);
+});
+
+test('the welcome headline is the nearest thing to win or lose, and moves as they book', () => {
+  const head = (x: ReturnType<typeof standing>) => x.head.map((h) => h.text).join('');
+  const label = 'Q4 2026';
+  const bonus: CompPlan = { ...STEPPED, accelerator_steps: undefined, quarterly_kicker: { target: 150000, tiers: [{ attainmentPct: 100, kickerPct: 0, amount: 9000 }] } };
+  const qtd = (arr: number) => ({ saasArrBooked: arr, saasCommissionBooked: arr * 0.08 });
+  assert.equal(head(standing(bonus, at(0), qtd(0), label)), 'Nothing booked yet this quarter.');
+  assert.equal(head(standing(bonus, at(140000), qtd(140000), label)), '$10,000 more new ARR unlocks your Quarterly Bonus.');
+  assert.match(standing(bonus, at(140000), qtd(140000), label).lede, /^Worth \$9,000\. Your next quote can win it or lose it\./);
+  assert.equal(head(standing(bonus, at(140000), null, label)), '$10,000 from your accelerator.', 'without the quarter in hand, the accelerator is next');
+  assert.equal(head(standing(bonus, at(160000), qtd(160000), label)), 'Your Quarterly Bonus is locked in.', 'a locked-in bonus outranks being past the accelerator');
+  assert.equal(head(standing(STEPPED, at(160000), null, label)), '$27,500 from your next accelerator step.');
+  assert.equal(head(standing(STEPPED, at(190000), null, label)), 'You’re past your accelerator.');
+  const noAccel: CompPlan = { ...STEPPED, accelerator_style: 'none', accelerator_steps: undefined, accelerator_threshold: 0, accelerator_rate: 0, quarterly_kicker: bonus.quarterly_kicker };
+  assert.equal(head(standing(noAccel, at(160000), qtd(160000), label)), 'Your Quarterly Bonus is locked in.');
+  assert.equal(head(standing({ ...noAccel, quarterly_kicker: null }, at(100000), null, label)), '$50,000 to quota.');
+  assert.equal(head(standing({ ...noAccel, quarterly_kicker: null }, at(150000), null, label)), 'Quota made.');
+  const units = standing(PRESETS.find((x) => x.id === 'units-switch')!.plan, at(6), null, 'October 2026');
+  assert.equal(units.note, 'October 2026 · 6 of 8 units, 75% there.');
+  assert.equal(head(units), '2 units from your accelerator.');
+  const retro = standing(PRESETS.find((x) => x.id === 'arr-retro')!.plan, periodToDateFrom([{ quota_credit: 60000, commission_base: 10000, commission_earned: 10000 }]), null, label);
+  assert.match(retro.lede, /^Crossing it unlocks \$2,500 on the deals you’ve already closed\./);
+  for (const t of [...retro.head.map((h) => h.text), retro.lede, retro.note]) assert.ok(!EM_DASH.test(t));
 });
 
 test('a plan with steps survives record -> plan, and reads as one line', () => {
