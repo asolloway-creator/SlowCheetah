@@ -20,7 +20,9 @@ function StillSlider({ pct, line, lost }: { pct: number; line: number; lost: boo
       </span>
       <span className="still-slider-line" />
       <span className="still-slider-thumb" />
-      <span className="still-slider-chip">{fmtPctShort(line)}</span>
+      <span className="still-slider-chip">
+        Bonus line <b>{fmtPctShort(line)}</b>
+      </span>
     </div>
   );
 }

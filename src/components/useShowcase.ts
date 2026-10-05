@@ -94,10 +94,13 @@ export function useShowcase({
         raf.current = requestAnimationFrame(frame);
       });
 
+    // Paced so the bonus is lost about two seconds after the card comes into
+    // view (on the sample, the glide crosses the line 82% of the way through),
+    // then held long enough to read what it cost.
     setDiscount(0);
     setBeat('ask');
-    if (!(await wait(500))) return;
-    if (!(await glide(0, ask, 1700, easeInOut))) return;
+    if (!(await wait(250))) return;
+    if (!(await glide(0, ask, 1450, easeInOut))) return;
     if (!(await wait(1800))) return;
     setBeat('hold');
     setHint('glow');
@@ -120,7 +123,7 @@ export function useShowcase({
         if (!e.isIntersecting || played.current) return;
         played.current = true;
         io.disconnect();
-        t = window.setTimeout(() => void play(), 700);
+        t = window.setTimeout(() => void play(), 350);
       },
       { threshold: 0.45 },
     );

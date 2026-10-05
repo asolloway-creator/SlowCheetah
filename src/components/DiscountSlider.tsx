@@ -220,8 +220,14 @@ export default function DiscountSlider({
     );
   }
 
-  // Scale labels that would collide with the line's own value chip step aside.
-  const clearOfLine = (v: number) => kx == null || Math.abs(v - kx) > 7;
+  // Scale labels that would collide with the line's own chip step aside. The
+  // chip is about 120px wide: a fifth of the track on a laptop, closer to a
+  // third on a phone, where CSS also hides the `is-near` ones. Near either
+  // end it's held inside the track, so it sits no closer to the edge than
+  // its own half-width.
+  const chipAt = kx == null ? null : Math.min(Math.max(kx, 17), 83);
+  const clearOfLine = (v: number) => chipAt == null || Math.abs(v - chipAt) > 21;
+  const nearLine = (v: number) => chipAt != null && Math.abs(v - chipAt) <= 31;
 
   return (
     <div className={cls} style={style}>
@@ -234,21 +240,23 @@ export default function DiscountSlider({
       </div>
       <div className="slider-body">
         {bubble}
-        {kx != null && (
-          <>
-            <span className="slider-flank is-kept" aria-hidden="true">
-              <i />
-              <span>
-                <span className="slider-flank-long">Bonus </span>kept
-              </span>
+        {/* Each side's label only where it fits: a line at 5% leaves no room
+            for "Bonus kept" to its left. */}
+        {kx != null && kx >= 20 && (
+          <span className="slider-flank is-kept" aria-hidden="true">
+            <i />
+            <span>
+              <span className="slider-flank-long">Bonus </span>kept
             </span>
-            <span className="slider-flank is-lost" aria-hidden="true">
-              <i />
-              <span>
-                <span className="slider-flank-long">Bonus </span>lost
-              </span>
+          </span>
+        )}
+        {kx != null && kx <= 80 && (
+          <span className="slider-flank is-lost" aria-hidden="true">
+            <i />
+            <span>
+              <span className="slider-flank-long">Bonus </span>lost
             </span>
-          </>
+          </span>
         )}
         <span className="slider-track">
           {kx != null && <span className="slider-zone" />}
@@ -265,11 +273,19 @@ export default function DiscountSlider({
             <span key={v} className={`slider-tick${v % 25 === 0 ? ' is-major' : ''}`} style={{ '--v': String(v) } as CSSProperties} />
           ))}
           {MAJOR.filter(clearOfLine).map((v) => (
-            <span key={v} className="slider-tick-label" style={{ '--v': String(v) } as CSSProperties}>
+            <span
+              key={v}
+              className={`slider-tick-label${nearLine(v) ? ' is-near' : ''}`}
+              style={{ '--v': String(v) } as CSSProperties}
+            >
               {v}%
             </span>
           ))}
-          {kx != null && <span className="slider-line-chip">{fmtPctShort(kx)}</span>}
+          {kx != null && (
+            <span className="slider-line-chip">
+              Bonus line <b>{fmtPctShort(kx)}</b>
+            </span>
+          )}
         </div>
       </div>
       <div className="slider-foot">

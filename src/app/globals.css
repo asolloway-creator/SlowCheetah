@@ -294,7 +294,7 @@ button.bubble:disabled { background: var(--line-2); box-shadow: none; }
 .slider.is-disabled .slider-fill { display: none; }
 .slider:has(.slider-input:active) .slider-fill, .slider:has(.slider-input:active) .bubble { transition: none; }
 
-.slider-scale { position: absolute; left: 0; right: 0; top: 96px; height: 40px; pointer-events: none; }
+.slider-scale { position: absolute; left: 0; right: 0; top: 96px; height: 40px; pointer-events: none; container-type: inline-size; }
 .slider-tick {
   position: absolute; top: 0; width: 1px; height: 5px; background: var(--line-2);
   left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--v) / 100); transform: translateX(-0.5px);
@@ -305,13 +305,17 @@ button.bubble:disabled { background: var(--line-2); box-shadow: none; }
   left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--v) / 100);
   font: 500 11.5px/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+/* Centred under the line, but never past either end of the track: a line at
+   2% or 98% still gets its whole label. */
 .slider-line-chip {
-  position: absolute; top: 10px; transform: translateX(-50%);
-  left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--kx) / 100);
+  position: absolute; top: 10px; left: 0;
+  translate: clamp(0px, calc(var(--tw) / 2 + (100cqw - var(--tw)) * var(--kx) / 100 - 50%), calc(100cqw - 100%));
   padding: 5px 8px 4px; border-radius: 6px; background: var(--ink); color: var(--white);
-  font: 700 12px/1 var(--ui); font-variant-numeric: tabular-nums; white-space: nowrap;
+  font: 550 12px/1 var(--ui); font-variant-numeric: tabular-nums; white-space: nowrap;
   transition: background-color var(--dur-2) var(--ease-out);
 }
+.slider-line-chip b { font-weight: 750; }
+@container (max-width: 399px) { .slider-tick-label.is-near { display: none; } }
 .slider.is-tier-crossed .slider-line-chip { background: var(--red); }
 .slider-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
 .slider-caption { font: 500 14px/1.45 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -443,6 +447,11 @@ table.deals { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .container-auth { max-width: calc(var(--container-auth) + 2 * var(--gutter)); }
 main { display: block; padding-bottom: 80px; }
 .main-full { padding-bottom: 0; }
+/* Signed out, the server renders what a visitor without a plan of their own
+   sees. A visitor with one (marked before first paint, lib/demo-flag.ts)
+   waits for their own pages instead of watching the default flash past. */
+html[data-own] main.is-pending,
+html[data-own] .masthead-bar.is-pending > :not(.wordmark) { visibility: hidden; }
 
 /* the floating nav */
 .masthead { position: sticky; top: 14px; z-index: 50; margin-top: 14px; padding: 0 var(--gutter); }
@@ -459,12 +468,24 @@ main { display: block; padding-bottom: 80px; }
 .wordmark-full b { font-weight: 750; color: var(--ink); }
 .nav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .nav a, .nav-link {
-  display: inline-flex; align-items: center; height: 42px; padding: 0 14px; border-radius: 10px;
+  position: relative; display: inline-flex; align-items: center; height: 42px; padding: 0 14px; border-radius: 10px;
   font: 500 15px/1 var(--ui); color: var(--ink-2); text-decoration: none; white-space: nowrap;
   transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
 }
 .nav a:hover, .nav-link:hover { background: var(--cream); color: var(--ink); }
 .nav a[aria-current="page"], .nav-link[aria-current="page"] { background: var(--cream); color: var(--ink); font-weight: 600; }
+/* A click heard while the next page renders: a bar draws under the label.
+   The delay keeps quick navigations from flickering it. */
+.nav-pending {
+  position: absolute; left: 14px; right: 14px; bottom: 7px; height: 2px; border-radius: 2px;
+  background: var(--sun-lo); opacity: 0; pointer-events: none; transform-origin: left center;
+}
+.nav-pending.is-pending { opacity: 1; animation: nav-pending 1.1s var(--ease-out) 120ms infinite both; }
+@keyframes nav-pending {
+  0% { transform: scaleX(0); opacity: 1; }
+  70% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
 .auth { display: flex; align-items: center; gap: 6px; }
 .auth-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13.5px/1 var(--ui); color: var(--ink-3); padding: 0 6px; }
 
@@ -814,7 +835,7 @@ main { display: block; padding-bottom: 80px; }
 .still-units .is-booked { background: var(--ink); }
 .still-units .is-deal { background: var(--sun); }
 .still-units::after { content: ""; position: absolute; right: -2px; top: -6px; bottom: -6px; width: 3px; border-radius: 2px; background: var(--ink); }
-.still-slider { --tw: 18px; position: relative; height: 84px; margin-top: 4px; }
+.still-slider { --tw: 18px; position: relative; height: 84px; margin-top: 4px; container-type: inline-size; }
 .still-slider-bubble {
   position: absolute; top: 0; transform: translateX(-50%); left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--pct) / 100);
   height: 24px; padding: 0 8px; border-radius: 7px; background: var(--ink); color: var(--on-ink); font: 700 13px/24px var(--display); font-variant-numeric: tabular-nums;
@@ -829,9 +850,11 @@ main { display: block; padding-bottom: 80px; }
   box-shadow: 0 6px 14px -8px rgba(28, 24, 18, 0.6);
 }
 .still-slider-chip {
-  position: absolute; top: 64px; transform: translateX(-50%); left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--kx) / 100);
-  padding: 4px 7px 3px; border-radius: 5px; background: var(--ink); color: var(--white); font: 700 11px/1 var(--ui); font-variant-numeric: tabular-nums;
+  position: absolute; top: 64px; left: 0; white-space: nowrap;
+  translate: clamp(0px, calc(var(--tw) / 2 + (100cqw - var(--tw)) * var(--kx) / 100 - 50%), calc(100cqw - 100%));
+  padding: 4px 7px 3px; border-radius: 5px; background: var(--ink); color: var(--white); font: 550 11px/1 var(--ui); font-variant-numeric: tabular-nums;
 }
+.still-slider-chip b { font-weight: 750; }
 .still-slider.is-lost .still-slider-bubble, .still-slider.is-lost .still-slider-chip, .still-slider.is-lost .still-slider-line { background: var(--red); }
 .still-slider.is-lost .still-slider-fill { background: linear-gradient(90deg, #E7836F, var(--red)); }
 .still-slider.is-lost .still-slider-zone { background: repeating-linear-gradient(135deg, rgba(196, 41, 28, 0.17) 0 4px, transparent 4px 9px); }
@@ -885,16 +908,14 @@ main { display: block; padding-bottom: 80px; }
 .quota-start-edit .cap-actions { margin-top: 18px; }
 .auth-actions { margin-top: 24px; }
 
-/* Loading/error route boundaries — no Shell, their own centred frame. */
+/* The error boundary: no Shell, its own centred frame. */
 .state-page {
   min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 24px; padding: 80px var(--gutter); text-align: center;
 }
 .state-page-body { max-width: var(--container-auth); }
 .state-page-body .page-title { margin-top: 0; }
-.state-page-text { margin-top: 16px; color: var(--ink-3); animation: state-pulse 1.6s var(--ease-out) infinite; }
 .state-page-actions { margin-top: 24px; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
-@keyframes state-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 
 /* ---------- admin dashboard ---------------------------------------------- */
 /* One chart colour: a deep amber from the sunflower family that holds 3:1
@@ -1279,6 +1300,7 @@ main { display: block; padding-bottom: 80px; }
   .wordmark-full { padding-left: 0; border-left: 0; font-size: 10.5px; line-height: 1; }
   .hide-sm { display: none; }
   .nav a, .nav-link { height: 38px; padding: 0 9px; font-size: 14px; }
+  .nav-pending { left: 9px; right: 9px; bottom: 5px; }
   .masthead .btn { height: 42px; padding: 0 13px; font-size: 14px; border-radius: 11px; }
   .auth-email { display: none; }
   .ds { padding-top: 10px; }
@@ -1370,7 +1392,7 @@ main { display: block; padding-bottom: 80px; }
   html { scroll-behavior: auto; }
   .nudge-ring { animation: none; display: none; }
   .line-bar, .line-ring.is-pulsing, .slider-tier-ring, .kicker-outcome.is-flipping, .kicker-outcome.is-settling, .live-pill i,
-  .dialog-scrim, .dialog-panel, .state-page-text { animation: none; }
+  .dialog-scrim, .dialog-panel, .nav-pending.is-pending { animation: none; }
   .line-bar, .line-ghost, .line-ring, .slider-fill, .bubble, .pinned, .btn,
   .slider-input::-webkit-slider-thumb, .slider-input::-moz-range-thumb {
     transition-property: color, background-color, border-color, opacity, box-shadow, visibility;

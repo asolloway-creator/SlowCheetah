@@ -13,9 +13,13 @@ import { ClosingCta, LandingHero } from '@/components/Landing';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 
 /**
- * Demo mode: the whole app against the visitor's browser. The stage renders
- * the sample's fixed position (OPENING_PTD/OPENING_QTD) before the store is
- * ready, so the first paint is the same frame a fresh visitor hydrates into.
+ * Demo mode: the whole app against the visitor's browser. The server can't
+ * see the browser store, so every view renders what a visitor without a plan
+ * of their own sees until it loads: the pitch over the sample's fixed
+ * position (OPENING_PTD/OPENING_QTD) on the deal page, the put-your-plan-in
+ * pages elsewhere. A first visit hydrates into the same frame, and crawlers
+ * get real pages. `pending` keeps that default out of sight for a visitor
+ * who has a plan of their own (lib/demo-flag.ts).
  */
 export function DemoDeal() {
   const d = useDemoStore();
@@ -25,7 +29,7 @@ export function DemoDeal() {
   const pitch = d.seeded;
 
   return (
-    <Shell current="/" email={null} width="full" own={d.ready && !d.seeded}>
+    <Shell current="/" email={null} width="full" own={d.ready && !d.seeded} pending={!d.ready}>
       <DealStage
         plan={d.ready ? d.plan : DEMO_PLAN}
         ptd={d.ready ? d.ptd : OPENING_PTD}
@@ -53,20 +57,12 @@ export function DemoDeal() {
 export function DemoQuota() {
   const d = useDemoStore();
   return (
-    <Shell current="/quota" email={null} width="narrow" own={d.ready && !d.seeded}>
-      {d.ready &&
-        (d.seeded ? (
-          <PlanFirst page="quota" />
-        ) : (
-          <QuotaView
-            plan={d.plan}
-            ptd={d.ptd}
-            qtd={d.qtd}
-            deals={d.periodDeals}
-            opening={d.opening}
-            onOpening={d.setOpening}
-          />
-        ))}
+    <Shell current="/quota" email={null} width="narrow" own={d.ready && !d.seeded} pending={!d.ready}>
+      {d.seeded ? (
+        <PlanFirst page="quota" />
+      ) : (
+        <QuotaView plan={d.plan} ptd={d.ptd} qtd={d.qtd} deals={d.periodDeals} opening={d.opening} onOpening={d.setOpening} />
+      )}
     </Shell>
   );
 }
@@ -74,8 +70,8 @@ export function DemoQuota() {
 export function DemoHistory() {
   const d = useDemoStore();
   return (
-    <Shell current="/history" email={null} width="table" own={d.ready && !d.seeded}>
-      {d.ready && (d.seeded ? <PlanFirst page="history" /> : <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo />)}
+    <Shell current="/history" email={null} width="table" own={d.ready && !d.seeded} pending={!d.ready}>
+      {d.seeded ? <PlanFirst page="history" /> : <HistoryView plan={d.plan} deals={d.deals} onDelete={d.deleteDeal} demo />}
     </Shell>
   );
 }
@@ -83,10 +79,19 @@ export function DemoHistory() {
 export function DemoPlan() {
   const d = useDemoStore();
   return (
-    <Shell current="/plan" email={null} width="plan" own={d.ready && !d.seeded}>
+    <Shell current="/plan" email={null} width="plan" own={d.ready && !d.seeded} pending={!d.ready}>
       {/* The stock sample isn't anyone's plan: a visitor who hasn't put theirs
-          in yet starts by describing it, not by editing the sample. */}
-      {d.ready && <PlanCapture current={d.seeded ? null : d.plan} onSave={d.savePlan} onOpening={d.setOpening} account={false} />}
+          in yet starts by describing it, not by editing the sample. Where it
+          opens depends on whether there's a plan, which only the loaded store
+          knows, so it starts over once it has (keyed on `ready`, not on
+          `seeded`, which flips mid-flow when a first plan is saved). */}
+      <PlanCapture
+        key={d.ready ? 'ready' : 'pending'}
+        current={d.seeded ? null : d.plan}
+        onSave={d.savePlan}
+        onOpening={d.setOpening}
+        account={false}
+      />
     </Shell>
   );
 }

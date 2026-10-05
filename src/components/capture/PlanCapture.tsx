@@ -80,6 +80,9 @@ export default function PlanCapture({
   const [filedId, setFiledId] = useState<string | null>(null);
   const [calculable, setCalculable] = useState(true);
   const [savedPlan, setSavedPlan] = useState<CompPlan | null>(null);
+  // Where they already stand is asked about a first plan only. Fixed at mount:
+  // saving that plan hands `current` back filled in before the Saved step shows.
+  const [firstPlan] = useState(current === null);
 
   const mapping = useMemo(() => (record ? mapRecord(record, choices) : null), [record, choices]);
 
@@ -253,7 +256,7 @@ export default function PlanCapture({
       <SavedStep
         calculable={calculable}
         plan={savedPlan}
-        onOpening={!current && onOpening ? onOpening : null}
+        onOpening={firstPlan && onOpening ? onOpening : null}
         onContext={filedId ? context : null}
         onDone={finish}
         doneLabel={onDone || calculable ? doneLabel : 'Done'}

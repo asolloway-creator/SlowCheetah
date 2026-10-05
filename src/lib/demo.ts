@@ -22,6 +22,7 @@ import {
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { track } from '@/lib/track';
+import { DEMO_KEY } from '@/lib/demo-flag';
 
 /**
  * Demo mode: the whole app running against the visitor's browser. Deals never
@@ -36,7 +37,7 @@ import { track } from '@/lib/track';
  * book here.
  */
 
-const KEY = 'ioi-demo-v3';
+const KEY = DEMO_KEY;
 /** v4: no seeded or synthetic deals; `opening` instead. */
 const VERSION = 4;
 
