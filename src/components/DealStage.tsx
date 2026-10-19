@@ -348,6 +348,25 @@ export default function DealStage({
   const accelMoment = o.state === 'crossed' || o.state === 'past';
 
   const app = variant === 'app';
+  // The card rides beside the fields and the booked deals. Taller than the
+  // window, it scrolls until its bottom shows, then holds there (a sticky
+  // top that's negative by the overhang); shorter, it holds under the bar.
+  useEffect(() => {
+    if (!app) return;
+    const inner = document.querySelector<HTMLElement>('.ds.is-app .ds-aside-inner');
+    if (!inner) return;
+    const place = () => {
+      inner.style.setProperty('--stick', `${Math.min(72, window.innerHeight - inner.offsetHeight - 16)}px`);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(inner);
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [app]);
   // In the workspace, a quote opened on a phone has its card below the list:
   // bring it into view (on a wide screen it's already beside it). A new deal
   // goes straight to its first field.
@@ -553,7 +572,8 @@ export default function DealStage({
                       </p>
                     </div>
                     <KickerOutcome copy={xCopy} />
-                    {groundingDetail && <p className="dc-quarter">{groundingDetail}</p>}
+                    {/* The workspace's numbers strip already says where the quarter stands. */}
+                    {groundingDetail && !app && <p className="dc-quarter">{groundingDetail}</p>}
                   </div>
                 )}
 
@@ -643,8 +663,9 @@ export default function DealStage({
               )}
             </article>
 
-            {/* Empty, it would only repeat the standing above it. */}
-            {!showcase && !empty && (
+            {/* Empty, it would only repeat the standing above it; in the
+                workspace, "Lands the quarter at" and the strip cover it. */}
+            {!showcase && !empty && !app && (
               <div className="period-card">
                 <p className="period-card-h">{noun === 'quarter' ? 'Quarter' : 'Month'} to date</p>
                 <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
@@ -687,8 +708,8 @@ export default function DealStage({
               hidden={copy.figure === null}
             />
           )}
+          {app && after && <div className="ds-after">{after}</div>}
         </div>
-        {app && after && <div className="ds-after">{after}</div>}
       </section>
     </>
   );

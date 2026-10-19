@@ -80,10 +80,10 @@ export default function DevScreens({ view }: { view: string }) {
       </Shell>
     );
   }
-  if (view === 'plan') {
+  if (view === 'plan' || view === 'plan-new') {
     return (
       <Shell current="/plan" email={EMAIL} width="plan">
-        <PlanCapture current={PLAN} onSave={ok} onOpening={ok} account />
+        <PlanCapture current={view === 'plan' ? PLAN : null} onSave={ok} onOpening={ok} account />
       </Shell>
     );
   }
