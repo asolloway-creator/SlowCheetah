@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, listQuotes } from '@/lib/queries';
-import { starterDeal } from '@/lib/calc';
 import { deleteQuoteAction, saveDealAction, saveQuoteAction } from './actions';
 import { Shell } from './AccountViews';
 import { DemoDeal } from './demo/DemoViews';
@@ -21,9 +20,6 @@ export default async function Home() {
     plan.quarterly_kicker ? getQuarterToDate(user.id, plan) : Promise.resolve(null),
     listQuotes(user.id),
   ]);
-  // Never an empty card: back to the quote they were last working, or a deal
-  // sized from where they stand.
-  const latest = quotes[0] ?? null;
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">
@@ -36,8 +32,6 @@ export default async function Home() {
         quotes={quotes}
         onSaveQuote={saveQuoteAction}
         onDeleteQuote={deleteQuoteAction}
-        initialDeal={latest?.deal ?? starterDeal(plan, ptd.creditBooked)}
-        initialQuoteId={latest?.id ?? null}
       />
     </Shell>
   );

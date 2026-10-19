@@ -5,7 +5,6 @@ import {
   periodKey,
   periodToDateFrom,
   quarterToDateFrom,
-  starterDeal,
   withPeriodOpening,
   withQuarterOpening,
   type CompPlan,
@@ -64,10 +63,10 @@ export default function DevScreens({ view }: { view: string }) {
     { id: 'q1', name: 'Q4 expansion', deal: deal(9000), createdAt: day(2).toISOString(), updatedAt: day(1).toISOString() },
   ];
 
-  if (view === 'pipeline') {
+  if (view === 'deals') {
     return (
       <Shell current="/" email={EMAIL} width="full">
-        <DealStage plan={PLAN} ptd={ptd} qtd={qtd} demo={false} onSave={ok} quotes={quotes} onSaveQuote={async () => ({ id: 'q1' })} onDeleteQuote={ok} initialDeal={starterDeal(PLAN, ptd.creditBooked)} />
+        <DealStage plan={PLAN} ptd={ptd} qtd={qtd} demo={false} onSave={ok} quotes={quotes} onSaveQuote={async () => ({ id: 'q1' })} onDeleteQuote={ok} />
       </Shell>
     );
   }

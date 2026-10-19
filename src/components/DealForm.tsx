@@ -81,6 +81,8 @@ export default function DealForm({
             id="sub"
             label="Subscription"
             prefix="$"
+            blankZero
+            placeholder="0"
             suffix={acv ? 'per year' : 'per month'}
             value={deal.subscription}
             onChange={(n) => set('subscription', n)}
@@ -103,7 +105,7 @@ export default function DealForm({
           <div className="deal-col">
             {units}
             <div className="deal-hw">
-              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} onChange={(n) => set('hardware', n)} />
+              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} blankZero placeholder="0" onChange={(n) => set('hardware', n)} />
               <DiscountSlider
                 size="sm"
                 id="hwD"
@@ -130,7 +132,7 @@ export default function DealForm({
         )}
 
         <div className="deal-ot">
-          <NumField id="ot" label={otName} prefix="$" value={deal.oneTime} onChange={(n) => set('oneTime', n)} />
+          <NumField id="ot" label={otName} prefix="$" value={deal.oneTime} blankZero placeholder="0" onChange={(n) => set('oneTime', n)} />
           <DiscountSlider
             size="sm"
             id="otD"

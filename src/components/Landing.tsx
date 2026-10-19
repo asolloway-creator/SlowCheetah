@@ -53,8 +53,8 @@ export function LandingHero() {
 /**
  * The returning rep's intro, in the landing page's voice: a welcome, then the
  * one thing they can win or lose right now as the headline (standing() in
- * opening.ts), and where they stand underneath. The deal page below it is
- * their tool; this is the greeting.
+ * opening.ts), and where they stand underneath. The deal card beside it
+ * carries the page's one primary step; this is the greeting.
  */
 export function WelcomeBack({
   plan,
@@ -86,15 +86,10 @@ export function WelcomeBack({
         )}
       </h1>
       <p className="hero-lede">{s.lede}</p>
+      {/* The page's one primary step is on the deal card; this is the way to the numbers. */}
       <div className="hero-ctas">
-        <Link className="btn btn-primary btn-lg" href="/quota">
+        <Link className="hero-try" href="/quota">
           See where you stand
-          <span className="btn-arrow">
-            <Arrow />
-          </span>
-        </Link>
-        <Link className="hero-try" href="/plan">
-          Edit your plan
           <Arrow />
         </Link>
       </div>

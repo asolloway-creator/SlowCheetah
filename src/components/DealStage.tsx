@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   periodLabel,
-  starterDeal,
   type CompPlan,
   type DealInput,
   type PeriodToDate,
@@ -155,9 +154,6 @@ export default function DealStage({
 
   const quotesOn = !showcase && Boolean(onSaveQuote);
   const active = quotes.find((q) => q.id === activeQuote) ?? null;
-  // A starter deal nobody has touched is IOI's suggestion, not the rep's deal:
-  // nothing to book or save until they make it theirs (or open a quote).
-  const starterOnly = !showcase && !active && !dirty;
 
   // Old "?plan=1" links (the plan dialog this page used to open) now go to
   // creating an account, where a plan is put in.
@@ -167,7 +163,6 @@ export default function DealStage({
     if (demo && searchParams.get('plan') === '1') router.replace('/signup');
   }, [demo, searchParams, router]);
 
-  const starterAt = useRef<number | null>(null);
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
@@ -235,14 +230,12 @@ export default function DealStage({
       }
       setActiveQuote(null);
       setMsg({ booked: true });
-      starterAt.current = null;
       setDeal(EMPTY);
       setDirty(false);
     }
   }
 
   function openQuote(q: Quote) {
-    starterAt.current = null;
     setActiveQuote(q.id);
     setDeal(q.deal);
     setDirty(false);
@@ -252,10 +245,19 @@ export default function DealStage({
     setQuoteError(null);
   }
 
+  // From the empty card to the first field of the builder.
+  function startEntering() {
+    const el = document.getElementById('sub');
+    if (!el) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    el.focus({ preventScroll: true });
+  }
+
+  // A new deal starts empty: nothing on the card until the rep enters it.
   function newDeal() {
-    starterAt.current = demo ? ptd.creditBooked : null;
     setActiveQuote(null);
-    setDeal(starterDeal(plan, ptd.creditBooked));
+    setDeal(EMPTY);
     setDirty(false);
     setMsg({});
     setNaming(false);
@@ -276,7 +278,6 @@ export default function DealStage({
     setQuoteBusy(false);
     if (res.error) return setQuoteError(res.error);
     if (asNew) track('quote_saved', ctx);
-    starterAt.current = null;
     if (res.id) setActiveQuote(res.id);
     setDirty(false);
     setNaming(false);
@@ -302,15 +303,11 @@ export default function DealStage({
   }
 
   // On the sample: put the whole sample back. On your own plan: an open quote
-  // goes back to how it was saved, anything else to a fresh starter. Your plan
+  // goes back to how it was saved, anything else to an empty deal. Your plan
   // and booked deals stay.
   function startOver() {
     if (active) setDeal(active.deal);
-    else if (showcase) setDeal(SAMPLE);
-    else {
-      starterAt.current = null;
-      setDeal(starterDeal(plan, ptd.creditBooked));
-    }
+    else setDeal(showcase ? SAMPLE : EMPTY);
     setDirty(false);
     setMsg({});
   }
@@ -469,16 +466,37 @@ export default function DealStage({
                   </div>
                 )}
 
-                <div className="dc-sec">
-                  {/* The landing card's story is the bonus line; the commission's
-                      own arithmetic would only push the bonus below the fold. */}
-                  <Outcome copy={showcase ? { ...copy, caption: null } : copy} state={o.state} />
-                </div>
+                {empty && !showcase ? (
+                  <div className="dc-sec dc-start">
+                    <p className="dc-start-label">
+                      <span className="sq sq-pays" aria-hidden="true" />
+                      New deal
+                    </p>
+                    <h2 id="outcome-h" className="dc-start-h">
+                      What are you about to quote?
+                    </h2>
+                    <p className="dc-start-p">
+                      Put in the subscription and anything one-time. This card shows what the deal pays you, what each
+                      point of discount costs, and where your accelerator and bonus lines are.
+                    </p>
+                    <button type="button" className="btn btn-primary" onClick={startEntering}>
+                      Start with the subscription <span aria-hidden="true">&darr;</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="dc-sec">
+                      {/* The landing card's story is the bonus line; the commission's
+                          own arithmetic would only push the bonus below the fold. */}
+                      <Outcome copy={showcase ? { ...copy, caption: null } : copy} state={o.state} />
+                    </div>
 
-                <div className="dc-sec">
-                  {slider}
-                  {showcase && <KickerOutcome copy={xCopy} compact />}
-                </div>
+                    <div className="dc-sec">
+                      {slider}
+                      {showcase && <KickerOutcome copy={xCopy} compact />}
+                    </div>
+                  </>
+                )}
 
                 {!showcase && !empty && (
                   <div className="dc-sec">
@@ -506,7 +524,7 @@ export default function DealStage({
                   </div>
                 )}
 
-                {!showcase && (
+                {!showcase && (!empty || naming || Boolean(msg.booked || msg.error || quoteError)) && (
                 <div className="dc-sec">
                   {copy.detail && <p className="dc-detail">{copy.detail}</p>}
                   {!empty && <Ledger className="dc-ledger" rows={rows} />}
@@ -540,6 +558,7 @@ export default function DealStage({
                       </button>
                     </div>
                   ) : (
+                    !empty && (
                     <div className={`book-row${quotesOn ? ' has-quote' : ''}`}>
                       {/* Encouragement only when there's nothing to warn about. */}
                       {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
@@ -549,7 +568,7 @@ export default function DealStage({
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          disabled={quoteBusy || empty || starterOnly || (active !== null && !dirty)}
+                          disabled={quoteBusy || empty || (active !== null && !dirty)}
                           onClick={() => (active ? void saveQuote(false) : setNaming(true))}
                         >
                           {active ? (quoteBusy ? 'Saving…' : dirty ? 'Save changes' : 'Saved') : 'Save as a quote'}
@@ -558,17 +577,13 @@ export default function DealStage({
                       <button
                         type="button"
                         className={`btn btn-block ${showcase ? 'btn-secondary' : 'btn-primary'}`}
-                        disabled={pending || empty || starterOnly}
+                        disabled={pending || empty}
                         onClick={book}
                       >
                         {pending ? 'Booking…' : 'Book this deal'}
                       </button>
                     </div>
-                  )}
-                  {starterOnly && !empty && !msg.booked && (
-                    <p className="after-note">
-                      A starting point, sized from where you stand. Change it to match your deal, then save it or book it.
-                    </p>
+                    )
                   )}
 
                   {quoteError && <p className="after is-error">{quoteError}</p>}
@@ -625,7 +640,7 @@ export default function DealStage({
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                           <path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                        {active && dirty ? 'Undo changes' : 'Reset this deal'}
+                        {active && dirty ? 'Undo changes' : 'Clear this deal'}
                       </button>
                     </p>
                   ) : null

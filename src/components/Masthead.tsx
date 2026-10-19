@@ -5,9 +5,9 @@ import NavLink from '@/components/NavLink';
 import Wordmark from '@/components/Wordmark';
 
 const NAV = [
-  { href: '/', label: 'Pipeline' },
+  { href: '/', label: 'Deals' },
   { href: '/quota', label: 'Where you stand' },
-  { href: '/history', label: 'Booked deals' },
+  { href: '/history', label: 'Booked' },
 ];
 
 /**

@@ -519,7 +519,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
 
   if (o.state === 'empty') {
     return {
-      name: 'Hold the line', nameTone: 'ink', figure: null, figureTone: 'ink', signed: false, caption: null,
+      name: 'New deal', nameTone: 'ink', figure: null, figureTone: 'ink', signed: false, caption: null,
       secondary: null, sentence: 'Enter what you’re selling and this fills itself in.', detail: null, figureText: '',
     };
   }

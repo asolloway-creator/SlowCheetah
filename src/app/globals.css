@@ -493,6 +493,13 @@ main { display: block; padding-bottom: 80px; }
 }
 .acct-item:hover { background: var(--cream); }
 
+/* The deal card before there's a deal: what goes in, and where to start. */
+.dc-start { padding-block: 26px 30px; }
+.dc-start-label { display: flex; align-items: center; gap: 9px; font: 600 13.5px/1.2 var(--ui); color: var(--ink-2); }
+.dc-start-h { margin-top: 18px; font: 750 34px/1.08 var(--display); letter-spacing: -0.025em; color: var(--ink); text-wrap: balance; }
+.dc-start-p { margin-top: 12px; max-width: 34em; font: 500 15.5px/1.55 var(--ui); color: var(--ink-2); }
+.dc-start .btn { margin-top: 22px; }
+
 /* A page's title with its one next step beside it. */
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-top: 56px; }
 .page-head .page-title { margin-top: 0; }

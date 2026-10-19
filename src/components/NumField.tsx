@@ -27,6 +27,8 @@ export default function NumField({
   head,
   disabled,
   stepper = false,
+  blankZero = false,
+  placeholder,
 }: {
   id: string;
   label: string;
@@ -46,15 +48,19 @@ export default function NumField({
   disabled?: boolean;
   /** −/+ buttons either side of the value, stepping by 1 (whole-number fields). */
   stepper?: boolean;
+  /** Show an empty box rather than "0" when nothing's been entered. */
+  blankZero?: boolean;
+  placeholder?: string;
 }) {
+  const shown = (n: number) => (blankZero && n === 0 ? '' : display(n));
   const [focused, setFocused] = useState(false);
-  const [draft, setDraft] = useState(display(value));
+  const [draft, setDraft] = useState(shown(value));
   const [emitted, setEmitted] = useState(value);
 
   // External changes (reset to the sample deal, a preset) refresh the draft.
   if (value !== emitted) {
     setEmitted(value);
-    setDraft(focused ? String(value) : display(value));
+    setDraft(focused ? (blankZero && value === 0 ? '' : String(value)) : shown(value));
   }
 
   function parse(raw: string) {
@@ -74,7 +80,7 @@ export default function NumField({
   function step(dir: 1 | -1) {
     const next = parse(String(value + dir));
     setEmitted(next);
-    setDraft(display(next));
+    setDraft(shown(next));
     onChange(next);
   }
 
@@ -108,11 +114,12 @@ export default function NumField({
           inputMode="decimal"
           autoComplete="off"
           value={draft}
+          placeholder={placeholder}
           disabled={disabled}
           onChange={(e) => handle(e.target.value)}
           onFocus={(e) => {
             setFocused(true);
-            setDraft(String(value));
+            setDraft(blankZero && value === 0 ? '' : String(value));
             // Select the whole value so the first keystroke replaces it —
             // otherwise typing into a field showing "0" inserts at wherever
             // the click landed the cursor (e.g. "0" + "5" = "05"), and the
@@ -125,7 +132,7 @@ export default function NumField({
           }}
           onBlur={() => {
             setFocused(false);
-            setDraft(display(parse(draft)));
+            setDraft(shown(parse(draft)));
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
