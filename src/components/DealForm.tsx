@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { paysHardware, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort, planSentence } from '@/lib/format';
 import NumField from '@/components/NumField';
@@ -19,12 +20,15 @@ export default function DealForm({
   deal,
   set,
   footer,
+  compact = false,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
   deal: DealInput;
   set: Setter;
   footer?: ReactNode;
+  /** In the product: a working label and the plan in one quiet line. */
+  compact?: boolean;
 }) {
   const d = deal.subscriptionDiscountPct;
   const acv = deal.subMode === 'acv';
@@ -52,8 +56,24 @@ export default function DealForm({
     </div>
   );
 
+  const head = compact ? (
+    <div className="deal-top">
+      <h2 id="deal-h" className="app-label">
+        Deal
+      </h2>
+      <p className="deal-plan-line">
+        {planSentence(plan)} ·{' '}
+        <Link className="btn-text" href="/plan">
+          Your plan
+        </Link>
+      </p>
+    </div>
+  ) : null;
+
   return (
-    <section className="deal" aria-labelledby="deal-h">
+    <section className={`deal${compact ? ' is-compact' : ''}`} aria-labelledby="deal-h">
+      {head ?? (
+      <>
       <p className="eyebrow">
         <span className="mark-dot" aria-hidden="true" />
         The deal builder
@@ -74,6 +94,8 @@ export default function DealForm({
             <li key={part}>{part}</li>
           ))}
       </ul>
+      </>
+      )}
 
       <div className="deal-fields">
         <div className="deal-sub">

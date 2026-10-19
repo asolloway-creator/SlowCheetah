@@ -35,6 +35,7 @@ export default function QuotesRail({
   activeId,
   onOpen,
   onNew,
+  compact = false,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -43,9 +44,17 @@ export default function QuotesRail({
   activeId: string | null;
   onOpen: (q: Quote) => void;
   onNew: () => void;
+  /** In the product: a quiet list label, with "New deal" up in the page head. */
+  compact?: boolean;
 }) {
   const noun = periodNoun(plan);
-  const head = (
+  const head = compact ? (
+    <div className="pipe-head">
+      <h2 id="pipe-h" className="app-label">
+        Open quotes{quotes.length > 0 && <span className="app-count">{quotes.length}</span>}
+      </h2>
+    </div>
+  ) : (
     <div className="pipe-head">
       <h2 id="pipe-h" className="pipe-h">
         Your pipeline
@@ -60,7 +69,9 @@ export default function QuotesRail({
       <section className="pipe" aria-labelledby="pipe-h">
         {head}
         <p className="pipe-empty">
-          No open quotes yet. Price a deal below, then save it as a quote to keep it here until it closes.
+          {compact
+            ? 'None yet. Price a deal and save it as a quote to keep it here until it closes.'
+            : 'No open quotes yet. Price a deal below, then save it as a quote to keep it here until it closes.'}
         </p>
       </section>
     );

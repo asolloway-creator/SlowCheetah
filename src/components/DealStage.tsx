@@ -96,6 +96,7 @@ export default function DealStage({
   onSave,
   initialDeal,
   intro,
+  variant = 'stage',
   top,
   after,
   quotes = [],
@@ -113,9 +114,12 @@ export default function DealStage({
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
-  /** Above the stage, given the pipeline to place (the home page's standing
-   *  band). With it, the pipeline leaves the stage's own intro. */
-  top?: (rail: ReactNode) => ReactNode;
+  /** 'app' is the signed-in workspace: no stage dressing (the sunflower
+   *  block, the rising panel, page titles), the open quotes in a column of
+   *  their own beside the fields and the card, everything at working size. */
+  variant?: 'stage' | 'app';
+  /** Above the workspace (the home page's numbers), given "New deal". */
+  top?: (p: { onNew: () => void }) => ReactNode;
   /** Under the deal fields (the home page's booked deals). */
   after?: ReactNode;
   /** The rep's open quotes, most recently worked first. */
@@ -343,16 +347,22 @@ export default function DealStage({
   const [lead, rest] = leadSentence(copy.sentence);
   const accelMoment = o.state === 'crossed' || o.state === 'past';
 
-  // Opened from the pipeline up top, the card is further down the page:
-  // bring it into view. A new deal goes straight to its first field.
-  const toCard = (then: () => void) => () => {
-    then();
-    if (!top) return;
+  const app = variant === 'app';
+  // In the workspace, a quote opened on a phone has its card below the list:
+  // bring it into view (on a wide screen it's already beside it). A new deal
+  // goes straight to its first field.
+  function openFromRail(q: Quote) {
+    openQuote(q);
+    if (!app) return;
     requestAnimationFrame(() => {
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
     });
-  };
+  }
+  function newFromHead() {
+    newDeal();
+    requestAnimationFrame(startEntering);
+  }
   const rail = quotesOn ? (
     <QuotesRail
       plan={plan}
@@ -360,24 +370,13 @@ export default function DealStage({
       qtd={qtd ?? null}
       quotes={quotes}
       activeId={active?.id ?? null}
-      onOpen={(q) => toCard(() => openQuote(q))()}
-      onNew={top ? () => { newDeal(); requestAnimationFrame(startEntering); } : newDeal}
+      onOpen={openFromRail}
+      onNew={newDeal}
+      compact={app}
     />
   ) : null;
 
-  const introBlock =
-    intro ??
-    (top ? (
-      <div className="ds-title ds-lead">
-        <h2 className="ds-lead-h">Price the deal</h2>
-        <p className="ds-lead-p">
-          Open a quote from your pipeline or start a new one. Every number you change moves the card, before the
-          customer sees a price.
-        </p>
-      </div>
-    ) : (
-      <div className="ds-title">{rail}</div>
-    ));
+  const introBlock = intro ?? <div className="ds-title">{rail}</div>;
 
   const slider = (
     <DiscountSlider
@@ -422,16 +421,21 @@ export default function DealStage({
 
   return (
     <>
-      {top?.(rail)}
-      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}`} aria-label="Deal">
+      {top?.({ onNew: newFromHead })}
+      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}`} aria-label="Deal">
         <div className="ds-grid">
-          <div className="ds-intro">{introBlock}</div>
-
-          <div className="ds-block" aria-hidden="true">
-            <span className="ds-block-ring" />
-            <span className="ds-block-ring is-two" />
-          </div>
-          {!showcase && <div className="ds-panel" aria-hidden="true" />}
+          {app ? (
+            <div className="ds-rail">{rail}</div>
+          ) : (
+            <>
+              <div className="ds-intro">{introBlock}</div>
+              <div className="ds-block" aria-hidden="true">
+                <span className="ds-block-ring" />
+                <span className="ds-block-ring is-two" />
+              </div>
+              {!showcase && <div className="ds-panel" aria-hidden="true" />}
+            </>
+          )}
 
           <div className="ds-aside">
             <div className="ds-aside-inner">
@@ -478,10 +482,12 @@ export default function DealStage({
                     Replay
                   </button>
                 ) : (
-                  <span className="live-pill">
-                    <i aria-hidden="true" />
-                    Live
-                  </span>
+                  !app && (
+                    <span className="live-pill">
+                      <i aria-hidden="true" />
+                      Live
+                    </span>
+                  )
                 )}
               </header>
 
@@ -502,11 +508,12 @@ export default function DealStage({
                       What are you about to quote?
                     </h2>
                     <p className="dc-start-p">
-                      Put in the subscription and anything one-time. This card shows what the deal pays you, what each
-                      point of discount costs, and where your accelerator and bonus lines are.
+                      {app
+                        ? 'Enter the subscription and anything one-time. This shows what the deal pays you and what each point of discount costs.'
+                        : 'Put in the subscription and anything one-time. This card shows what the deal pays you, what each point of discount costs, and where your accelerator and bonus lines are.'}
                     </p>
-                    <button type="button" className="btn btn-primary" onClick={startEntering}>
-                      Start with the subscription <span aria-hidden="true">&darr;</span>
+                    <button type="button" className={`btn ${app ? 'btn-secondary' : 'btn-primary'}`} onClick={startEntering}>
+                      {app ? 'Enter the subscription' : 'Start with the subscription'} <span aria-hidden="true">&darr;</span>
                     </button>
                   </div>
                 ) : (
@@ -653,6 +660,7 @@ export default function DealStage({
                 ptd={ptd}
                 deal={deal}
                 set={set}
+                compact={app}
                 footer={
                   dirty || Boolean(msg.booked) ? (
                     <p className="deal-start-over">
@@ -666,7 +674,7 @@ export default function DealStage({
                   ) : null
                 }
               />
-              {after}
+              {!app && after}
             </div>
           )}
 
@@ -680,8 +688,8 @@ export default function DealStage({
             />
           )}
         </div>
+        {app && after && <div className="ds-after">{after}</div>}
       </section>
-
     </>
   );
 }

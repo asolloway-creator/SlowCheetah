@@ -32,7 +32,8 @@ export function Shell({
   return (
     <>
       <Masthead current={current} email={email} />
-      <main className={layout}>{children}</main>
+      {/* Signed in is the product: quiet, working-size UI (.app in globals.css). */}
+      <main className={`${layout}${email ? ' app' : ''}`}>{children}</main>
       <Footer />
     </>
   );

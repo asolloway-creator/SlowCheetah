@@ -3,7 +3,7 @@
 import type { CompPlan, DealInput, Opening, OpeningInput, PeriodToDate, QuarterToDate, Quote } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import DealStage from '@/components/DealStage';
-import StandingBand from '@/components/Standing';
+import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
 
 type Result = { error?: string };
@@ -42,18 +42,19 @@ export default function PipelineHome({
 }) {
   return (
     <DealStage
-        top={(rail) => (
-          <StandingBand plan={plan} ptd={ptd} qtd={qtd} opening={opening} onOpening={onOpening} pipeline={rail} />
-        )}
-        plan={plan}
-        ptd={ptd}
-        qtd={qtd}
-        demo={false}
-        onSave={onSave}
-        quotes={quotes}
-        onSaveQuote={onSaveQuote}
-        onDeleteQuote={onDeleteQuote}
-        after={<BookedList plan={plan} deals={deals} onDelete={onDeleteDeal} />}
-      />
+      plan={plan}
+      ptd={ptd}
+      qtd={qtd}
+      demo={false}
+      variant="app"
+      onSave={onSave}
+      quotes={quotes}
+      onSaveQuote={onSaveQuote}
+      onDeleteQuote={onDeleteQuote}
+      top={({ onNew }) => (
+        <Overview plan={plan} ptd={ptd} qtd={qtd} opening={opening} deals={deals} onOpening={onOpening} onNew={onNew} />
+      )}
+      after={<BookedList plan={plan} deals={deals} onDelete={onDeleteDeal} />}
+    />
   );
 }

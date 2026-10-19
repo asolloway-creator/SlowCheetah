@@ -1459,3 +1459,140 @@ main { display: block; padding-bottom: 80px; }
   .fade-up { animation-name: none; opacity: 1; }
   .btn:active:not(:disabled) { transform: none; }
 }
+
+
+/* =========================================================================
+   The product, signed in. The landing page sells; this is where the work
+   happens, so it goes quiet: a plain top bar, flat white panels on a near
+   neutral page, working-size type, the display face kept for figures.
+   Brand stays where only IOI says something: the one highlighted number,
+   the bonus line, red when a discount crosses it, "Hold the line".
+   ========================================================================= */
+html:has(main.app), body:has(main.app) { background: #FAF8F3; }
+main.app { padding-bottom: 56px; }
+
+.masthead.is-app { top: 0; margin-top: 0; padding: 0; }
+.masthead.is-app.is-tucked { transform: none; opacity: 1; pointer-events: auto; }
+.masthead.is-app .masthead-bar {
+  max-width: none; height: 56px; padding: 0 max(var(--gutter), calc((100% - var(--container)) / 2)) ;
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; background: rgba(255, 255, 255, 0.92);
+}
+.masthead.is-app .wordmark-mark { font-size: 23px; }
+.masthead.is-app .wordmark-ring { width: 18px; height: 18px; }
+.masthead.is-app .acct-btn { height: 36px; font-size: 14px; }
+
+.app .btn { height: 38px; padding: 0 14px; border-radius: 10px; font-size: 14px; gap: 8px; }
+.app .btn-primary { box-shadow: 0 1px 2px rgba(28, 24, 18, 0.2); }
+.app .btn-secondary { box-shadow: inset 0 0 0 1px var(--line-2); background: var(--white); }
+.app .btn-secondary:hover:not(:disabled) { background: var(--paper); box-shadow: inset 0 0 0 1px var(--ink-3); }
+
+.app-label { display: flex; align-items: center; gap: 8px; font: 600 13px/1.2 var(--ui); color: var(--ink-2); letter-spacing: 0; }
+.app-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--cream-2); font: 600 12px/1 var(--ui); color: var(--ink-2); }
+
+/* the numbers strip */
+.ov { width: min(var(--container), 100% - 2 * var(--gutter)); margin: 0 auto; padding: 28px 0 20px; }
+.ov-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+.ov-h { font: 650 22px/1.2 var(--ui); letter-spacing: -0.012em; }
+.ov-period { margin-left: 8px; font: 500 15px/1 var(--ui); color: var(--ink-3); letter-spacing: 0; }
+.ov-status { margin-top: 6px; font: 500 15px/1.45 var(--ui); color: var(--ink-2); }
+.ov-hl { padding: 1px 4px; border-radius: 4px; background: var(--butter); color: var(--ink); font-weight: 650; }
+.ov-new { flex: none; }
+.ov-kpis { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 18px; }
+.kpi { min-width: 0; padding: 14px 16px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); }
+.kpi-value { margin-top: 8px; font: 700 24px/1.1 var(--display); letter-spacing: -0.015em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.kpi-of { margin-left: 8px; font: 500 13.5px/1 var(--ui); letter-spacing: 0; color: var(--ink-3); }
+.kpi-note { margin-top: 6px; font: 500 13px/1.4 var(--ui); color: var(--ink-2); }
+.kpi-bar { position: relative; display: block; height: 6px; margin-top: 12px; border-radius: 99px; background: var(--cream-2); overflow: hidden; }
+.kpi-bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: inherit; background: var(--ink); }
+.kpi-bonus.is-won .kpi-bar::after { background: var(--green); }
+.kpi-quota .line { margin-top: 2px; }
+.kpi-quota .line-top, .kpi-quota .line-bottom { height: 18px; font-size: 12px; line-height: 18px; }
+.kpi-quota .line-mid { height: 22px; margin: 6px 0; }
+.kpi-quota .line-track { height: 8px; margin-top: -4px; box-shadow: none; }
+.ov .quota-start { margin-top: 10px; font-size: 13.5px; color: var(--ink-3); }
+.ov .start-card { margin-top: 12px; padding: 14px 16px; border-radius: 12px; box-shadow: none; border: 1px solid #F1DFA4; }
+.ov .start-card-h { font: 650 14.5px/1.3 var(--ui); }
+.ov .start-card p { font-size: 13.5px; }
+.ov .quota-start-edit, .ov .start-card.is-open { margin-top: 12px; padding: 16px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); }
+
+/* the workspace: open quotes | the deal | what it pays */
+.ds.is-app { padding-top: 0; }
+.ds.is-app .ds-grid {
+  grid-template-columns: 284px minmax(0, 1fr) 432px; grid-template-rows: auto; grid-template-areas: "rail main aside";
+  column-gap: 16px; align-items: start;
+}
+.ds.is-app .ds-rail, .ds.is-app .ds-main, .ds.is-app .ds-aside { grid-row: auto; grid-column: auto; padding: 0; width: auto; max-width: none; justify-self: stretch; }
+.ds.is-app .ds-rail { grid-area: rail; }
+.ds.is-app .ds-main { grid-area: main; }
+.ds.is-app .ds-aside { grid-area: aside; z-index: 3; }
+.ds.is-app .pinned { display: none; }
+
+.ds.is-app .pipe, .ds.is-app .deal, .ds.is-app .deal-card, .ds.is-app .period-card {
+  background: var(--white); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(28, 24, 18, 0.03);
+}
+.ds.is-app .pipe { padding: 14px 12px 12px; }
+.ds.is-app .pipe-head { padding: 0 4px; min-height: 22px; }
+.ds.is-app .pipe-empty { margin-top: 8px; padding: 0 4px; font-size: 13.5px; color: var(--ink-3); }
+.ds.is-app .pipe-list { gap: 2px; margin-top: 10px; }
+.ds.is-app .pipe-row { padding: 9px 10px; border-radius: 8px; box-shadow: none; background: transparent; gap: 10px; }
+.ds.is-app .pipe-row:hover { background: var(--paper); }
+.ds.is-app .pipe-row.is-active { background: var(--sun-wash); box-shadow: inset 0 0 0 1px #EBCB6B; }
+.ds.is-app .pipe-row-name { font-size: 14px; font-weight: 600; }
+.ds.is-app .pipe-row-size { font-size: 12.5px; }
+.ds.is-app .pipe-row-pay { font: 650 14px/1 var(--ui); }
+.ds.is-app .pipe-sum { margin-top: 10px; padding: 10px 4px 0; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-3); }
+
+.ds.is-app .deal { padding: 16px 18px 20px; }
+.deal-top { display: grid; gap: 6px; }
+.deal-plan-line { font: 500 13px/1.45 var(--ui); color: var(--ink-3); }
+.ds.is-app .deal-fields { margin-top: 16px; padding-top: 18px; gap: 22px 18px; }
+.ds.is-app .field-label { font-size: 13px; }
+.ds.is-app .deal-start-over { margin-top: 20px; }
+
+.ds.is-app .deal-card { overflow: hidden; scroll-margin-top: 72px; }
+.ds.is-app .dc-head { padding: 10px 16px; background: var(--white); }
+.ds.is-app .dc-body { padding: 0 16px; }
+.ds.is-app .dc-sec { padding: 16px 0; }
+.ds.is-app .outcome-figure { margin-top: 8px; font-size: 44px; letter-spacing: -0.025em; }
+.ds.is-app .outcome-name, .ds.is-app .dc-start-label { font-size: 13px; }
+.ds.is-app .dc-start { padding-block: 18px 20px; }
+.ds.is-app .dc-start-h { margin-top: 10px; font: 650 18px/1.3 var(--ui); letter-spacing: -0.005em; }
+.ds.is-app .dc-start-p { margin-top: 6px; font-size: 13.5px; }
+.ds.is-app .dc-start .btn { margin-top: 14px; }
+.ds.is-app .period-card { margin-top: 12px; padding: 12px 16px 10px; }
+.ds.is-app .period-card-h { font: 600 13px/1.2 var(--ui); color: var(--ink-2); letter-spacing: 0; }
+
+.ds.is-app .ds-after { width: min(var(--container), 100% - 2 * var(--gutter)); margin: 24px auto 0; }
+.ds.is-app .booked { margin-top: 0; padding: 14px 16px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.ds.is-app .booked-h { font: 600 13px/1.2 var(--ui); color: var(--ink-2); letter-spacing: 0; }
+.ds.is-app .booked-sum { font-size: 13px; color: var(--ink-3); }
+.ds.is-app .booked .table-scroll { margin-top: 8px; box-shadow: none; border-radius: 0; background: transparent; }
+.ds.is-app .deals th { font-size: 12.5px; }
+.ds.is-app .deals td { height: 42px; font-size: 14px; }
+.ds.is-app .booked-empty { font-size: 13.5px; color: var(--ink-3); padding-bottom: 8px; }
+
+@media (max-width: 1180px) {
+  .ds.is-app .ds-grid { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "rail rail" "main aside"; row-gap: 16px; }
+  .ov-kpis { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ov-kpis .kpi-quota { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .ds.is-app .ds-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "rail" "aside" "main"; width: calc(100% - 2 * var(--gutter)); }
+  .ds.is-app .pinned { display: block; grid-area: main; }
+  .ov-head { flex-direction: column; align-items: stretch; }
+  .ov-new { align-self: flex-start; }
+}
+@media (max-width: 600px) {
+  .ov { padding-top: 20px; }
+  .ov-kpis { gap: 8px; }
+  .kpi { padding: 12px 14px; }
+  .kpi-value { font-size: 20px; }
+  .kpi-quota .kpi-value { font-size: 24px; }
+  .masthead.is-app .masthead-bar { padding: 0 16px; }
+  .ds.is-app .outcome-figure { font-size: 40px; }
+}
+
+/* Signed-in pages that aren't the workspace (your plan, putting one in). */
+.app .page-title { margin-top: 40px; font: 700 30px/1.12 var(--display); letter-spacing: -0.02em; }
+.app .back-link { margin-top: 24px; font-size: 14px; }
+.app .back-link + * .page-title, .app .back-link + .page-title { margin-top: 16px; }

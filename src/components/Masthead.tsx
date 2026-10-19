@@ -15,7 +15,7 @@ import Wordmark from '@/components/Wordmark';
  */
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   return (
-    <header className="masthead">
+    <header className={`masthead${email ? ' is-app' : ''}`}>
       <MastheadScroll />
       <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
         <Wordmark />
