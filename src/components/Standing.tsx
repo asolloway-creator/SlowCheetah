@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import {
   isFixedTier,
   needsQuarterArr,
@@ -32,12 +32,15 @@ export default function StandingBand({
   qtd,
   opening,
   onOpening,
+  pipeline,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
   onOpening: (o: OpeningInput) => Promise<{ error?: string }>;
+  /** The open quotes, under the headline. */
+  pipeline?: ReactNode;
 }) {
   const label = periodLabel(plan.period);
   const s = standing(plan, ptd, qtd, label);
@@ -65,6 +68,7 @@ export default function StandingBand({
             </h1>
             <p className="standing-lede">{s.lede}</p>
           </div>
+          {pipeline && <div className="standing-pipe">{pipeline}</div>}
           <div className="standing-lines">
             <div className="standing-card">
               <p className="standing-figure">

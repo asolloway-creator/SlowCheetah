@@ -60,7 +60,7 @@ export default function QuotesRail({
       <section className="pipe" aria-labelledby="pipe-h">
         {head}
         <p className="pipe-empty">
-          No open quotes yet. Price a deal on the right, then save it as a quote to keep it here until it closes.
+          No open quotes yet. Price a deal below, then save it as a quote to keep it here until it closes.
         </p>
       </section>
     );

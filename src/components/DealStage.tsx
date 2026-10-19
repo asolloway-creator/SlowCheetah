@@ -96,6 +96,7 @@ export default function DealStage({
   onSave,
   initialDeal,
   intro,
+  top,
   after,
   quotes = [],
   onSaveQuote,
@@ -112,6 +113,9 @@ export default function DealStage({
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
+  /** Above the stage, given the pipeline to place (the home page's standing
+   *  band). With it, the pipeline leaves the stage's own intro. */
+  top?: (rail: ReactNode) => ReactNode;
   /** Under the deal fields (the home page's booked deals). */
   after?: ReactNode;
   /** The rep's open quotes, most recently worked first. */
@@ -339,21 +343,41 @@ export default function DealStage({
   const [lead, rest] = leadSentence(copy.sentence);
   const accelMoment = o.state === 'crossed' || o.state === 'past';
 
-  const introBlock = intro ?? (
-    <div className="ds-title">
-      {quotesOn && (
-        <QuotesRail
-          plan={plan}
-          ptd={ptd}
-          qtd={qtd ?? null}
-          quotes={quotes}
-          activeId={active?.id ?? null}
-          onOpen={openQuote}
-          onNew={newDeal}
-        />
-      )}
-    </div>
-  );
+  // Opened from the pipeline up top, the card is further down the page:
+  // bring it into view. A new deal goes straight to its first field.
+  const toCard = (then: () => void) => () => {
+    then();
+    if (!top) return;
+    requestAnimationFrame(() => {
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    });
+  };
+  const rail = quotesOn ? (
+    <QuotesRail
+      plan={plan}
+      ptd={ptd}
+      qtd={qtd ?? null}
+      quotes={quotes}
+      activeId={active?.id ?? null}
+      onOpen={(q) => toCard(() => openQuote(q))()}
+      onNew={top ? () => { newDeal(); requestAnimationFrame(startEntering); } : newDeal}
+    />
+  ) : null;
+
+  const introBlock =
+    intro ??
+    (top ? (
+      <div className="ds-title ds-lead">
+        <h2 className="ds-lead-h">Price the deal</h2>
+        <p className="ds-lead-p">
+          Open a quote from your pipeline or start a new one. Every number you change moves the card, before the
+          customer sees a price.
+        </p>
+      </div>
+    ) : (
+      <div className="ds-title">{rail}</div>
+    ));
 
   const slider = (
     <DiscountSlider
@@ -398,6 +422,7 @@ export default function DealStage({
 
   return (
     <>
+      {top?.(rail)}
       <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}`} aria-label="Deal">
         <div className="ds-grid">
           <div className="ds-intro">{introBlock}</div>

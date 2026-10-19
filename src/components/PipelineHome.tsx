@@ -41,9 +41,10 @@ export default function PipelineHome({
   onOpening: (o: OpeningInput) => Promise<Result>;
 }) {
   return (
-    <>
-      <StandingBand plan={plan} ptd={ptd} qtd={qtd} opening={opening} onOpening={onOpening} />
-      <DealStage
+    <DealStage
+        top={(rail) => (
+          <StandingBand plan={plan} ptd={ptd} qtd={qtd} opening={opening} onOpening={onOpening} pipeline={rail} />
+        )}
         plan={plan}
         ptd={ptd}
         qtd={qtd}
@@ -54,6 +55,5 @@ export default function PipelineHome({
         onDeleteQuote={onDeleteQuote}
         after={<BookedList plan={plan} deals={deals} onDelete={onDeleteDeal} />}
       />
-    </>
   );
 }

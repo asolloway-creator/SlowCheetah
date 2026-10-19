@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import type { CompPlan, PeriodToDate, QuarterToDate } from '@/lib/calc';
-import { standing } from '@/components/opening';
 import Sculpture from '@/components/Sculpture';
 import { SHOWCASE_EVENT } from '@/components/useShowcase';
 
@@ -46,54 +44,6 @@ export function LandingHero() {
         </button>
       </div>
       <p className="hero-note">Free. No password, just your email. Your plan stays anonymous.</p>
-    </div>
-  );
-}
-
-/**
- * The returning rep's intro, in the landing page's voice: a welcome, then the
- * one thing they can win or lose right now as the headline (standing() in
- * opening.ts), and where they stand underneath. The deal card beside it
- * carries the page's one primary step; this is the greeting.
- */
-export function WelcomeBack({
-  plan,
-  ptd,
-  qtd,
-  label,
-}: {
-  plan: CompPlan;
-  ptd: PeriodToDate;
-  qtd: QuarterToDate | null;
-  label: string;
-}) {
-  const s = standing(plan, ptd, qtd, label);
-  return (
-    <div className="hero is-standing">
-      <p className="hero-chip">
-        <span className="mark-dot" aria-hidden="true" />
-        Welcome back · {label}
-      </p>
-      <h1 className="hero-h">
-        {s.head.map((h, i) =>
-          h.hl ? (
-            <span key={i} className="hero-hl">
-              {h.text}
-            </span>
-          ) : (
-            <span key={i}>{h.text}</span>
-          ),
-        )}
-      </h1>
-      <p className="hero-lede">{s.lede}</p>
-      {/* The page's one primary step is on the deal card; this is the way to the numbers. */}
-      <div className="hero-ctas">
-        <Link className="hero-try" href="/quota">
-          See where you stand
-          <Arrow />
-        </Link>
-      </div>
-      <p className="hero-note">{s.note}</p>
     </div>
   );
 }
