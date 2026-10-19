@@ -14,9 +14,7 @@ import {
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { Shell } from '@/app/AccountViews';
-import DealStage from '@/components/DealStage';
-import QuotaView from '@/components/QuotaView';
-import HistoryView from '@/components/HistoryView';
+import PipelineHome from '@/components/PipelineHome';
 import PlanCapture from '@/components/capture/PlanCapture';
 
 const ok = async () => ({});
@@ -63,17 +61,22 @@ export default function DevScreens({ view }: { view: string }) {
     { id: 'q1', name: 'Q4 expansion', deal: deal(9000), createdAt: day(2).toISOString(), updatedAt: day(1).toISOString() },
   ];
 
-  if (view === 'deals') {
+  if (view === 'home' || view === 'home-new') {
     return (
       <Shell current="/" email={EMAIL} width="full">
-        <DealStage plan={PLAN} ptd={ptd} qtd={qtd} demo={false} onSave={ok} quotes={quotes} onSaveQuote={async () => ({ id: 'q1' })} onDeleteQuote={ok} />
-      </Shell>
-    );
-  }
-  if (view === 'booked') {
-    return (
-      <Shell current="/history" email={EMAIL} width="table">
-        <HistoryView plan={PLAN} deals={deals} onDelete={ok} />
+        <PipelineHome
+          plan={PLAN}
+          ptd={ptd}
+          qtd={qtd}
+          opening={view === 'home-new' ? null : opening}
+          quotes={view === 'home-new' ? [] : quotes}
+          deals={view === 'home-new' ? [] : deals}
+          onSave={ok}
+          onSaveQuote={async () => ({ id: 'q1' })}
+          onDeleteQuote={ok}
+          onDeleteDeal={ok}
+          onOpening={ok}
+        />
       </Shell>
     );
   }
@@ -84,9 +87,5 @@ export default function DevScreens({ view }: { view: string }) {
       </Shell>
     );
   }
-  return (
-    <Shell current="/quota" email={EMAIL} width="narrow">
-      <QuotaView plan={PLAN} ptd={ptd} qtd={qtd} deals={deals} opening={opening} onOpening={ok} />
-    </Shell>
-  );
+  return null;
 }

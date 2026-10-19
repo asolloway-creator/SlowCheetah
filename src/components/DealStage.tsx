@@ -21,7 +21,6 @@ import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import KickerOutcome from '@/components/KickerOutcome';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
-import { WelcomeBack } from '@/components/Landing';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import {
   EMPTY,
@@ -97,6 +96,7 @@ export default function DealStage({
   onSave,
   initialDeal,
   intro,
+  after,
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
@@ -112,6 +112,8 @@ export default function DealStage({
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
+  /** Under the deal fields (the home page's booked deals). */
+  after?: ReactNode;
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
   onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
@@ -339,7 +341,6 @@ export default function DealStage({
 
   const introBlock = intro ?? (
     <div className="ds-title">
-      <WelcomeBack plan={plan} ptd={ptd} qtd={qtd ?? null} label={label} />
       {quotesOn && (
         <QuotesRail
           plan={plan}
@@ -591,14 +592,7 @@ export default function DealStage({
                   {msg.booked && (
                     <>
                       <p className="after">
-                        Booked to {label}.{' '}
-                        <Link className="btn-text stand-nudge" href="/quota">
-                          <span className="stand-nudge-mark" aria-hidden="true">
-                            <span className="nudge-ring stand-nudge-ring" />
-                            <span className="stand-nudge-dot" />
-                          </span>
-                          See where you stand &rarr;
-                        </Link>
+                        Booked to {label}. Your numbers above and your booked deals below include it.
                       </p>
                     </>
                   )}
@@ -617,7 +611,8 @@ export default function DealStage({
               )}
             </article>
 
-            {!showcase && (
+            {/* Empty, it would only repeat the standing above it. */}
+            {!showcase && !empty && (
               <div className="period-card">
                 <p className="period-card-h">{noun === 'quarter' ? 'Quarter' : 'Month'} to date</p>
                 <QuotaLine mode="deal" plan={plan} ptd={ptd} r={r} empty={empty} />
@@ -646,6 +641,7 @@ export default function DealStage({
                   ) : null
                 }
               />
+              {after}
             </div>
           )}
 

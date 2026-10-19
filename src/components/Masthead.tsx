@@ -4,16 +4,11 @@ import MastheadScroll from '@/components/MastheadScroll';
 import NavLink from '@/components/NavLink';
 import Wordmark from '@/components/Wordmark';
 
-const NAV = [
-  { href: '/', label: 'Deals' },
-  { href: '/quota', label: 'Where you stand' },
-  { href: '/history', label: 'Booked' },
-];
 
 /**
  * A floating pill that tucks away as you scroll down (MastheadScroll).
- * Signed in: the three places a rep works, named for the pages they open,
- * and an account menu (their plan, sign out). Signed out:
+ * Signed in: everything happens on one page (the home page), so the bar is
+ * just the account menu: their plan, sign out. Signed out:
  * "How it works" (on the home page) or a way home, "Sign in" for an account
  * you have, and "Put your plan in", which creates one (/signup). A plan lives
  * in an account; nothing is kept in the browser.
@@ -25,16 +20,7 @@ export default function Masthead({ current, email }: { current: string; email: s
       <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
         <Wordmark />
         {email ? (
-          <>
-            <nav className="nav" aria-label="Primary">
-              {NAV.map((t) => (
-                <NavLink key={t.href} href={t.href} aria-current={t.href === current ? 'page' : undefined}>
-                  {t.label}
-                </NavLink>
-              ))}
-            </nav>
-            <AccountMenu email={email} current={current} />
-          </>
+          <AccountMenu email={email} current={current} />
         ) : (
           <div className="auth">
             {current === '/' ? (

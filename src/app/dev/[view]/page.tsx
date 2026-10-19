@@ -4,11 +4,11 @@ import DevScreens from './DevScreens';
 /**
  * Development only: the signed-in screens on fixture data, so they can be
  * looked at and tested without signing in. Not reachable in production.
- * /dev/deals · /dev/stand · /dev/stand-started · /dev/booked · /dev/plan
+ * /dev/home · /dev/home-new · /dev/plan
  */
 export default async function DevPage({ params }: { params: Promise<{ view: string }> }) {
   if (process.env.NODE_ENV !== 'development') notFound();
   const { view } = await params;
-  if (!['deals', 'stand', 'stand-started', 'booked', 'plan'].includes(view)) notFound();
+  if (!['home', 'home-new', 'plan'].includes(view)) notFound();
   return <DevScreens view={view} />;
 }

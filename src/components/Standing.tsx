@@ -1,12 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, type CSSProperties } from 'react';
 import {
   isFixedTier,
   needsQuarterArr,
   periodLabel,
-  periodSummary,
   quarterlyKickerSummary,
   type CompPlan,
   type Opening,
@@ -15,145 +13,73 @@ import {
   type QuarterToDate,
   type QuarterlyKickerTier,
 } from '@/lib/calc';
-import { tierName } from '@/components/opening';
-import type { DealRow } from '@/lib/queries';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import { standing, tierName } from '@/components/opening';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
-import Ledger, { type LedgerRow } from '@/components/Ledger';
 import OpeningFields from '@/components/OpeningFields';
 
 /**
- * Where you stand: one narrative — a figure, the line, one sentence, a
- * ledger. `ptd` already includes the rep's starting point (`opening`, what
- * they'd booked before IOI); it gets its own ledger line, and it can be
- * added or changed here.
+ * The top of the home page: where the rep stands this period, always in view
+ * above their pipeline. The nearest thing they can win or lose as the
+ * headline (standing() in opening.ts), what they've booked toward quota, the
+ * quota line with its accelerator steps, the Quarterly Bonus when the plan
+ * has one, and what they'd booked before IOI (asked for in a card until it's
+ * known). It replaces the separate Where you stand page.
  */
-export default function QuotaView({
+export default function StandingBand({
   plan,
   ptd,
-  deals,
-  opening = null,
+  qtd,
+  opening,
   onOpening,
-  qtd = null,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
-  deals: DealRow[];
-  /** The calendar quarter so far, for a plan with a quarterly bonus. */
-  qtd?: QuarterToDate | null;
-  /** The starting point for this period, when there is one. */
-  opening?: Opening | null;
-  onOpening?: (o: OpeningInput) => Promise<{ error?: string }>;
+  qtd: QuarterToDate | null;
+  opening: Opening | null;
+  onOpening: (o: OpeningInput) => Promise<{ error?: string }>;
 }) {
-  const s = periodSummary(plan, ptd);
   const label = periodLabel(plan.period);
-  const noun = periodNoun(plan);
-  const retro = plan.accelerator_style === 'retro_bump';
-  const hasAccel = plan.accelerator_style !== 'none';
+  const s = standing(plan, ptd, qtd, label);
+  const pctQ = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
   const started = opening !== null && (opening.credit > 0 || (opening.quarterArr ?? 0) > 0);
-  const empty = deals.length === 0 && !(opening && opening.credit > 0);
-
-  const units = deals.reduce((n, d) => n + d.units, 0);
-  const arr = deals.reduce((n, d) => n + d.arr, 0);
-  const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
-  const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
-
-  // On a plan with more than one step: where the next one is, once past one.
-  const onward = s.step && s.next
-    ? retro
-      ? ` Another ${fmtCredit(plan, s.toAccelerator)} makes it ${fmtPctShort(s.next.rate)}.`
-      : ` Another ${fmtCredit(plan, s.toAccelerator)} and every deal from there earns ${fmtRateShort(plan, s.next.rate)}.`
-    : '';
-  const sentence = hasAccel
-    ? s.step
-      ? retro
-        ? `You crossed your accelerator. Every deal this ${noun} pays ${fmtPctShort(s.step.rate)} more. That’s ${fmtMoney(s.acceleratorValue)} so far.${onward}`
-        : `You’re past your accelerator. Every deal from here earns ${fmtRateShort(plan, s.step.rate)}.${onward}`
-      : retro
-        ? `Hold the line on the next ${fmtCredit(plan, s.toAccelerator)} and you unlock ${fmtSigned(s.acceleratorValue)} on the deals you’ve already closed.`
-        : `${fmtCredit(plan, plan.accelerator_threshold)} land and every deal from there earns ${fmtRateShort(plan, plan.accelerator_rate)}. ${fmtCredit(plan, s.toAccelerator)} to go.`
-    : s.attained
-      ? 'Quota made. Same rate on every deal.'
-      : `${fmtCredit(plan, s.toQuota)} to quota. Same rate on every deal.`;
-
-  const rows: LedgerRow[] = [
-    ...(opening && opening.credit > 0
-      ? [{ label: 'Booked before IOI', value: fmtCredit(plan, opening.credit), suffix: '· your starting point' }]
-      : []),
-    {
-      label: 'Deals booked',
-      value: `${deals.length} deal${deals.length === 1 ? '' : 's'}`,
-      suffix: `· ${units} unit${units === 1 ? '' : 's'}`,
-    },
-    { label: 'New ARR', value: fmtMoney(arr) },
-    {
-      label: 'Commission so far',
-      value: fmtMoney(s.payout),
-      // A starting point in ARR is counted at the base rate (IOI never saw
-      // those deals); one in units carries no dollars at all. Say which.
-      suffix:
-        opening && opening.credit > 0
-          ? plan.quota_basis === 'arr'
-            ? '· what you’d booked before IOI counted at your base rate'
-            : '· on deals booked in IOI'
-          : s.step && retro
-            ? `· includes the +${fmtPctShort(s.step.rate)} bump`
-            : plan.accelerator_style === 'rate_switch' && s.accelerated
-              ? '· as booked'
-              : `· at ${fmtRateShort(plan, plan.base_rate)}`,
-    },
-    // Each deal's own residual, locked in at whatever it cost when THAT
-    // deal was booked — a discount given before you crossed the
-    // accelerator doesn't get rewritten once later deals cross it, so
-    // this can (and usually does) stay well above zero even once
-    // s.accelerated is true. The suffix exists so that isn't read as a
-    // contradiction — without it "past your accelerator" right above a
-    // nonzero red figure reads as the two disagreeing with each other.
-    {
-      label: 'Left on the table',
-      value: fmtMoney(lost),
-      suffix: lost > 0 ? `· across every discount given this ${noun}` : undefined,
-      tone: lost > 0 ? 'red' : 'dim',
-    },
-  ];
-
   return (
-    <div className="quota">
-      <div className="page-head">
-        <h1 className="page-title">Where you stand in {label}</h1>
-        <Link className="btn btn-primary page-head-cta" href="/">
-          Price your next deal <span aria-hidden="true">&rarr;</span>
-        </Link>
+    <section className="standing" aria-labelledby="standing-h">
+      <div className="container">
+        <div className="standing-grid">
+          <div className="standing-copy">
+            <p className="hero-chip">
+              <span className="mark-dot" aria-hidden="true" />
+              Where you stand · {label}
+            </p>
+            <h1 id="standing-h" className="standing-h">
+              {s.head.map((h, i) =>
+                h.hl ? (
+                  <span key={i} className="hero-hl">
+                    {h.text}
+                  </span>
+                ) : (
+                  <span key={i}>{h.text}</span>
+                ),
+              )}
+            </h1>
+            <p className="standing-lede">{s.lede}</p>
+          </div>
+          <div className="standing-lines">
+            <div className="standing-card">
+              <p className="standing-figure">
+                <b>{fmtCredit(plan, ptd.creditBooked)}</b>{' '}
+                {plan.quota_basis === 'arr' ? `booked toward your ${fmtMoney(plan.quota)} quota` : `of ${fmtCredit(plan, plan.quota)}`},{' '}
+                {pctQ}% there
+              </p>
+              <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
+              {plan.quarterly_kicker && qtd && <BonusStanding plan={plan} qtd={qtd} />}
+            </div>
+            <StartingPoint plan={plan} opening={opening} started={started} label={label} onSave={onOpening} />
+          </div>
+        </div>
       </div>
-      <p className={`quota-figure${s.accelerated ? ' is-green' : ''}`}>{fmtCredit(plan, ptd.creditBooked)}</p>
-      <p className="quota-caption">
-        {empty
-          ? `Nothing booked in ${label} yet.`
-          : plan.quota_basis === 'arr'
-            ? `booked toward a ${fmtMoney(plan.quota)} quota, ${pct}% there.`
-            : `of ${fmtCredit(plan, plan.quota)}, ${pct}% there.`}
-      </p>
-      <Link className="btn btn-primary page-cta-sm" href="/">
-        Price your next deal <span aria-hidden="true">&rarr;</span>
-      </Link>
-
-      <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
-
-      {/* Before IOI knows where they started, that's the first thing to fix. */}
-      {onOpening && !started && <StartingPoint plan={plan} opening={opening} started={false} label={label} onSave={onOpening} />}
-
-      {!empty && (
-        <>
-          <p className="quota-sentence">{sentence}</p>
-          <h2 className="section-h">This {noun} so far</h2>
-          <Ledger rows={rows} />
-        </>
-      )}
-
-      {onOpening && started && <StartingPoint plan={plan} opening={opening} started label={label} onSave={onOpening} />}
-
-      {plan.quarterly_kicker && qtd && <BonusStanding plan={plan} qtd={qtd} />}
-    </div>
+    </section>
   );
 }
 

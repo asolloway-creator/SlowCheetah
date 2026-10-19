@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan } from '@/lib/queries';
 import { saveOpeningAction, savePlanAction } from '../actions';
@@ -12,6 +13,13 @@ export default async function PlanPage() {
   const plan = await getCompPlan(user.id);
   return (
     <Shell current="/plan" email={user.email ?? ''} width="plan">
+      {plan && (
+        <p className="back-link">
+          <Link className="btn-text" href="/">
+            &larr; Back to your pipeline
+          </Link>
+        </p>
+      )}
       <PlanCapture current={plan} onSave={savePlanAction} onOpening={saveOpeningAction} account />
     </Shell>
   );

@@ -1,20 +1,6 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, listDeals } from '@/lib/queries';
-import { deleteDealAction } from '../actions';
-import { Shell } from '../AccountViews';
-import HistoryView from '@/components/HistoryView';
 
-export const metadata = { title: 'Booked deals · IOI' };
-
-export default async function HistoryPage() {
-  const { user } = await currentUser();
-  if (!user) redirect('/login');
-  const plan = await getCompPlan(user.id);
-  if (!plan) redirect('/plan');
-  const deals = await listDeals(user.id);
-  return (
-    <Shell current="/history" email={user.email ?? ''} width="table">
-      <HistoryView plan={plan} deals={deals} onDelete={deleteDealAction} />
-    </Shell>
-  );
+/** Booked deals live on the home page now, under the deal you're working on. */
+export default function HistoryPage() {
+  redirect('/');
 }

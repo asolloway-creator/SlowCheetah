@@ -11,12 +11,21 @@ export function quoteLabel(q: { name: string; deal: DealInput }): string {
   return `${fmt(mrr)}/mo${q.deal.units > 1 ? ` · ${q.deal.units} units` : ''}`;
 }
 
+/** "$9,000 a year · 2 units", what a quote is when its name doesn't say. */
+function sizeOf(d: DealInput): string {
+  const year = d.subMode === 'acv' ? d.subscription : d.subscription * 12;
+  const parts = [`${fmt(year)} a year`];
+  if (d.units > 1) parts.push(`${d.units} units`);
+  if (d.oneTime + (d.hardware ?? 0) > 0) parts.push(`${fmt(d.oneTime + (d.hardware ?? 0))} one-time`);
+  return parts.join(' · ');
+}
+
 /**
- * The rep's open quotes, under the deal page's title: each with its
- * commission if it closed today (the card's own headline figure; anything it
- * would unlock on deals already closed is in the total), the one on the card
- * marked, a way to start a fresh deal, and what they all add up to if they
- * close as quoted (calc.ts pipeline, oldest first).
+ * Your pipeline, on the left of the home page: "New deal", then each open
+ * quote with what it would pay if it closed today (the card's own headline
+ * figure; anything it would unlock on deals already closed is in the total),
+ * the one on the card marked, and what they all add up to if they close as
+ * quoted (calc.ts pipeline, oldest first).
  */
 export default function QuotesRail({
   plan,
@@ -35,8 +44,27 @@ export default function QuotesRail({
   onOpen: (q: Quote) => void;
   onNew: () => void;
 }) {
-  if (!quotes.length) return null;
   const noun = periodNoun(plan);
+  const head = (
+    <div className="pipe-head">
+      <h2 id="pipe-h" className="pipe-h">
+        Your pipeline
+      </h2>
+      <button type="button" className="btn btn-primary pipe-new" onClick={onNew}>
+        + New deal
+      </button>
+    </div>
+  );
+  if (!quotes.length) {
+    return (
+      <section className="pipe" aria-labelledby="pipe-h">
+        {head}
+        <p className="pipe-empty">
+          No open quotes yet. Price a deal on the right, then save it as a quote to keep it here until it closes.
+        </p>
+      </section>
+    );
+  }
   const p = pipeline(
     plan,
     ptd,
@@ -68,29 +96,34 @@ export default function QuotesRail({
   }
 
   return (
-    <section className="quotes" aria-labelledby="quotes-h">
-      <h2 id="quotes-h" className="quotes-h">
-        Open quotes
-      </h2>
-      <div className="quotes-list">
-        {quotes.map((q) => (
-          <button
-            key={q.id}
-            type="button"
-            className={`quote-pill${q.id === activeId ? ' is-active' : ''}`}
-            aria-pressed={q.id === activeId}
-            onClick={() => onOpen(q)}
-          >
-            <span className="quote-pill-name">{quoteLabel(q)}</span>
-            {/* The same figure the card leads with: commission on this deal. */}
-            <span className="quote-pill-pay">{fmtMoney(calc(plan, q.deal, ptd).commissionEffective)}</span>
-          </button>
-        ))}
-        <button type="button" className="quote-pill is-new" onClick={onNew}>
-          + New deal
-        </button>
-      </div>
-      <p className="quotes-sum">{sum}</p>
+    <section className="pipe" aria-labelledby="pipe-h">
+      {head}
+      <ul className="pipe-list">
+        {quotes.map((q) => {
+          const r = calc(plan, q.deal, ptd);
+          return (
+            <li key={q.id}>
+              <button
+                type="button"
+                className={`pipe-row${q.id === activeId ? ' is-active' : ''}`}
+                aria-pressed={q.id === activeId}
+                onClick={() => onOpen(q)}
+              >
+                <span className="pipe-row-main">
+                  <span className="pipe-row-name">{quoteLabel(q)}</span>
+                  <span className="pipe-row-size">
+                    {sizeOf(q.deal)}
+                    {r.crossesAccelerator ? ' · crosses your accelerator' : ''}
+                  </span>
+                </span>
+                {/* The same figure the card leads with: commission on this deal. */}
+                <span className="pipe-row-pay">{fmtMoney(r.commissionEffective)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="pipe-sum">{sum}</p>
     </section>
   );
 }

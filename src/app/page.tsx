@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, listQuotes } from '@/lib/queries';
-import { deleteQuoteAction, saveDealAction, saveQuoteAction } from './actions';
+import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, listDeals, listQuotes } from '@/lib/queries';
+import { deleteDealAction, deleteQuoteAction, saveDealAction, saveOpeningAction, saveQuoteAction } from './actions';
 import { Shell } from './AccountViews';
 import { DemoDeal } from './demo/DemoViews';
-import DealStage from '@/components/DealStage';
+import PipelineHome from '@/components/PipelineHome';
 
 export default async function Home() {
   const { user } = await currentUser();
@@ -11,27 +11,30 @@ export default async function Home() {
 
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
-  const { deals: _deals, opening: _opening, ...ptd } = await getPeriodToDate(user.id, plan);
-  void _deals;
-  void _opening;
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
-  const [qtd, quotes] = await Promise.all([
+  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals] = await Promise.all([
+    getPeriodToDate(user.id, plan),
     plan.quarterly_kicker ? getQuarterToDate(user.id, plan) : Promise.resolve(null),
     listQuotes(user.id),
+    listDeals(user.id),
   ]);
+  void _period;
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">
-      <DealStage
+      <PipelineHome
         plan={plan}
         ptd={ptd}
         qtd={qtd}
-        demo={false}
-        onSave={saveDealAction}
+        opening={opening}
         quotes={quotes}
+        deals={deals}
+        onSave={saveDealAction}
         onSaveQuote={saveQuoteAction}
         onDeleteQuote={deleteQuoteAction}
+        onDeleteDeal={deleteDealAction}
+        onOpening={saveOpeningAction}
       />
     </Shell>
   );
