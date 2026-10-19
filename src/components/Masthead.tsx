@@ -1,16 +1,19 @@
 import Link from 'next/link';
+import AccountMenu from '@/components/AccountMenu';
+import MastheadScroll from '@/components/MastheadScroll';
 import NavLink from '@/components/NavLink';
 import Wordmark from '@/components/Wordmark';
 
 const NAV = [
-  { href: '/', label: 'New deal' },
-  { href: '/quota', label: 'Quota' },
-  { href: '/history', label: 'Deals' },
-  { href: '/plan', label: 'Your plan' },
+  { href: '/', label: 'Pipeline' },
+  { href: '/quota', label: 'Where you stand' },
+  { href: '/history', label: 'Booked deals' },
 ];
 
 /**
- * A floating pill. Signed in: the four app pages plus sign out. Signed out:
+ * A floating pill that tucks away as you scroll down (MastheadScroll).
+ * Signed in: the three places a rep works, named for the pages they open,
+ * and an account menu (their plan, sign out). Signed out:
  * "How it works" (on the home page) or a way home, "Sign in" for an account
  * you have, and "Put your plan in", which creates one (/signup). A plan lives
  * in an account; nothing is kept in the browser.
@@ -18,6 +21,7 @@ const NAV = [
 export default function Masthead({ current, email }: { current: string; email: string | null }) {
   return (
     <header className="masthead">
+      <MastheadScroll />
       <div className={`masthead-bar${email ? ' is-signed-in' : ''}`}>
         <Wordmark />
         {email ? (
@@ -29,14 +33,7 @@ export default function Masthead({ current, email }: { current: string; email: s
                 </NavLink>
               ))}
             </nav>
-            <div className="auth">
-              <span className="auth-email">{email}</span>
-              <form action="/auth/signout" method="post">
-                <button type="submit" className="nav-link">
-                  Sign out
-                </button>
-              </form>
-            </div>
+            <AccountMenu email={email} current={current} />
           </>
         ) : (
           <div className="auth">

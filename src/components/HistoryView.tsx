@@ -43,16 +43,19 @@ export default function HistoryView({
 
   return (
     <div className="history">
-      <h1 className="page-title">Your deals</h1>
+      <div className="page-head">
+        <h1 className="page-title">Booked deals</h1>
+        <Link className="btn btn-primary page-head-cta" href="/">
+          Price your next deal <span aria-hidden="true">&rarr;</span>
+        </Link>
+      </div>
 
       {deals.length === 0 ? (
         <>
-          <p className="history-empty">No deals yet. Enter your first one and it will show up here, and stay here.</p>
-          <p className="history-empty-link">
-            <Link className="btn-text" href="/">
-              Enter a deal &rarr;
-            </Link>
-          </p>
+          <p className="history-empty">Nothing booked yet. Price a deal and book it when it closes; it shows up here, and stays here.</p>
+          <Link className="btn btn-primary page-cta-sm" href="/">
+            Price your next deal <span aria-hidden="true">&rarr;</span>
+          </Link>
         </>
       ) : (
         <>
@@ -60,6 +63,9 @@ export default function HistoryView({
           <p className="history-caption">
             left on the table in {current}, across {currentRows.length} deal{currentRows.length === 1 ? '' : 's'}.
           </p>
+          <Link className="btn btn-primary page-cta-sm" href="/">
+            Price your next deal <span aria-hidden="true">&rarr;</span>
+          </Link>
           {error && (
             <p className="history-error" role="alert">
               {error}

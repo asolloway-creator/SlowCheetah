@@ -119,7 +119,12 @@ export default function QuotaView({
 
   return (
     <div className="quota">
-      <h1 className="page-title">Where you stand in {label}</h1>
+      <div className="page-head">
+        <h1 className="page-title">Where you stand in {label}</h1>
+        <Link className="btn btn-primary page-head-cta" href="/">
+          Price your next deal <span aria-hidden="true">&rarr;</span>
+        </Link>
+      </div>
       <p className={`quota-figure${s.accelerated ? ' is-green' : ''}`}>{fmtCredit(plan, ptd.creditBooked)}</p>
       <p className="quota-caption">
         {empty
@@ -128,16 +133,16 @@ export default function QuotaView({
             ? `booked toward a ${fmtMoney(plan.quota)} quota, ${pct}% there.`
             : `of ${fmtCredit(plan, plan.quota)}, ${pct}% there.`}
       </p>
+      <Link className="btn btn-primary page-cta-sm" href="/">
+        Price your next deal <span aria-hidden="true">&rarr;</span>
+      </Link>
 
       <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
 
-      {empty ? (
-        <p className="quota-sentence">
-          <Link className="btn-text" href="/">
-            Enter a deal &rarr;
-          </Link>
-        </p>
-      ) : (
+      {/* Before IOI knows where they started, that's the first thing to fix. */}
+      {onOpening && !started && <StartingPoint plan={plan} opening={opening} started={false} label={label} onSave={onOpening} />}
+
+      {!empty && (
         <>
           <p className="quota-sentence">{sentence}</p>
           <h2 className="section-h">This {noun} so far</h2>
@@ -145,9 +150,9 @@ export default function QuotaView({
         </>
       )}
 
-      {plan.quarterly_kicker && qtd && <BonusStanding plan={plan} qtd={qtd} />}
+      {onOpening && started && <StartingPoint plan={plan} opening={opening} started label={label} onSave={onOpening} />}
 
-      {onOpening && <StartingPoint plan={plan} opening={opening} started={started} label={label} onSave={onOpening} />}
+      {plan.quarterly_kicker && qtd && <BonusStanding plan={plan} qtd={qtd} />}
     </div>
   );
 }
@@ -237,14 +242,29 @@ function StartingPoint({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!open) {
+  if (!open && started) {
     return (
       <p className="quota-start">
-        {started ? 'Includes what you’d booked before IOI. ' : `Started using IOI partway through ${label}? `}
+        Includes {fmtCredit(plan, opening?.credit ?? 0)} you&rsquo;d booked before IOI.{' '}
         <button type="button" className="btn-text" onClick={() => setOpen(true)}>
-          {started ? 'Change it' : 'Add what you’d already booked'}
+          Change it
         </button>
       </p>
+    );
+  }
+  if (!open) {
+    return (
+      <section className="start-card" aria-labelledby="start-card-h">
+        <div>
+          <h2 id="start-card-h" className="start-card-h">
+            Booked deals in {label} before you started with IOI?
+          </h2>
+          <p>Add them so your quota, accelerator and bonus count from where you really are.</p>
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={() => setOpen(true)}>
+          Add what you&rsquo;ve booked
+        </button>
+      </section>
     );
   }
 
@@ -263,8 +283,8 @@ function StartingPoint({
   }
 
   return (
-    <div className="quota-start-edit">
-      <h2 className="section-h">Where you started {label}</h2>
+    <div className={started ? 'quota-start-edit' : 'start-card is-open'}>
+      <h2 className={started ? 'section-h' : 'start-card-h'}>What you&rsquo;d booked in {label} before IOI</h2>
       <OpeningFields
         plan={plan}
         credit={credit}

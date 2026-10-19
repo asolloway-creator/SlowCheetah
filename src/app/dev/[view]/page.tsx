@@ -1,0 +1,14 @@
+import { notFound } from 'next/navigation';
+import DevScreens from './DevScreens';
+
+/**
+ * Development only: the signed-in screens on fixture data, so they can be
+ * looked at and tested without signing in. Not reachable in production.
+ * /dev/pipeline · /dev/stand · /dev/stand-started · /dev/booked · /dev/plan
+ */
+export default async function DevPage({ params }: { params: Promise<{ view: string }> }) {
+  if (process.env.NODE_ENV !== 'development') notFound();
+  const { view } = await params;
+  if (!['pipeline', 'stand', 'stand-started', 'booked', 'plan'].includes(view)) notFound();
+  return <DevScreens view={view} />;
+}

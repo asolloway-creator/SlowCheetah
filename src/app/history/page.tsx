@@ -4,7 +4,7 @@ import { deleteDealAction } from '../actions';
 import { Shell } from '../AccountViews';
 import HistoryView from '@/components/HistoryView';
 
-export const metadata = { title: 'Your deals · IOI' };
+export const metadata = { title: 'Booked deals · IOI' };
 
 export default async function HistoryPage() {
   const { user } = await currentUser();
