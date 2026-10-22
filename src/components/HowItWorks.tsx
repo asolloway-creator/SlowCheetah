@@ -94,10 +94,6 @@ export default function HowItWorks() {
                     accelerators with one step or several, and Quarterly Bonuses that pay a percent or a fixed amount.
                   </dd>
                 </div>
-                <div>
-                  <dt>Noted, not in the numbers yet</dt>
-                  <dd>Caps, clawbacks, SPIFs, draws and multi-year credit.</dd>
-                </div>
               </dl>
             </div>
             <div className="beat-stage is-sun" aria-hidden="true">
