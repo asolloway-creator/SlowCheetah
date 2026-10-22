@@ -1666,3 +1666,14 @@ main.app { padding-bottom: 56px; }
 .app .plan-readout { padding: 14px 16px; border-radius: 12px; box-shadow: none; border: 1px solid var(--line); font-size: 15px; line-height: 1.5; }
 .why + .how { padding-top: 110px; }
 @media (max-width: 600px) { .why + .how { padding-top: 72px; } }
+
+/* Contact us */
+.contact { margin-top: 32px; }
+.contact-row { margin-bottom: 18px; }
+.contact .field-head { min-height: 0; }
+.contact-message { height: auto; min-height: 120px; padding: 14px 16px; resize: vertical; font: 500 16px/1.5 var(--ui); }
+.contact-count { font: 500 13px/1 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.contact-count.is-low { color: var(--red); }
+.contact-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.contact-sent { margin-top: 32px; }
+@media (max-width: 600px) { .contact .field-grid { grid-template-columns: minmax(0, 1fr); } }

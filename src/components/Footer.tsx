@@ -20,6 +20,7 @@ export default function Footer({ quiet = false }: { quiet?: boolean }) {
               <Link href="/plans-and-privacy">How IOI handles your plan</Link>
               <Link href="/privacy">Privacy</Link>
               <Link href="/terms">Terms</Link>
+              <Link href="/contact">Contact us</Link>
             </nav>
           </div>
         </div>

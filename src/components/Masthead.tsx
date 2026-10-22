@@ -32,6 +32,9 @@ export default function Masthead({ current, email }: { current: string; email: s
                 &larr; Home
               </NavLink>
             )}
+            <NavLink className="nav-link hide-sm" href="/contact" aria-current={current === '/contact' ? 'page' : undefined}>
+              Contact
+            </NavLink>
             <NavLink className="nav-link" href="/login" aria-current={current === '/login' ? 'page' : undefined}>
               Sign in
             </NavLink>

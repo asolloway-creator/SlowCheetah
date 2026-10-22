@@ -79,6 +79,16 @@ export function confirmLimits(request: Request, visitorId: string): Rule[] {
   ];
 }
 
+/** The contact form: a few an hour per network, and a daily ceiling that
+ *  leaves the email service's daily allowance for sign-in links. */
+export function contactLimits(request: Request): Rule[] {
+  const ip = clientIp(request);
+  return [
+    { bucket: ip ? bucketId('contact:ip', ip) : null, windowSeconds: HOUR, max: 5 },
+    { bucket: 'contact:all', windowSeconds: DAY, max: 30 },
+  ];
+}
+
 /** The signed-in user's id, if there is one. Never required. */
 export async function sessionUserId(): Promise<string | null> {
   try {

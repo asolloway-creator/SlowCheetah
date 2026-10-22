@@ -52,6 +52,9 @@ export default function AccountMenu({ email, current }: { email: string; current
           <Link role="menuitem" className="acct-item" href="/plan" onClick={() => setOpen(false)}>
             Your plan
           </Link>
+          <Link role="menuitem" className="acct-item" href="/contact" onClick={() => setOpen(false)}>
+            Contact us
+          </Link>
           <form action="/auth/signout" method="post">
             <button role="menuitem" type="submit" className="acct-item">
               Sign out

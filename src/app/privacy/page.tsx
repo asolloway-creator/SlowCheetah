@@ -16,7 +16,7 @@ export default async function PrivacyPage() {
       <Doc
         title="Privacy"
         lede="IOI is a small, independent tool. This is what it collects, why, and who helps run it. The short version: your deals stay yours, your words are never kept, and your plan is only ever counted anonymously."
-        updated="October 5, 2026"
+        updated="October 22, 2026"
       >
         <DocSection title="Without an account">
           <p>
@@ -66,7 +66,9 @@ export default async function PrivacyPage() {
               <b>A hosting service</b> runs the site.
             </li>
             <li>
-              <b>An email service</b> sends sign-in emails.
+              <b>An email service</b> sends sign-in emails, and delivers what you send through{' '}
+              <Link href="/contact">Contact us</Link>: your name, email address and message go to IOI by email and
+              aren&rsquo;t stored on the site.
             </li>
           </ul>
           <p>IOI doesn’t sell personal information, and doesn’t share it except with these services to run IOI.</p>
