@@ -5,7 +5,7 @@ import { DEMO_PLAN } from '@/lib/calc';
 import { Shell } from '@/app/AccountViews';
 import DealStage from '@/components/DealStage';
 import HowItWorks from '@/components/HowItWorks';
-import { ClosingCta, LandingHero } from '@/components/Landing';
+import { ClosingCta, LandingHero, WhyIoi } from '@/components/Landing';
 import { OPENING_PTD, OPENING_QTD, SAMPLE } from '@/components/opening';
 
 /** Never called: the sample card can't book a deal. */
@@ -37,6 +37,7 @@ export function DemoDeal() {
         initialDeal={SAMPLE}
         intro={<LandingHero />}
       />
+      <WhyIoi />
       <HowItWorks />
       <ClosingCta />
     </Shell>

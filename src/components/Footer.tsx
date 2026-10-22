@@ -22,9 +22,6 @@ export default function Footer({ quiet = false }: { quiet?: boolean }) {
               <Link href="/terms">Terms</Link>
             </nav>
           </div>
-          <a className="footer-tell" href="mailto:hello@tryioi.com?subject=IOI%3A%20my%20comp%20plan">
-            Does this match your comp plan? Tell me &rarr;
-          </a>
         </div>
       </div>
     </footer>

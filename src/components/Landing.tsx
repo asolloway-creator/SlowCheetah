@@ -48,6 +48,64 @@ export function LandingHero() {
   );
 }
 
+/**
+ * What the name means, and the bet the product is built on: incentives buy
+ * a good week; knowing what a deal pays, in the moment, changes how it's
+ * priced. Two short columns put the two side by side.
+ */
+export function WhyIoi() {
+  const incentive = [
+    'A SPIF moves the number for a week, then it’s gone.',
+    'A contest pays whoever was already closing.',
+    'An accelerator only pays if you know where it starts.',
+  ];
+  const information = [
+    'What this deal pays you, before you quote it.',
+    'What each point of discount costs you.',
+    'Where your accelerator and Quarterly Bonus lines are, and how to keep them.',
+  ];
+  return (
+    <section className="why" aria-labelledby="why-h">
+      <div className="container">
+        <div className="why-panel">
+          <div className="why-copy">
+            <p className="eyebrow">
+              <span className="mark-dot" aria-hidden="true" />
+              Why IOI
+            </p>
+            <h2 id="why-h">
+              <span className="why-hl">Information</span> over incentive.
+            </h2>
+            <p>
+              Contests and SPIFs buy a good week. They don&rsquo;t change how a deal gets priced. What changes it is
+              knowing what a discount does to your commission, your accelerator and your Quarterly Bonus, at the
+              moment you&rsquo;re about to give it. IOI is built on that.
+            </p>
+          </div>
+          <div className="why-compare">
+            <div className="why-col is-incentive">
+              <p className="why-col-h">Incentive</p>
+              <ul>
+                {incentive.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="why-col is-information">
+              <p className="why-col-h">Information</p>
+              <ul>
+                {information.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** The page's closing ask. */
 export function ClosingCta() {
   return (
