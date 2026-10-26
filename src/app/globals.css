@@ -1704,6 +1704,8 @@ main.app { padding-bottom: 56px; }
 
 /* Booked table: each line's discount, with what it cost beside it. */
 .deals td.deals-disc span { display: inline-block; }
+.deals th.deals-disc-h { line-height: 1.3; vertical-align: bottom; }
+.deals td.deals-act { width: 1%; }
 .deals .deals-cost { min-width: 4.5em; margin-left: 10px; color: var(--red); font-weight: 600; text-align: right; }
 .deals td.deals-disc:not(:has(.deals-cost))::after { content: ""; display: inline-block; min-width: 4.5em; margin-left: 10px; }
 
@@ -1722,9 +1724,9 @@ main.app { padding-bottom: 56px; }
   .ds .booked .deals td.deals-size { grid-column: 2; grid-row: 2; text-align: right; color: var(--ink-2); }
   .ds .booked .deals td.deals-disc { grid-column: 1 / -1; display: flex; gap: 8px; }
   .ds .booked .deals td.deals-size::before, .ds .booked .deals td.deals-disc::before { content: attr(data-label) " "; color: var(--ink-3); }
-  .ds .booked .deals td.deals-disc::before { content: attr(data-label) " discount"; min-width: 9.5em; }
-  .ds .booked .deals td.deals-disc::after { content: none; }
-  .ds .booked .deals .deals-cost { min-width: 0; margin-left: auto; }
+  .ds .booked .deals td.deals-disc::before { content: attr(data-label); flex: 1 1 auto; }
+  .ds .booked .deals td.deals-disc::after { min-width: 4em; margin-left: 0; }
+  .ds .booked .deals .deals-cost { min-width: 4em; margin-left: 0; }
   .ds .booked .deals td.deals-act { grid-column: 1 / -1; margin-top: 4px; }
   .ds .booked .deals td.deals-act .row-delete { opacity: 1; }
   .ds .booked .deals .deals-period { display: block; }

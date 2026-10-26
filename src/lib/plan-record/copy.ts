@@ -59,7 +59,7 @@ const SCOPE_WORDS: Record<PlanRecord['pay_rules'][number]['applies_to'], string>
   expansion: 'Expansion deals pay',
   renewal: 'Renewals pay',
   one_time: 'One-time charges pay',
-  services: 'Services pay',
+  services: 'One-time products and services pay',
   hardware: 'Hardware pays',
   other: 'Some deals pay',
 };
@@ -211,7 +211,7 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
   // With hardware on a rate of its own, this is about setup and services only.
   const ot = r.one_time.counts_pct;
   const payingOnOneTime = r.pay_rules.some((p) => p.applies_to === 'one_time' || p.applies_to === 'services');
-  const what = r.pay_rules.some((p) => p.applies_to === 'hardware') ? 'Services' : 'Services and other one-time charges';
+  const what = 'One-time products and services';
   if (ot !== null && !payingOnOneTime) {
     pay.push(
       line(
@@ -518,7 +518,7 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
     case 'one_time_weight':
       return {
         topic, index, kind: 'number', current: r.one_time.counts_pct, max: 100, suffix: '%',
-        prompt: 'How much do services and other one-time charges, like setup fees, count? 0% if not at all, 100% if in full.',
+        prompt: 'How much do one-time products and services, like setup fees, count? 0% if not at all, 100% if in full.',
       };
     case 'one_time_kind': {
       const rate = r.pay_rules[index]?.rate;
@@ -527,7 +527,7 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
         prompt: `Which one-time charges pay ${rate !== null && rate !== undefined ? fmtPctShort(rate) : 'that rate'}?`,
         choices: [
           { value: 'hardware', label: 'Hardware, at a flat rate' },
-          { value: 'services', label: 'Services' },
+          { value: 'services', label: 'One-time products & services' },
           { value: 'one_time', label: 'All one-time charges' },
         ],
       };
@@ -700,8 +700,8 @@ export function assumedText(r: PlanRecord, a: Assumed, m: Mapping): string {
       return 'We read your base pay from context.';
     case 'one_time_weight':
       return a.why === 'default'
-        ? 'You didn’t mention services or setup fees, so we counted them at 0%.'
-        : `We counted services and setup fees at ${fmtPctShort(r.one_time.counts_pct ?? 0)}.`;
+        ? 'You didn’t mention one-time products or services, so we counted them at 0%.'
+        : `We counted one-time products and services at ${fmtPctShort(r.one_time.counts_pct ?? 0)}.`;
     case 'accelerator_kind':
       return 'We read how your accelerator applies from context.';
     case 'kicker_target': {

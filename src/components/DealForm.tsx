@@ -51,7 +51,7 @@ export default function DealForm({
   // One name for the one-time line everywhere: setup, onboarding,
   // implementation and any other one-time charge (hardware too, unless the
   // plan pays it a rate of its own).
-  const otName = 'Services';
+  const otName = 'One-time products & services';
 
   const units = (
     <div className="deal-units">

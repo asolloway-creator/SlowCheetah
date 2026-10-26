@@ -136,7 +136,7 @@ test('setup counts at a weight and hardware pays its own flat rate, never blende
   assert.equal(m.plan?.one_time_weight, 50, 'not 3 / 8 = 37.5');
   assert.equal(m.plan?.hardware_rate, 3);
   const text = allText(r);
-  assert.ok(text.includes('Services count at 50%.'), text.join('\n'));
+  assert.ok(text.includes('One-time products and services count at 50%.'), text.join('\n'));
   assert.ok(text.includes('Hardware pays a flat 3%, accelerator or not.'), text.join('\n'));
   const plan = m.plan!;
   const zero = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0 };

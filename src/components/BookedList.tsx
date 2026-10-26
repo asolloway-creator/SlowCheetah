@@ -36,8 +36,8 @@ function lostByLine(plan: CompPlan, d: DealRow): Record<Line, number> {
  *  in months of MRR, a year of subscription on every other. */
 const sizeColumn = (plan: CompPlan) =>
   plan.commission_style === 'months_of_mrr'
-    ? { label: 'New MRR', of: (d: DealRow) => d.arr / 12 }
-    : { label: 'New ARR', of: (d: DealRow) => d.arr };
+    ? { label: 'Booked MRR', of: (d: DealRow) => d.arr / 12 }
+    : { label: 'Booked ARR', of: (d: DealRow) => d.arr };
 
 /**
  * What's been booked, under the deal fields on the home page: this period's
@@ -63,7 +63,7 @@ export default function BookedList({
   // its own rate and it has its own discount.
   const lines: { key: Line; label: string; pct: (d: DealRow) => number }[] = [
     { key: 'software', label: 'Subscription', pct: (d) => d.subscription_discount_pct },
-    { key: 'services', label: 'Services', pct: (d) => d.one_time_discount_pct },
+    { key: 'services', label: 'One-time products & services', pct: (d) => d.one_time_discount_pct },
     ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
   ];
   const cols = 5 + lines.length;
@@ -131,12 +131,14 @@ export default function BookedList({
             <thead>
               <tr>
                 <th scope="col">Deal</th>
-                <th scope="col">Booked</th>
+                <th scope="col">Date Closed Won</th>
                 <th scope="col">{size.label}</th>
                 <th scope="col">Commission</th>
                 {lines.map((l) => (
-                  <th key={l.key} scope="col">
-                    {l.label} discount
+                  <th key={l.key} scope="col" className="deals-disc-h">
+                    {l.label}
+                    <br />
+                    discount
                   </th>
                 ))}
                 <th scope="col">

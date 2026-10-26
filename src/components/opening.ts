@@ -516,12 +516,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
             // what it actually costs in commission only exists because this
             // plan weights revenue types differently — worth naming, not
             // just totaling.
-            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off services only costs you ${fmtMoney(o.atStake)}. They count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products and services only costs you ${fmtMoney(o.atStake)}. They count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
           : bothDiscounted && weighted
             ? // Both levers active: the one-time-weighting insight is still
               // true and still worth naming, not just swallowed into one
               // generic total the moment a second discount joins it.
-              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal. The services alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
+              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal. The one-time products and services alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
             : `Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : null;
 
@@ -672,7 +672,7 @@ export function sliderCaption(deal: DealInput, r: CalcResult): string {
 
 /** One line under the services field. */
 export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number): string {
-  const what = 'Services';
+  const what = 'One-time products & services';
   if (plan.commission_style !== 'percent' || plan.one_time_weight === 0) {
     return 'Discounts here cost you nothing on this plan.';
   }
@@ -692,7 +692,7 @@ export function hardwareCopy(plan: CompPlan, deal: DealInput, hwCost: number): s
 export function dealSummary(deal: DealInput): string {
   if (isEmpty(deal)) return 'Nothing yet';
   const parts: string[] = [];
-  if (deal.oneTime > 0) parts.push(`${fmtMoney(deal.oneTime)} services`);
+  if (deal.oneTime > 0) parts.push(`${fmtMoney(deal.oneTime)} one-time`);
   if ((deal.hardware ?? 0) > 0) parts.push(`${fmtMoney(deal.hardware as number)} hardware`);
   if (deal.subscription > 0) {
     parts.push(`${fmtMoney(deal.subscription)} ${deal.subMode === 'acv' ? 'a year' : 'a month'} × ${Math.max(1, Math.round(deal.units))} unit${deal.units === 1 ? '' : 's'}`);

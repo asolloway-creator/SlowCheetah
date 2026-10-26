@@ -84,9 +84,9 @@ export function planSentence(p: CompPlan): string {
     weights =
       p.one_time_weight === 0
         ? hardware
-          ? 'services don’t count'
+          ? 'one-time products and services don’t count'
           : 'subscription only'
-        : `services at ${fmtPctShort(p.one_time_weight)}`;
+        : `one-time products and services at ${fmtPctShort(p.one_time_weight)}`;
   }
   return [base, accel, weights, hardware].filter(Boolean).join(' · ');
 }
