@@ -21,6 +21,7 @@ import {
   periodSummary,
   quarterlyKickerSummary,
   stepIndexAt,
+  stepRatePct,
   type AcceleratorStep,
   type CalcResult,
   type CompPlan,
@@ -29,7 +30,7 @@ import {
   type QuarterToDate,
   type QuarterlyKickerTier,
 } from '@/lib/calc';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
 
 export const EMPTY: DealInput = {
   oneTime: 0, subscription: 0, subMode: 'mrr', units: 1,
@@ -384,7 +385,13 @@ export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
     };
   }
 
-  if (k && !k.tier && k.nextTier) {
+  // Two lines ahead, the accelerator and the bonus: lead with the nearer
+  // one, measured as the share of its own line still to go, since that's
+  // the one the next deal can move.
+  const accelLeft = s.next && s.next.threshold > 0 ? s.toAccelerator / s.next.threshold : Infinity;
+  const bonusLine = k?.nextTier && kicker ? (kicker.target * k.nextTier.attainmentPct) / 100 : 0;
+  const bonusLeft = k && !k.tier && k.nextTier && bonusLine > 0 ? k.toNextTierArr / bonusLine : Infinity;
+  if (k && !k.tier && k.nextTier && bonusLeft <= accelLeft) {
     return {
       head: [{ text: fmt(k.toNextTierArr), hl: true }, { text: ` more new ARR unlocks your ${name(k.nextTier)}.` }],
       lede: `Worth ${worth(k.nextTier)}. Your next quote can win it or lose it. ${ask}`,
@@ -401,7 +408,9 @@ export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
         retro && unlock > 0
           ? `Crossing it unlocks ${fmtMoney(unlock)} on the deals you’ve already closed. ${ask}`
           : retro
-            ? `Past it, the whole ${noun}’s commission goes up ${fmtPctShort(s.next.rate)}. ${ask}`
+            ? plan.commission_style === 'percent'
+              ? `Past it, every deal this ${noun} pays ${fmtRatePct(stepRatePct(plan, s.next))}, earlier ones included. ${ask}`
+              : `Past it, the whole ${noun}’s commission goes up ${fmtPctShort(s.next.rate)}. ${ask}`
             : `Past it, every deal earns ${fmtRateShort(plan, s.next.rate)}. ${ask}`,
       note,
     };
@@ -717,7 +726,9 @@ function markerText(plan: CompPlan, step: AcceleratorStep | null): string {
   if (!step) return `Quota · ${fmtCredit(plan, plan.quota)}`;
   const th = fmtCredit(plan, step.threshold);
   return plan.accelerator_style === 'retro_bump'
-    ? `Accelerator · ${th} · +${fmtPctShort(step.rate)} on the ${noun}`
+    ? plan.commission_style === 'percent'
+      ? `Accelerator · ${th} · ${fmtRatePct(stepRatePct(plan, step))} on every deal`
+      : `Accelerator · ${th} · +${fmtPctShort(step.rate)} on the ${noun}`
     : `Accelerator · ${th} · ${fmtRateShort(plan, step.rate)} from here`;
 }
 

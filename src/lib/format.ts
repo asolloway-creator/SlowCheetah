@@ -1,10 +1,19 @@
-import type { CompPlan } from '@/lib/calc';
+import { stepRatePct, type CompPlan } from '@/lib/calc';
 
 /** Further accelerator steps, as ", 15% past $187,500" (calc.ts acceleratorSteps). */
 const moreSteps = (p: CompPlan) =>
   (p.accelerator_steps ?? [])
-    .map((s) => `, ${p.accelerator_style === 'retro_bump' ? `+${fmtPctShort(s.rate)}` : fmtRateShort(p, s.rate)} past ${fmtCredit(p, s.threshold)}`)
+    .map((s) => `, ${stepWords(p, s)} past ${fmtCredit(p, s.threshold)}`)
     .join('');
+
+/** A step's pay as a rep reads it on a statement: the rate on a percent plan
+ *  (a retro bump included, as the rate it lifts the base to), else "+25%". */
+const stepWords = (p: CompPlan, s: { threshold: number; rate: number }) =>
+  p.accelerator_style === 'retro_bump'
+    ? p.commission_style === 'percent'
+      ? fmtRatePct(stepRatePct(p, s))
+      : `+${fmtPctShort(s.rate)}`
+    : fmtRateShort(p, s.rate);
 
 const usd0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,11 +48,15 @@ export const fmtSigned = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fm
 /** 5% · 4.5% */
 export const fmtPctShort = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
 
+/** A rate the plan sets, to the hundredth when it has one: "8.26%", "10%",
+ *  "12.5%". Never rounded to a tenth, since 8.26% and 8.3% aren't the same plan. */
+export const fmtRatePct = (n: number) => `${Number.isInteger(n) ? n : parseFloat(n.toFixed(2))}%`;
+
 export const fmtPerMonth = (n: number) => `${fmtMoney(n)} a month`;
 
 /** Like fmtRate, but "10%" rather than "10.0%" on percent plans. */
 export const fmtRateShort = (plan: CompPlan, rate: number) =>
-  plan.commission_style === 'percent' ? fmtPctShort(rate) : fmtRate(plan, rate);
+  plan.commission_style === 'percent' ? fmtRatePct(rate) : fmtRate(plan, rate);
 
 /**
  * One-line plain-English shape of a plan, built from the plan itself so the
@@ -53,14 +66,16 @@ export const fmtRateShort = (plan: CompPlan, rate: number) =>
 export function planSentence(p: CompPlan): string {
   const noun = periodNoun(p);
   const percent = p.commission_style === 'percent';
-  const base = percent ? `${fmtPctShort(p.base_rate)} of deal value` : `${fmtRate(p, p.base_rate)} per deal`;
-  const hardware = typeof p.hardware_rate === 'number' ? `hardware at a flat ${fmtPctShort(p.hardware_rate)}` : null;
+  const base = percent ? `${fmtRatePct(p.base_rate)} of deal value` : `${fmtRate(p, p.base_rate)} per deal`;
+  const hardware = typeof p.hardware_rate === 'number' ? `hardware at a flat ${fmtRatePct(p.hardware_rate)}` : null;
   if (p.accelerator_style === 'none') return [`${base}, every deal, all ${noun} long`, hardware].filter(Boolean).join(' · ');
 
   const th = fmtCredit(p, p.accelerator_threshold);
   const accel =
     (p.accelerator_style === 'retro_bump'
-      ? `+${fmtPctShort(p.accelerator_rate)} on the whole ${noun} once you cross ${th}`
+      ? percent
+        ? `${fmtRatePct(stepRatePct(p, { threshold: p.accelerator_threshold, rate: p.accelerator_rate }))} on every deal that ${noun} once you cross ${th}`
+        : `+${fmtPctShort(p.accelerator_rate)} on the whole ${noun} once you cross ${th}`
       : `${fmtRateShort(p, p.accelerator_rate)} on every deal once ${p.quota_basis === 'units' ? `${th} land` : `you cross ${th}`}`) +
     moreSteps(p);
 

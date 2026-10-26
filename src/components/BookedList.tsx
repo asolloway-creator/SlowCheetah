@@ -6,11 +6,18 @@ import type { DealRow } from '@/lib/queries';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
 const hardware = (d: DealRow) => (d.hardware_amount ?? 0) * (1 - (d.hardware_discount_pct ?? 0) / 100);
-const dealValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + hardware(d) + d.arr;
+const netValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + hardware(d) + d.arr;
 const blendedDisc = (d: DealRow) => {
   const full = d.one_time_amount + (d.hardware_amount ?? 0) + (d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12);
-  return full > 0 ? ((full - dealValue(d)) / full) * 100 : 0;
+  return full > 0 ? ((full - netValue(d)) / full) * 100 : 0;
 };
+
+/** A booked deal's size the way the plan pays on it: monthly on a plan paid
+ *  in months of MRR, a year of subscription on every other. */
+const sizeColumn = (plan: CompPlan) =>
+  plan.commission_style === 'months_of_mrr'
+    ? { label: 'New MRR', of: (d: DealRow) => d.arr / 12 }
+    : { label: 'New ARR', of: (d: DealRow) => d.arr };
 
 /**
  * What's been booked, under the deal fields on the home page: this period's
@@ -21,11 +28,17 @@ export default function BookedList({
   plan,
   deals,
   onDelete,
+  onEdit,
+  editingId = null,
 }: {
   plan: CompPlan;
   deals: DealRow[];
   onDelete: (id: string) => Promise<{ error?: string }>;
+  /** Opens a booked deal in the card to change it. */
+  onEdit?: (d: DealRow) => void;
+  editingId?: string | null;
 }) {
+  const size = sizeColumn(plan);
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +102,9 @@ export default function BookedList({
             <caption className="sr-only">Booked deals</caption>
             <thead>
               <tr>
-                <th scope="col">Date</th>
-                <th scope="col">Deal value</th>
+                <th scope="col">Deal</th>
+                <th scope="col">Booked</th>
+                <th scope="col">{size.label}</th>
                 <th scope="col">Discount</th>
                 <th scope="col">Commission</th>
                 <th scope="col">Left on the table</th>
@@ -103,7 +117,7 @@ export default function BookedList({
               <tbody key={g.period}>
                 {all && (
                   <tr className="deals-period">
-                    <th scope="colgroup" colSpan={6}>
+                    <th scope="colgroup" colSpan={7}>
                       {g.period}
                     </th>
                   </tr>
@@ -111,13 +125,25 @@ export default function BookedList({
                 {g.rows.map((d) => {
                   const disc = Math.round(blendedDisc(d) * 10) / 10;
                   return (
-                    <tr key={d.id}>
+                    <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
+                      <td className={`deals-name${d.name ? '' : ' is-dim'}`}>{d.name || 'Unnamed'}</td>
                       <td>{fmtDate(d.created_at)}</td>
-                      <td>{fmtMoney(dealValue(d))}</td>
+                      <td>{fmtMoney(size.of(d))}</td>
                       <td className={disc > 0 ? '' : 'is-dim'}>{disc > 0 ? fmtPctShort(disc) : 'None'}</td>
                       <td>{fmtMoney(d.commission_earned)}</td>
                       <td className={d.money_left_on_table > 0 ? 'is-red' : 'is-dim'}>{fmtMoney(d.money_left_on_table)}</td>
                       <td>
+                        <span className="deals-actions">
+                        {onEdit && (
+                          <button
+                            type="button"
+                            className="row-delete"
+                            aria-label={`Change ${d.name || `deal from ${fmtDate(d.created_at)}`}`}
+                            onClick={() => onEdit(d)}
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="row-delete"
@@ -127,6 +153,7 @@ export default function BookedList({
                         >
                           {busy === d.id ? 'Deleting…' : 'Delete'}
                         </button>
+                        </span>
                       </td>
                     </tr>
                   );

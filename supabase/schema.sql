@@ -108,6 +108,24 @@
 -- v12 database:
 --   alter table public.comp_plans add column if not exists accelerator_steps jsonb;
 --
+-- v15 (2026-10-26) adds public.deal_labels: the rep's own name for a booked
+-- deal, kept apart from public.deals because deals has an admin read policy
+-- and a name can hold anything (same reason quotes has none). Owner-only RLS,
+-- cascades with its deal. comp_plans.opening (jsonb) gains two optional,
+-- app-validated fields, no DDL: entered (the starting-point question was
+-- answered, even with nothing) and rateAdjust (points on the plan's rate this
+-- period, from the rep's commission statement; calc.ts planForPeriod).
+-- Additive, applied 2026-10-26:
+--   create table if not exists public.deal_labels (
+--     deal_id uuid primary key references public.deals (id) on delete cascade,
+--     user_id uuid not null references public.users (id) on delete cascade,
+--     name text not null check (char_length(name) between 1 and 80),
+--     updated_at timestamptz not null default now());
+--   alter table public.deal_labels enable row level security;
+--   create policy "deal_labels own" on public.deal_labels for all
+--     using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+--   create index if not exists deal_labels_user_idx on public.deal_labels (user_id);
+--
 -- v12 (2026-10-02) adds public.quotes: deals a rep is still working, saved
 -- so they can come back to them and see what their open quotes add up to.
 -- Same deal columns as public.deals plus the rep's own label. Owner-only RLS

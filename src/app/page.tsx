@@ -1,6 +1,15 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, listDeals, listQuotes } from '@/lib/queries';
-import { deleteDealAction, deleteQuoteAction, saveDealAction, saveOpeningAction, saveQuoteAction } from './actions';
+import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
+import { calendarInZone } from '@/lib/calc';
+import {
+  deleteDealAction,
+  deleteQuoteAction,
+  saveDealAction,
+  saveOpeningAction,
+  saveQuoteAction,
+  saveRateAction,
+  updateDealAction,
+} from './actions';
 import { Shell } from './AccountViews';
 import { DemoDeal } from './demo/DemoViews';
 import PipelineHome from '@/components/PipelineHome';
@@ -20,6 +29,7 @@ export default async function Home() {
     listDeals(user.id),
   ]);
   void _period;
+  const calendar = calendarInZone(plan.period, await repTimeZone());
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">
@@ -35,6 +45,9 @@ export default async function Home() {
         onDeleteQuote={deleteQuoteAction}
         onDeleteDeal={deleteDealAction}
         onOpening={saveOpeningAction}
+        onUpdateDeal={updateDealAction}
+        onRate={saveRateAction}
+        calendar={calendar}
       />
     </Shell>
   );

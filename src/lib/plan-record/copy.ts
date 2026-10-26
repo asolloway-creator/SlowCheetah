@@ -1,5 +1,5 @@
 import { calc, type CompPlan, type DealInput } from '@/lib/calc';
-import { fmt, fmtMoney, fmtPctShort } from '@/lib/format';
+import { fmt, fmtMoney, fmtPctShort, fmtRatePct } from '@/lib/format';
 import type { Area, Assumed, Gap, Limit, Mapping, Note, Status, Topic } from './map';
 import type { CalcChoices, Measure, Period, PlanRecord, Source } from './schema';
 
@@ -152,7 +152,7 @@ function rateWords(r: PlanRecord, rate: number, baseRule: number | null): string
   const method = baseRule !== null ? r.pay_rules[baseRule]?.method : 'percent_of_value';
   if (method === 'months_of_mrr') return `${rate} month${rate === 1 ? '' : 's'} of MRR`;
   if (method === 'flat_per_deal' || method === 'flat_per_unit') return fmtMoney(rate);
-  return fmtPctShort(rate);
+  return fmtRatePct(rate);
 }
 
 // ── Readback ────────────────────────────────────────────────────────────────
@@ -184,11 +184,11 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
     const scope = SCOPE_WORDS[p.applies_to];
     let text: string;
     if (p.method === 'percent_of_value' && p.applies_to === 'hardware') {
-      text = p.rate !== null ? `${scope} a flat ${fmtPctShort(p.rate)}, accelerator or not.` : `${scope} a percent.`;
+      text = p.rate !== null ? `${scope} a flat ${fmtRatePct(p.rate)}, accelerator or not.` : `${scope} a percent.`;
     } else if (p.method === 'percent_of_value' && (p.applies_to === 'one_time' || p.applies_to === 'services')) {
-      text = p.rate !== null ? `${scope} ${fmtPctShort(p.rate)}.` : `${scope} a percent.`;
+      text = p.rate !== null ? `${scope} ${fmtRatePct(p.rate)}.` : `${scope} a percent.`;
     } else if (p.method === 'percent_of_value') {
-      text = p.rate !== null ? `${scope} ${fmtPctShort(p.rate)} of ${BASIS_WORDS[p.value_basis]}.` : `${scope} a percent of ${BASIS_WORDS[p.value_basis]}.`;
+      text = p.rate !== null ? `${scope} ${fmtRatePct(p.rate)} of ${BASIS_WORDS[p.value_basis]}.` : `${scope} a percent of ${BASIS_WORDS[p.value_basis]}.`;
     } else if (p.method === 'months_of_mrr') {
       text = p.rate !== null ? `${scope} ${p.rate} month${p.rate === 1 ? '' : 's'} of its MRR.` : `${scope} a number of months of its MRR.`;
     } else if (p.method === 'flat_per_deal') {
@@ -196,7 +196,7 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
     } else if (p.method === 'flat_per_unit') {
       text = p.rate !== null ? `Each unit pays a flat ${fmtMoney(p.rate)}.` : 'Each unit pays a flat amount.';
     } else if (p.method === 'percent_of_margin') {
-      text = p.rate !== null ? `${scope} ${fmtPctShort(p.rate)} of its margin.` : `${scope} a percent of its margin.`;
+      text = p.rate !== null ? `${scope} ${fmtRatePct(p.rate)} of its margin.` : `${scope} a percent of its margin.`;
     } else {
       text = `${scope} in a way we couldn’t pin down.`;
     }

@@ -1,10 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { currentUser, getCompPlan, getPeriodToDate, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getOpening, getPeriodToDate, repTimeZone } from '@/lib/queries';
 import {
   calc,
+  calendarInZone,
   COMPANY_SIZE_BANDS,
+  middayInZone,
+  planForPeriod,
   needsQuarterArr,
   periodKeyInZone,
   type CompPlan,
@@ -57,27 +60,35 @@ const dealColumns = (deal: DealInput, r: ReturnType<typeof calc>) => ({
   hardware_commission: Number(r.hardwareCommission.toFixed(2)),
 });
 
-export async function saveDealAction(input: DealInput): Promise<Result> {
-  const { supabase, user } = await currentUser();
-  if (!user) return { error: 'Sign in to save deals.' };
-  // Caught here rather than left to throw: this runs from a client button
-  // click, not a page load, so there's no error.tsx boundary above it to
-  // catch a rejection — an uncaught one would leave the button stuck
-  // "Saving…" forever instead of surfacing through the same msg.error UI
-  // every other failure on this form already uses. Both reads need this,
-  // not just the first — a transient failure on either one is the same
-  // stuck-button failure mode from the caller's point of view.
+/** What the rep adds when booking: the deal's name and the day it was booked. */
+export type BookMeta = { name?: string; bookedOn?: string };
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const dealName = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+/**
+ * Prices a deal against the period as it stands without `excludeId` (the
+ * deal being edited), and works out when it was booked: today unless the rep
+ * picked an earlier day this period. Shared by booking and editing.
+ */
+async function priceForBooking(userId: string, input: DealInput, meta: BookMeta | undefined, excludeId?: string) {
   let plan: CompPlan | null;
   try {
-    plan = await getCompPlan(user.id);
+    plan = await getCompPlan(userId);
   } catch {
-    return { error: 'Could not load your comp plan. Try again in a moment.' };
+    return { error: 'Could not load your comp plan. Try again in a moment.' } as const;
   }
-  if (!plan) return { error: 'Set up your comp plan before saving a deal.' };
+  if (!plan) return { error: 'Set up your comp plan before saving a deal.' } as const;
   const compPlan = plan;
 
   const deal = cleanDeal(input);
-  if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' };
+  if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' } as const;
+
+  const tz = await repTimeZone();
+  const cal = calendarInZone(compPlan.period, tz);
+  const bookedOn = meta?.bookedOn && DAY.test(meta.bookedOn) ? meta.bookedOn : cal.today;
+  if (bookedOn > cal.today) return { error: 'Pick today or an earlier day for when it was booked.' } as const;
+  if (bookedOn < cal.periodStart) return { error: 'Pick a day in this period. Deals from earlier periods go in what you’d booked before IOI.' } as const;
 
   // Recompute against the live period rather than trusting the browser.
   //
@@ -100,28 +111,92 @@ export async function saveDealAction(input: DealInput): Promise<Result> {
   // again. Not a lock, but it shrinks the race window from the whole
   // request down to the gap between two reads, and a few attempts covers
   // all but a genuinely simultaneous double-submit.
-  const userId = user.id;
   async function readPtd() {
     try {
-      return await getPeriodToDate(userId, compPlan);
+      const all = await getPeriodToDate(userId, compPlan);
+      if (!excludeId) return all;
+      // Editing: the period as it stands without this deal's old numbers.
+      const without = all.deals.find((d) => d.id === excludeId);
+      if (!without) return all;
+      return {
+        ...all,
+        creditBooked: all.creditBooked - without.quota_credit,
+        commissionBooked: all.commissionBooked - without.commission_base,
+        earnedBooked: all.earnedBooked - without.commission_earned,
+        hardwareBooked: (all.hardwareBooked ?? 0) - (without.hardware_commission ?? 0),
+      };
     } catch {
       return null;
     }
   }
   let ptd = await readPtd();
-  if (!ptd) return { error: 'Could not load where you stand this period. Try again in a moment.' };
-  let r = calc(plan, deal, ptd);
+  if (!ptd) return { error: 'Could not load where you stand this period. Try again in a moment.' } as const;
+  // The rate this period, with the rep's adjustment from their statement.
+  const effective = planForPeriod(compPlan, ptd.opening);
+  let r = calc(effective, deal, ptd);
   const MAX_ATTEMPTS = 3;
   for (let attempt = 1; attempt < MAX_ATTEMPTS; attempt++) {
     const confirm = await readPtd();
-    if (!confirm) return { error: 'Could not load where you stand this period. Try again in a moment.' };
+    if (!confirm) return { error: 'Could not load where you stand this period. Try again in a moment.' } as const;
     if (confirm.creditBooked === ptd.creditBooked) break;
     ptd = confirm;
-    r = calc(plan, deal, ptd);
+    r = calc(effective, deal, ptd);
   }
+  const createdAt = bookedOn === cal.today ? null : middayInZone(bookedOn, tz).toISOString();
+  return { deal, r, createdAt, name: dealName(meta?.name) } as const;
+}
 
-  const { error } = await supabase.from('deals').insert({ user_id: user.id, ...dealColumns(deal, r) });
+/** Writes (or clears) a deal's name. Names live apart from the deal's
+ *  numbers, owner-only like quotes, since a name can hold anything. */
+async function saveDealName(supabase: Awaited<ReturnType<typeof currentUser>>['supabase'], userId: string, dealId: string, name: string) {
+  if (name) await supabase.from('deal_labels').upsert({ deal_id: dealId, user_id: userId, name });
+  else await supabase.from('deal_labels').delete().eq('deal_id', dealId).eq('user_id', userId);
+}
+
+export async function saveDealAction(input: DealInput, meta?: BookMeta): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to save deals.' };
+  // Caught inside priceForBooking rather than left to throw: this runs from
+  // a client button click, not a page load, so there's no error.tsx
+  // boundary above it, and an uncaught rejection would leave the button
+  // stuck "Saving…" instead of surfacing through the form's msg.error UI.
+  const priced = await priceForBooking(user.id, input, meta);
+  if ('error' in priced) return { error: priced.error };
+  const { deal, r, createdAt, name } = priced;
+
+  const { data, error } = await supabase
+    .from('deals')
+    .insert({ user_id: user.id, ...dealColumns(deal, r), ...(createdAt ? { created_at: createdAt } : {}) })
+    .select('id')
+    .single();
   if (error) return { error: error.message };
+  // The deal is booked either way; a name that didn't save isn't worth failing it.
+  if (name && data?.id) {
+    try {
+      await saveDealName(supabase, user.id, String(data.id), name);
+    } catch {}
+  }
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/** Changes a booked deal: its lines, name or booked day, repriced as if
+ *  it had been booked that way. */
+export async function updateDealAction(id: string, input: DealInput, meta?: BookMeta): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to change deals.' };
+  const priced = await priceForBooking(user.id, input, meta, id);
+  if ('error' in priced) return { error: priced.error };
+  const { deal, r, createdAt, name } = priced;
+  const { error } = await supabase
+    .from('deals')
+    .update({ ...dealColumns(deal, r), ...(createdAt ? { created_at: createdAt } : {}) })
+    .eq('id', id)
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  try {
+    await saveDealName(supabase, user.id, id, name);
+  } catch {}
   revalidatePath('/', 'layout');
   return {};
 }
@@ -276,12 +351,51 @@ export async function saveOpeningAction(input: OpeningInput): Promise<Result> {
     return { error: 'Enter amounts of zero or more.' };
   }
   const tz = await repTimeZone();
+  const periodKey = periodKeyInZone(plan.period, tz);
+  const saved = await getOpening(user.id);
   const opening: Opening = {
-    periodKey: periodKeyInZone(plan.period, tz),
+    periodKey,
     credit: plan.quota_basis === 'units' ? Math.round(credit) : Math.round(credit * 100) / 100,
     quarterKey: periodKeyInZone('quarter', tz),
     quarterArr: needsQuarterArr(plan) && quarterArr !== null ? Math.round(quarterArr * 100) / 100 : null,
+    // Answered, even with nothing to add.
+    entered: true,
+    // This period's rate adjustment stays as it was.
+    rateAdjust: saved?.periodKey === periodKey ? (saved.rateAdjust ?? null) : null,
   };
+  const { error } = await supabase.from('comp_plans').update({ opening }).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/**
+ * The rate on the rep's latest commission statement, for this period only:
+ * stored as the points it sits above or below the plan's base rate (calc.ts
+ * planForPeriod), so the accelerated rate moves with it. Null puts it back to
+ * the plan's own rate.
+ */
+export async function saveRateAction(rate: number | null): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to set your rate.' };
+  let plan: CompPlan | null;
+  try {
+    plan = await getCompPlan(user.id);
+  } catch {
+    return { error: 'Could not load your comp plan. Try again in a moment.' };
+  }
+  if (!plan) return { error: 'Set up your comp plan first.' };
+  if (plan.commission_style !== 'percent') return { error: 'Your plan pays in months of MRR, so there’s no rate to set.' };
+  if (rate !== null && !(Number.isFinite(rate) && rate > 0 && rate <= 100)) return { error: 'Enter a rate between 0% and 100%.' };
+
+  const tz = await repTimeZone();
+  const periodKey = periodKeyInZone(plan.period, tz);
+  const saved = await getOpening(user.id);
+  const current = saved?.periodKey === periodKey ? saved : null;
+  const rateAdjust = rate === null ? null : Math.round((rate - plan.base_rate) * 1000) / 1000;
+  const opening: Opening = current
+    ? { ...current, rateAdjust: rateAdjust || null }
+    : { periodKey, credit: 0, quarterKey: periodKeyInZone('quarter', tz), quarterArr: null, entered: false, rateAdjust: rateAdjust || null };
   const { error } = await supabase.from('comp_plans').update({ opening }).eq('user_id', user.id);
   if (error) return { error: 'That didn’t save. Try again in a moment.' };
   revalidatePath('/', 'layout');

@@ -4,6 +4,7 @@ import {
   currentOpening,
   periodKeyInZone,
   periodToDateFrom,
+  planForPeriod,
   quarterToDateFrom,
   startOfPeriodInZone,
   withPeriodOpening,
@@ -48,6 +49,8 @@ export type DealRow = {
   hardware_discount_pct?: number;
   hardware_commission?: number;
   created_at: string;
+  /** v15: the rep's own name for the deal (deal_labels), or ''. */
+  name: string;
 };
 
 /** The signed-in user, or null — pages fall back to demo mode when null. */
@@ -156,16 +159,29 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     hardware_discount_pct: num(d.hardware_discount_pct ?? 0),
     hardware_commission: num(d.hardware_commission ?? 0),
     created_at: String(d.created_at),
+    name: labelOf(d.deal_labels),
   };
+}
+
+/** deal_labels comes back as an object (one-to-one) or a one-row array. */
+function labelOf(v: unknown): string {
+  const row = Array.isArray(v) ? v[0] : v;
+  return row && typeof row === 'object' && typeof (row as { name?: unknown }).name === 'string' ? (row as { name: string }).name : '';
 }
 
 export async function listDeals(userId: string, opts?: { since?: Date }): Promise<DealRow[]> {
   const supabase = await createClient();
-  let q = supabase.from('deals').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-  if (opts?.since) q = q.gte('created_at', opts.since.toISOString());
-  const { data, error } = await q;
+  // With each deal's name (v15 deal_labels); without, if that can't be read,
+  // so a missing table never takes the page down.
+  const run = (cols: string) => {
+    let q = supabase.from('deals').select(cols).eq('user_id', userId).order('created_at', { ascending: false });
+    if (opts?.since) q = q.gte('created_at', opts.since.toISOString());
+    return q;
+  };
+  let { data, error } = await run('*, deal_labels(name)');
+  if (error) ({ data, error } = await run('*'));
   if (error) throw new Error(error.message);
-  return (data ?? []).map(toDealRow);
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toDealRow);
 }
 
 /**
@@ -216,7 +232,8 @@ function parseOpening(v: unknown): Opening | null {
   if (typeof o.periodKey !== 'string' || !KEY.test(o.periodKey)) return null;
   if (typeof o.quarterKey !== 'string' || !KEY.test(o.quarterKey)) return null;
   if (!(credit >= 0) || (quarterArr !== null && !(quarterArr >= 0))) return null;
-  return { periodKey: o.periodKey, credit, quarterKey: o.quarterKey, quarterArr };
+  const rateAdjust = typeof o.rateAdjust === 'number' && Number.isFinite(o.rateAdjust) && Math.abs(o.rateAdjust) <= 50 ? o.rateAdjust : null;
+  return { periodKey: o.periodKey, credit, quarterKey: o.quarterKey, quarterArr, entered: o.entered === true, rateAdjust };
 }
 
 /**
@@ -247,7 +264,8 @@ export async function getPeriodToDate(
     listDeals(userId, { since: startOfPeriodInZone(plan.period, tz) }),
     getOpening(userId),
   ]);
-  return { ...withPeriodOpening(plan, periodToDateFrom(deals), saved, key), deals, opening: currentOpening(saved, key) };
+  const opening = currentOpening(saved, key);
+  return { ...withPeriodOpening(planForPeriod(plan, opening), periodToDateFrom(deals), saved, key), deals, opening };
 }
 
 /** Always the calendar quarter, independent of plan.period — reuses

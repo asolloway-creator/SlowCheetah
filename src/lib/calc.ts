@@ -460,7 +460,53 @@ export type Opening = {
   /** New ARR already booked that calendar quarter, for a quarterly bonus, when
    *  it had to be asked for separately (see needsQuarterArr). */
   quarterArr: number | null;
+  /** The rep answered the starting-point question for this period, even with
+   *  nothing to add. Absent on openings saved before it existed, where a
+   *  credit or quarter ARR above zero is the answer. See openingAnswered. */
+  entered?: boolean;
+  /** Points added to (or taken off) the plan's rate this period, from the
+   *  rate on the rep's own commission statement: a monthly referral or MBO
+   *  adjustment the plan document can't know in advance. Percent plans only.
+   *  See planForPeriod. */
+  rateAdjust?: number | null;
 };
+
+/** Whether the rep has told IOI what they'd booked before it, this period. */
+export function openingAnswered(o: Opening | null): boolean {
+  return Boolean(o && (o.entered || o.credit > 0 || (o.quarterArr ?? 0) > 0));
+}
+
+/** The rate a percent plan pays once a step is reached: the step's own rate,
+ *  or, on a retro bump, the base rate lifted by the bump. */
+export function stepRatePct(plan: CompPlan, step: AcceleratorStep): number {
+  return plan.accelerator_style === 'retro_bump' ? plan.base_rate * (1 + step.rate / 100) : step.rate;
+}
+
+/**
+ * The plan as it pays this period: every rate moved by the period's
+ * adjustment (Opening.rateAdjust), in points, the way a statement shows it.
+ * 8.26% base and 10.26% accelerated with +1 point become 9.26% and 11.26%.
+ * A retro bump is re-expressed so the accelerated rate moves by the same
+ * points, not by the bump's percent of them. Plans paid in months of MRR,
+ * and hardware's flat rate, aren't touched.
+ */
+export function planForPeriod(plan: CompPlan, o: Opening | null): CompPlan {
+  const adj = o?.rateAdjust ?? 0;
+  if (!adj || plan.commission_style !== 'percent') return plan;
+  const base = Math.max(0, plan.base_rate + adj);
+  if (!(base > 0)) return plan;
+  const lift = (s: AcceleratorStep): AcceleratorStep =>
+    plan.accelerator_style === 'retro_bump'
+      ? { threshold: s.threshold, rate: ((stepRatePct(plan, s) + adj) / base - 1) * 100 }
+      : { threshold: s.threshold, rate: Math.max(0, s.rate + adj) };
+  const first = lift({ threshold: plan.accelerator_threshold, rate: plan.accelerator_rate });
+  return {
+    ...plan,
+    base_rate: base,
+    accelerator_rate: plan.accelerator_style === 'none' ? plan.accelerator_rate : first.rate,
+    accelerator_steps: plan.accelerator_steps?.map(lift),
+  };
+}
 
 /** What a person types: the keys are stamped when it's saved. */
 export type OpeningInput = { credit: number; quarterArr: number | null };
@@ -632,6 +678,14 @@ export function startOfPeriod(period: Period, now = new Date()): Date {
 /** The UTC-instant offset (in minutes) between `date` and how `timeZone`
  *  reads that same instant — evaluated at `date` itself, not cached, so
  *  DST transitions resolve correctly on either side of the change. */
+/** Midday on a 'YYYY-MM-DD' day in the rep's zone: a booked date stored as
+ *  a moment that falls on that day wherever it's read from in that zone. */
+export function middayInZone(ymd: string, timeZone: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const guess = Date.UTC(y, m - 1, d, 12);
+  return new Date(guess - utcOffsetMinutes(new Date(guess), timeZone) * 60000);
+}
+
 function utcOffsetMinutes(date: Date, timeZone: string): number {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
@@ -694,6 +748,41 @@ export function periodKeyInZone(period: Period, timeZone: string, now = new Date
     new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit' }).formatToParts(now).map((p) => [p.type, p.value]),
   );
   return keyFor(period, +parts.year, +parts.month - 1);
+}
+
+export type Calendar = {
+  /** Today in the rep's zone, 'YYYY-MM-DD'. */
+  today: string;
+  /** First day of the plan's period, 'YYYY-MM-DD'. */
+  periodStart: string;
+  /** Days left in the plan's period, today included. */
+  daysLeft: number;
+  /** Days left in the calendar quarter, today included. */
+  quarterDaysLeft: number;
+};
+
+/** Where today sits in the period and the quarter, in the rep's own zone. */
+export function calendarInZone(period: Period, timeZone: string, now = new Date()): Calendar {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  const y = +parts.year;
+  const m = +parts.month - 1;
+  const d = +parts.day;
+  const ymd = (yy: number, mm: number, dd: number) => `${yy}-${String(mm + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  const dayNum = (yy: number, mm: number, dd: number) => Date.UTC(yy, mm, dd) / 86400000;
+  const qStart = Math.floor(m / 3) * 3;
+  const monthEnd = dayNum(y, m + 1, 0);
+  const quarterEnd = dayNum(y, qStart + 3, 0);
+  const todayN = dayNum(y, m, d);
+  return {
+    today: ymd(y, m, d),
+    periodStart: ymd(y, period === 'quarter' ? qStart : m, 1),
+    daysLeft: (period === 'quarter' ? quarterEnd : monthEnd) - todayN + 1,
+    quarterDaysLeft: quarterEnd - todayN + 1,
+  };
 }
 
 function keyFor(period: Period, year: number, month: number): string {

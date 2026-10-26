@@ -22,6 +22,7 @@ import TweenedMoney from '@/components/TweenedMoney';
 import KickerOutcome from '@/components/KickerOutcome';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
+import type { DealRow } from '@/lib/queries';
 import {
   EMPTY,
   SAMPLE,
@@ -88,10 +89,32 @@ const customerSide = (s: ShowcaseScript) =>
  * showcase instead: the hero and the card alone, the card playing its story
  * (useShowcase). The builder comes with their own plan.
  */
+type BookMeta = { name?: string; bookedOn?: string };
+
+/** A booked deal's lines, as the card holds them. */
+function dealFromRow(row: DealRow): DealInput {
+  return {
+    oneTime: row.one_time_amount,
+    subscription: row.subscription_amount,
+    subMode: row.subscription_mode,
+    units: Math.max(1, row.units),
+    oneTimeDiscountPct: row.one_time_discount_pct,
+    subscriptionDiscountPct: row.subscription_discount_pct,
+    hardware: row.hardware_amount ?? 0,
+    hardwareDiscountPct: row.hardware_discount_pct ?? 0,
+  };
+}
+
+/** 'YYYY-MM-DD' of a stored moment, in this browser's zone. */
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function DealStage({
   plan,
-  ptd,
-  qtd,
+  ptd: ptdIn,
+  qtd: qtdIn,
   demo,
   onSave,
   initialDeal,
@@ -99,6 +122,8 @@ export default function DealStage({
   variant = 'stage',
   top,
   after,
+  onUpdateDeal,
+  calendar,
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
@@ -110,7 +135,13 @@ export default function DealStage({
    *  is set — the calendar-quarter aggregate the bonus card measures against. */
   qtd?: QuarterToDate | null;
   demo: boolean;
-  onSave: (deal: DealInput) => Promise<{ error?: string }>;
+  /** Books the deal; in the workspace, with its name and the day it was booked. */
+  onSave: (deal: DealInput, meta?: BookMeta) => Promise<{ error?: string }>;
+  /** Saves changes to a booked deal reopened from the booked list. */
+  onUpdateDeal?: (id: string, deal: DealInput, meta?: BookMeta) => Promise<{ error?: string }>;
+  /** Today and the period's first day in the rep's zone ('YYYY-MM-DD'): the
+   *  range a booked day can be picked from. */
+  calendar?: { today: string; periodStart: string };
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
@@ -120,8 +151,9 @@ export default function DealStage({
   variant?: 'stage' | 'app';
   /** Above the workspace (the home page's numbers), given "New deal". */
   top?: (p: { onNew: () => void }) => ReactNode;
-  /** Under the deal fields (the home page's booked deals). */
-  after?: ReactNode;
+  /** Under the deal fields (the home page's booked deals), given a way to
+   *  reopen a booked deal in the card. */
+  after?: ReactNode | ((api: { editDeal: (row: DealRow) => void; editingId: string | null }) => ReactNode);
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
   onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
@@ -140,7 +172,37 @@ export default function DealStage({
   const [removing, setRemoving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
-  const [msg, setMsg] = useState<{ booked?: boolean; error?: string }>({});
+  const [msg, setMsg] = useState<{ booked?: boolean; updated?: boolean; error?: string }>({});
+  // A booked deal reopened to change it, and what's typed in for booking.
+  const [editing, setEditing] = useState<{ id: string; deal: DealInput; row: DealRow } | null>(null);
+  // A booked deal in the card is priced against the period without itself,
+  // or it would count twice.
+  const ptd = useMemo<PeriodToDate>(() => {
+    if (!editing) return ptdIn;
+    const r = editing.row;
+    return {
+      ...ptdIn,
+      creditBooked: Math.max(0, ptdIn.creditBooked - r.quota_credit),
+      commissionBooked: Math.max(0, ptdIn.commissionBooked - r.commission_base),
+      earnedBooked: Math.max(0, ptdIn.earnedBooked - r.commission_earned),
+      hardwareBooked: Math.max(0, (ptdIn.hardwareBooked ?? 0) - (r.hardware_commission ?? 0)),
+    };
+  }, [ptdIn, editing]);
+  const qtd = useMemo<QuarterToDate | null | undefined>(() => {
+    if (!editing || !qtdIn) return qtdIn;
+    return {
+      saasArrBooked: Math.max(0, qtdIn.saasArrBooked - editing.row.arr),
+      saasCommissionBooked: Math.max(0, qtdIn.saasCommissionBooked - editing.row.saas_commission),
+    };
+  }, [qtdIn, editing]);
+  const [bookName, setBookName] = useState('');
+  const [bookedOn, setBookedOn] = useState(calendar?.today ?? '');
+  // "Booked" says its piece and goes, so it never sits on the next deal.
+  useEffect(() => {
+    if (!msg.booked && !msg.updated) return;
+    const t = window.setTimeout(() => setMsg((m) => (m.booked || m.updated ? {} : m)), 6000);
+    return () => window.clearTimeout(t);
+  }, [msg.booked, msg.updated]);
 
   // The landing page's card: the stock sample, before the visitor has a plan
   // of their own. No deal builder and no booking. The card plays its one
@@ -211,7 +273,7 @@ export default function DealStage({
   const set = <K extends keyof DealInput>(k: K, v: DealInput[K]) => {
     setDeal((d) => ({ ...d, [k]: v }));
     setDirty(true);
-    setMsg((m) => (m.booked ? {} : m));
+    setMsg((m) => (m.booked || m.updated ? {} : m));
   };
 
   async function book() {
@@ -220,8 +282,9 @@ export default function DealStage({
     // onSave is a server action call — a network failure or timeout rejects
     // rather than resolving to {error}, which would leave pending stuck.
     let res: { error?: string };
+    const meta = app ? { name: bookName.trim() || active?.name || '', bookedOn: bookedOn || undefined } : undefined;
     try {
-      res = await onSave(deal);
+      res = editing && onUpdateDeal ? await onUpdateDeal(editing.id, deal, meta) : await onSave(deal, meta);
     } catch {
       setPending(false);
       setMsg({ error: 'Could not reach the server. Check your connection and try again.' });
@@ -230,6 +293,13 @@ export default function DealStage({
     setPending(false);
     if (res.error) {
       setMsg({ error: res.error });
+    } else if (editing) {
+      setEditing(null);
+      setMsg({ updated: true });
+      setDeal(EMPTY);
+      setDirty(false);
+      setBookName('');
+      setBookedOn(calendar?.today ?? '');
     } else {
       track('deal_booked', ctx);
       // A booked quote is a closed deal now: off the open list.
@@ -242,11 +312,15 @@ export default function DealStage({
       setMsg({ booked: true });
       setDeal(EMPTY);
       setDirty(false);
+      setBookName('');
+      setBookedOn(calendar?.today ?? '');
     }
   }
 
   function openQuote(q: Quote) {
     setActiveQuote(q.id);
+    setEditing(null);
+    setBookName(q.name);
     setDeal(q.deal);
     setDirty(false);
     setMsg({});
@@ -267,6 +341,9 @@ export default function DealStage({
   // A new deal starts empty: nothing on the card until the rep enters it.
   function newDeal() {
     setActiveQuote(null);
+    setEditing(null);
+    setBookName('');
+    setBookedOn(calendar?.today ?? '');
     setDeal(EMPTY);
     setDirty(false);
     setMsg({});
@@ -316,7 +393,8 @@ export default function DealStage({
   // goes back to how it was saved, anything else to an empty deal. Your plan
   // and booked deals stay.
   function startOver() {
-    if (active) setDeal(active.deal);
+    if (editing) setDeal(editing.deal);
+    else if (active) setDeal(active.deal);
     else setDeal(showcase ? SAMPLE : EMPTY);
     setDirty(false);
     setMsg({});
@@ -378,6 +456,24 @@ export default function DealStage({
       document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
     });
   }
+  // A booked deal back in the card, to change it.
+  function editDeal(row: DealRow) {
+    const d = dealFromRow(row);
+    setActiveQuote(null);
+    setEditing({ id: row.id, deal: d, row });
+    setBookName(row.name);
+    setBookedOn(localDay(row.created_at));
+    setDeal(d);
+    setDirty(false);
+    setMsg({});
+    setNaming(false);
+    setRemoving(false);
+    setQuoteError(null);
+    requestAnimationFrame(() => {
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+    });
+  }
   function newFromHead() {
     newDeal();
     requestAnimationFrame(startEntering);
@@ -385,8 +481,8 @@ export default function DealStage({
   const rail = quotesOn ? (
     <QuotesRail
       plan={plan}
-      ptd={ptd}
-      qtd={qtd ?? null}
+      ptd={ptdIn}
+      qtd={qtdIn ?? null}
       quotes={quotes}
       activeId={active?.id ?? null}
       onOpen={openFromRail}
@@ -396,6 +492,9 @@ export default function DealStage({
   ) : null;
 
   const introBlock = intro ?? <div className="ds-title">{rail}</div>;
+  const afterNode = typeof after === 'function' ? after({ editDeal, editingId: editing?.id ?? null }) : after;
+  // Nothing in the pipeline yet: the workspace drops its empty first column.
+  const noRail = app && quotes.length === 0;
 
   const slider = (
     <DiscountSlider
@@ -441,10 +540,10 @@ export default function DealStage({
   return (
     <>
       {top?.({ onNew: newFromHead })}
-      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}`} aria-label="Deal">
+      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}${noRail ? ' no-rail' : ''}`} aria-label="Deal">
         <div className="ds-grid">
           {app ? (
-            <div className="ds-rail">{rail}</div>
+            !noRail && <div className="ds-rail">{rail}</div>
           ) : (
             <>
               <div className="ds-intro">{introBlock}</div>
@@ -459,13 +558,23 @@ export default function DealStage({
           <div className="ds-aside">
             <div className="ds-aside-inner">
             <article className="deal-card" id="deal-card" aria-labelledby="outcome-h" aria-busy={show.playing || undefined}>
+              {/* In the workspace the page head already says the period: the card
+                  only names what's on it, an open quote or a booked deal. */}
+              {(!app || active || editing) && (
               <header className="dc-head">
                 {showcase && (
                   <p className="dc-note">
                     <b>Sample deal.</b> Real math on made-up numbers.
                   </p>
                 )}
-                {active ? (
+                {editing ? (
+                  <p className="dc-note">
+                    Changing <b>{bookName.trim() || 'a booked deal'}</b> ·{' '}
+                    <button type="button" className="btn-text" onClick={newDeal}>
+                      Cancel
+                    </button>
+                  </p>
+                ) : active ? (
                   <p className="dc-note">
                     <b>{quoteLabel(active)}</b> · open quote ·{' '}
                     {removing ? (
@@ -509,6 +618,7 @@ export default function DealStage({
                   )
                 )}
               </header>
+              )}
 
               <div className="dc-body">
                 {showcase && script && (
@@ -577,7 +687,7 @@ export default function DealStage({
                   </div>
                 )}
 
-                {!showcase && (!empty || naming || Boolean(msg.booked || msg.error || quoteError)) && (
+                {!showcase && (!empty || naming || Boolean(msg.booked || msg.updated || msg.error || quoteError)) && (
                 <div className="dc-sec">
                   {copy.detail && <p className="dc-detail">{copy.detail}</p>}
                   {!empty && <Ledger className="dc-ledger" rows={rows} />}
@@ -612,12 +722,38 @@ export default function DealStage({
                     </div>
                   ) : (
                     !empty && (
-                    <div className={`book-row${quotesOn ? ' has-quote' : ''}`}>
+                    <>
+                    {app && (
+                      <div className="book-meta">
+                        <label className="field">
+                          <span className="field-label">Deal name</span>
+                          <input
+                            className="field-input"
+                            maxLength={80}
+                            placeholder="Optional"
+                            value={bookName}
+                            onChange={(e) => setBookName(e.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          <span className="field-label">Booked on</span>
+                          <input
+                            className="field-input"
+                            type="date"
+                            min={calendar?.periodStart}
+                            max={calendar?.today}
+                            value={bookedOn}
+                            onChange={(e) => setBookedOn(e.target.value)}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <div className={`book-row${quotesOn && !editing ? ' has-quote' : ''}`}>
                       {/* Encouragement only when there's nothing to warn about. */}
                       {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
                         <span className="nudge-ring book-nudge-ring" aria-hidden="true" />
                       )}
-                      {quotesOn && (
+                      {quotesOn && !editing && (
                         <button
                           type="button"
                           className="btn btn-secondary"
@@ -633,14 +769,16 @@ export default function DealStage({
                         disabled={pending || empty}
                         onClick={book}
                       >
-                        {pending ? 'Booking…' : 'Book this deal'}
+                        {editing ? (pending ? 'Saving…' : 'Save changes') : pending ? 'Booking…' : 'Book this deal'}
                       </button>
                     </div>
+                    </>
                     )
                   )}
 
                   {quoteError && <p className="after is-error">{quoteError}</p>}
                   {msg.error && <p className="after is-error">{msg.error}</p>}
+                  {msg.updated && <p className="after">Changes saved. Your numbers and booked deals include them.</p>}
                   {msg.booked && (
                     <>
                       <p className="after">
@@ -695,7 +833,7 @@ export default function DealStage({
                   ) : null
                 }
               />
-              {!app && after}
+              {!app && afterNode}
             </div>
           )}
 
@@ -708,7 +846,7 @@ export default function DealStage({
               hidden={copy.figure === null}
             />
           )}
-          {app && after && <div className="ds-after">{after}</div>}
+          {app && afterNode && <div className="ds-after">{afterNode}</div>}
         </div>
       </section>
     </>

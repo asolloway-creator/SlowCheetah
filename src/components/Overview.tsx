@@ -5,9 +5,12 @@ import type { DealRow } from '@/lib/queries';
 import {
   isFixedTier,
   needsQuarterArr,
+  openingAnswered,
   periodLabel,
   periodOf,
+  periodSummary,
   quarterlyKickerSummary,
+  stepRatePct,
   type CompPlan,
   type Opening,
   type OpeningInput,
@@ -16,7 +19,7 @@ import {
   type QuarterlyKickerTier,
 } from '@/lib/calc';
 import { standing, tierName } from '@/components/opening';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import OpeningFields from '@/components/OpeningFields';
 
@@ -36,8 +39,16 @@ export default function Overview({
   deals,
   onOpening,
   onNew,
+  basePlan,
+  onRate,
+  calendar,
 }: {
+  /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
+  /** The plan as entered, before this period's rate adjustment. */
+  basePlan: CompPlan;
+  onRate: (rate: number | null) => Promise<{ error?: string }>;
+  calendar: { daysLeft: number; quarterDaysLeft: number };
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
@@ -49,8 +60,9 @@ export default function Overview({
   const noun = periodNoun(plan);
   const s = standing(plan, ptd, qtd, label);
   const pctQ = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
-  const started = opening !== null && (opening.credit > 0 || (opening.quarterArr ?? 0) > 0);
+  const answered = openingAnswered(opening);
   const now = deals.filter((d) => periodOf(plan.period, d.created_at) === label);
+  const monthName = plan.period === 'month' ? label.split(' ')[0] : label;
   const paid = now.reduce((n, d) => n + d.commission_earned, 0);
   const lost = now.reduce((n, d) => n + d.money_left_on_table, 0);
 
@@ -88,8 +100,9 @@ export default function Overview({
             </span>
           </p>
           <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
+          <QuotaNote plan={plan} ptd={ptd} deals={now} daysLeft={calendar.daysLeft} monthName={monthName} />
         </div>
-        {plan.quarterly_kicker && qtd && <BonusKpi plan={plan} qtd={qtd} />}
+        {plan.quarterly_kicker && qtd && <BonusKpi plan={plan} qtd={qtd} quarterDaysLeft={calendar.quarterDaysLeft} />}
         <div className="kpi">
           <p className="app-label">Commission booked</p>
           <p className="kpi-value">{fmtMoney(paid)}</p>
@@ -104,7 +117,17 @@ export default function Overview({
           </p>
         </div>
       </div>
-      <StartingPoint plan={plan} opening={opening} started={started} label={label} onSave={onOpening} />
+      <div className="ov-meta">
+        <StartingPoint
+          plan={plan}
+          opening={opening}
+          answered={answered}
+          compact={now.length > 0}
+          label={monthName}
+          onSave={onOpening}
+        />
+        {basePlan.commission_style === 'percent' && <RateThisPeriod plan={plan} basePlan={basePlan} label={monthName} onSave={onRate} />}
+      </div>
     </section>
   );
 }
@@ -112,8 +135,64 @@ export default function Overview({
 const pct = (f: number) => `${(Math.min(1, Math.max(0, f)) * 100).toFixed(3)}%`;
 const vars = (o: Record<string, string>) => o as CSSProperties;
 
-/** The Quarterly Bonus as one number: what it's worth, and how far to it. */
-function BonusKpi({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate }) {
+/**
+ * Under the quota line, what the next line is worth and whether it's in
+ * reach: on a retro plan, the dollars crossing it adds to deals already
+ * booked; then the days left and, at the rep's own average deal, how many
+ * more deals it takes. Past the last step, the rate every deal pays now.
+ */
+function QuotaNote({
+  plan,
+  ptd,
+  deals,
+  daysLeft,
+  monthName,
+}: {
+  plan: CompPlan;
+  ptd: PeriodToDate;
+  deals: DealRow[];
+  daysLeft: number;
+  monthName: string;
+}) {
+  if (plan.accelerator_style === 'none') return null;
+  const s = periodSummary(plan, ptd);
+  const noun = periodNoun(plan);
+  const lines: string[] = [];
+  if (s.next) {
+    if (plan.accelerator_style === 'retro_bump' && s.acceleratorValue > 0 && deals.length > 0) {
+      lines.push(
+        `Cross it and the ${deals.length === 1 ? 'deal' : `${deals.length} deals`} you’ve booked this ${noun} pay ${fmtMoney(s.acceleratorValue)} more.`,
+      );
+    } else if (plan.commission_style === 'percent') {
+      lines.push(`Past it, every deal pays ${fmtRatePct(stepRatePct(plan, s.next))}.`);
+    }
+    const days = daysLeft <= 1 ? `Last day of ${monthName}` : `${daysLeft} days left in ${monthName}`;
+    const avg = deals.length ? deals.reduce((n, d) => n + d.quota_credit, 0) / deals.length : 0;
+    if (plan.quota_basis === 'units') lines.push(`${days} · ${fmtCredit(plan, s.toAccelerator)} to go.`);
+    else if (avg > 0) {
+      const k = Math.max(1, Math.ceil(s.toAccelerator / avg - 1e-9));
+      lines.push(`${days} · about ${k} more deal${k === 1 ? '' : 's'} at your average of ${fmtMoney(avg)}.`);
+    } else lines.push(`${days}.`);
+  } else if (s.step) {
+    lines.push(
+      plan.commission_style === 'percent'
+        ? `Every deal this ${noun} pays ${fmtRatePct(stepRatePct(plan, s.step))}.`
+        : `Past your last accelerator: every deal this ${noun} pays ${fmtRateShort(plan, s.step.rate)}.`,
+    );
+  }
+  if (!lines.length) return null;
+  return (
+    <p className="kpi-note kpi-quota-note">
+      {lines.map((l) => (
+        <span key={l}>{l}</span>
+      ))}
+    </p>
+  );
+}
+
+/** The Quarterly Bonus as one number: what it's worth, how far to it, and
+ *  the pace that gets there by the end of the quarter. */
+function BonusKpi({ plan, qtd, quarterDaysLeft }: { plan: CompPlan; qtd: QuarterToDate; quarterDaysLeft: number }) {
   const kicker = plan.quarterly_kicker!;
   const s = quarterlyKickerSummary(plan, qtd);
   if (!s) return null;
@@ -129,11 +208,25 @@ function BonusKpi({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate }) {
   const note = s.tier
     ? `Locked in${s.nextTier ? `. ${fmt(s.toNextTierArr)} more new ARR reaches the ${name(s.nextTier)}` : ''}`
     : `${fmt(s.toNextTierArr)} more new ARR to unlock it`;
+  // The pace to the next tier by quarter end, against a monthly quota when
+  // the plan has one in the same currency.
+  let pace: string | null = null;
+  if (s.nextTier && s.toNextTierArr > 0 && quarterDaysLeft > 0) {
+    const months = Math.max(quarterDaysLeft / 30.44, 1 / 30.44);
+    const perMonth = s.toNextTierArr / months;
+    const ofQuota =
+      plan.period === 'month' && plan.quota_basis === 'arr' && plan.quota > 0 ? ` (${Math.round((perMonth / plan.quota) * 100)}% of your monthly quota)` : '';
+    pace =
+      quarterDaysLeft <= 31
+        ? `${quarterDaysLeft} day${quarterDaysLeft === 1 ? '' : 's'} left in the quarter.`
+        : `About ${fmt(perMonth)} a month to get there by quarter end${ofQuota}.`;
+  }
   return (
     <div className={`kpi kpi-bonus${s.tier ? ' is-won' : ''}`}>
       <p className="app-label">{name(shown)}</p>
       <p className="kpi-value">{value}</p>
       <p className="kpi-note">{note}</p>
+      {pace && <p className="kpi-note kpi-pace">{pace}</p>}
       <span
         className="kpi-bar"
         role="img"
@@ -148,13 +241,16 @@ function BonusKpi({ plan, qtd }: { plan: CompPlan; qtd: QuarterToDate }) {
 function StartingPoint({
   plan,
   opening,
-  started,
+  answered,
+  compact,
   label,
   onSave,
 }: {
   plan: CompPlan;
   opening: Opening | null;
-  started: boolean;
+  answered: boolean;
+  /** Deals are in for this period already: ask in a line, not a card. */
+  compact: boolean;
   label: string;
   onSave: (o: OpeningInput) => Promise<{ error?: string }>;
 }) {
@@ -164,13 +260,47 @@ function StartingPoint({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!open && started) {
+  // "Nothing to add" is an answer too: the question goes away.
+  async function nothing() {
+    setBusy(true);
+    setError(null);
+    let res: { error?: string };
+    try {
+      res = await onSave({ credit: 0, quarterArr: needsQuarterArr(plan) ? 0 : null });
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setBusy(false);
+    if (res.error) setError(res.error);
+  }
+
+  if (!open && answered) {
+    const had = (opening?.credit ?? 0) > 0;
     return (
       <p className="quota-start">
-        Includes {fmtCredit(plan, opening?.credit ?? 0)} you&rsquo;d booked before IOI.{' '}
+        {had ? (
+          <>Includes {fmtCredit(plan, opening?.credit ?? 0)} you&rsquo;d booked before IOI. </>
+        ) : (
+          <>Nothing booked in {label} before IOI. </>
+        )}
         <button type="button" className="btn-text" onClick={() => setOpen(true)}>
           Change it
         </button>
+      </p>
+    );
+  }
+  if (!open && compact) {
+    return (
+      <p className="quota-start">
+        Booked anything in {label} before IOI?{' '}
+        <button type="button" className="btn-text" onClick={() => setOpen(true)}>
+          Add it
+        </button>{' '}
+        ·{' '}
+        <button type="button" className="btn-text" disabled={busy} onClick={() => void nothing()}>
+          Nothing to add
+        </button>
+        {error && <span className="is-red"> {error}</span>}
       </p>
     );
   }
@@ -182,10 +312,16 @@ function StartingPoint({
             Booked deals in {label} before you started with IOI?
           </h2>
           <p>Add them so your quota, accelerator and bonus count from where you really are.</p>
+          {error && <p className="is-red">{error}</p>}
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => setOpen(true)}>
-          Add what you&rsquo;ve booked
-        </button>
+        <div className="start-card-actions">
+          <button type="button" className="btn btn-secondary" onClick={() => setOpen(true)}>
+            Add what you&rsquo;ve booked
+          </button>
+          <button type="button" className="btn-text" disabled={busy} onClick={() => void nothing()}>
+            Nothing to add
+          </button>
+        </div>
       </section>
     );
   }
@@ -205,8 +341,8 @@ function StartingPoint({
   }
 
   return (
-    <div className={started ? 'quota-start-edit' : 'start-card is-open'}>
-      <h2 className={started ? 'section-h' : 'start-card-h'}>What you&rsquo;d booked in {label} before IOI</h2>
+    <div className={answered ? 'quota-start-edit' : 'start-card is-open'}>
+      <h2 className={answered ? 'section-h' : 'start-card-h'}>What you&rsquo;d booked in {label} before IOI</h2>
       <OpeningFields
         plan={plan}
         credit={credit}
@@ -229,5 +365,101 @@ function StartingPoint({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The rate on the rep's latest commission statement, this period: the plan's
+ * own rate moved by whatever the plan document can't know ahead (a referral
+ * or MBO adjustment). Every number on the page uses it.
+ */
+function RateThisPeriod({
+  plan,
+  basePlan,
+  label,
+  onSave,
+}: {
+  plan: CompPlan;
+  basePlan: CompPlan;
+  label: string;
+  onSave: (rate: number | null) => Promise<{ error?: string }>;
+}) {
+  const adjusted = Math.abs(plan.base_rate - basePlan.base_rate) > 1e-9;
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(rate: number | null) {
+    setBusy(true);
+    setError(null);
+    let res: { error?: string };
+    try {
+      res = await onSave(rate);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setBusy(false);
+    if (res.error) return setError(res.error);
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <p className="quota-start ov-rate">
+        Your rate in {label}: <b>{fmtRatePct(plan.base_rate)}</b>
+        {adjusted && <> (plan {fmtRatePct(basePlan.base_rate)})</>}.{' '}
+        <button
+          type="button"
+          className="btn-text"
+          onClick={() => {
+            setDraft(String(parseFloat(plan.base_rate.toFixed(2))));
+            setOpen(true);
+          }}
+        >
+          Change it
+        </button>
+      </p>
+    );
+  }
+  const n = parseFloat(draft.replace(/[^0-9.]/g, ''));
+  return (
+    <form
+      className="ov-rate-edit"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (Number.isFinite(n)) void save(Math.abs(n - basePlan.base_rate) < 1e-9 ? null : n);
+      }}
+    >
+      <label className="field">
+        <span className="field-label">Your rate in {label}</span>
+        <span className="field-box has-suffix ov-rate-box">
+          <input className="field-input" inputMode="decimal" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <span className="field-suffix">%</span>
+        </span>
+      </label>
+      <p className="field-note">
+        Before any accelerator, as your latest commission statement shows it. Your plan says {fmtRatePct(basePlan.base_rate)}; a
+        monthly adjustment like a referral bonus moves it.
+      </p>
+      {error && (
+        <p className="cap-msg is-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="cap-actions">
+        <button type="submit" className="btn btn-primary" disabled={busy || !Number.isFinite(n)}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+        {adjusted && (
+          <button type="button" className="btn-text" disabled={busy} onClick={() => void save(null)}>
+            Use the plan&rsquo;s {fmtRatePct(basePlan.base_rate)}
+          </button>
+        )}
+        <button type="button" className="btn-text" disabled={busy} onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

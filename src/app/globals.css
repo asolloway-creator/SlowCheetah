@@ -1666,3 +1666,38 @@ main.app { padding-bottom: 56px; }
 .app .plan-readout { padding: 14px 16px; border-radius: 12px; box-shadow: none; border: 1px solid var(--line); font-size: 15px; line-height: 1.5; }
 .why + .how { padding-top: 110px; }
 @media (max-width: 600px) { .why + .how { padding-top: 72px; } }
+
+/* Workspace: no open quotes yet, so no empty first column. */
+.ds.is-app.no-rail .ds-grid { grid-template-columns: minmax(0, 1fr) 432px; grid-template-areas: "main aside" "after aside"; }
+@media (max-width: 1180px) {
+  .ds.is-app.no-rail .ds-grid { grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: auto 1fr; grid-template-areas: "main aside" "after aside"; }
+}
+@media (max-width: 860px) {
+  .ds.is-app.no-rail .ds-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "aside" "main" "after"; }
+}
+
+/* Booking: the deal's name and the day it was booked, above the buttons. */
+.book-meta { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin-top: 14px; margin-bottom: 12px; }
+.book-meta .field-label { font-size: 12.5px; margin-bottom: 6px; color: var(--ink-2); }
+.book-meta .field-input { height: 40px; font-size: 14.5px; font-weight: 500; border-radius: 10px; padding: 0 12px; }
+
+/* Under the quota line: what crossing is worth, and the pace. */
+.kpi-quota-note { display: grid; gap: 2px; margin-top: 10px; }
+.kpi-pace { color: var(--ink-3); }
+
+/* Under the numbers: what was booked before IOI, and this period's rate. */
+.ov-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; }
+.ov-meta > .start-card, .ov-meta > .start-card.is-open, .ov-meta > .quota-start-edit, .ov-meta > .ov-rate-edit { flex: 1 1 100%; }
+.ov .quota-start { margin-top: 10px; }
+.ov-rate b { color: var(--ink); font-weight: 650; }
+.ov-rate-edit { margin-top: 12px; padding: 16px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); }
+.ov-rate-box { display: block; max-width: 160px; }
+.ov-rate-box .field-input { height: 42px; font-size: 16px; }
+.start-card-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* Booked deals: named, with Edit beside Delete; the one in the card marked. */
+.deals th:nth-child(2), .deals td:nth-child(2) { text-align: left; }
+.deals-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.deals-name.is-dim { font-weight: 500; }
+.deals-actions { display: inline-flex; gap: 12px; justify-content: flex-end; align-items: center; }
+.deals tr.is-editing td { background: var(--sun-wash); }
