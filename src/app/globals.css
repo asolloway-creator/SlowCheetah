@@ -1696,8 +1696,13 @@ main.app { padding-bottom: 56px; }
 .start-card-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
 /* Booked deals: named, with Edit beside Delete; the one in the card marked. */
-.deals th:nth-child(2), .deals td:nth-child(2) { text-align: left; }
+.deals .deals-groups th:nth-child(2), .deals tbody td:nth-child(2) { text-align: left; }
 .deals-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .deals-name.is-dim { font-weight: 500; }
 .deals-actions { display: inline-flex; gap: 12px; justify-content: flex-end; align-items: center; }
 .deals tr.is-editing td { background: var(--sun-wash); }
+
+/* Booked table: discount and what it cost, each split by line. */
+.deals .deals-groups th { padding-bottom: 2px; }
+.deals th.deals-group { text-align: center; border-bottom: 1px solid var(--line); }
+.deals .deals-sub th { padding-top: 4px; font-size: 12px; color: var(--ink-3); }

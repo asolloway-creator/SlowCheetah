@@ -1,16 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { periodLabel, periodOf, type CompPlan } from '@/lib/calc';
+import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
-const hardware = (d: DealRow) => (d.hardware_amount ?? 0) * (1 - (d.hardware_discount_pct ?? 0) / 100);
-const netValue = (d: DealRow) => d.one_time_amount * (1 - d.one_time_discount_pct / 100) + hardware(d) + d.arr;
-const blendedDisc = (d: DealRow) => {
-  const full = d.one_time_amount + (d.hardware_amount ?? 0) + (d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12);
-  return full > 0 ? ((full - netValue(d)) / full) * 100 : 0;
-};
+type Line = 'software' | 'services' | 'hardware';
+
+/**
+ * What each line's discount cost, from the deal's stored total
+ * (money_left_on_table). On a percent plan every line pays the same rate on
+ * its commissionable dollars, so the total splits by the commissionable
+ * dollars each discount took off: a year of subscription, one-time at the
+ * plan's weight. Hardware on its own flat rate is its own slice, worked out
+ * exactly. A plan paid in months of MRR pays on the subscription only.
+ */
+function lostByLine(plan: CompPlan, d: DealRow): Record<Line, number> {
+  const split = paysHardware(plan);
+  const hwRate = split ? (plan.hardware_rate as number) / 100 : 0;
+  const hwOff = (d.hardware_amount ?? 0) * ((d.hardware_discount_pct ?? 0) / 100);
+  const hardware = split ? Math.min(d.money_left_on_table, hwOff * hwRate) : 0;
+  const rest = Math.max(0, d.money_left_on_table - hardware);
+  if (plan.commission_style !== 'percent') return { software: rest, services: 0, hardware };
+  const subPct = d.subscription_discount_pct / 100;
+  const subOff = subPct > 0 && subPct < 1 ? (d.arr / (1 - subPct)) * subPct : 0;
+  const otOff = (d.one_time_amount * (d.one_time_discount_pct / 100) + (split ? 0 : hwOff)) * (plan.one_time_weight / 100);
+  const total = subOff + otOff;
+  if (!(total > 0)) return { software: rest, services: 0, hardware };
+  // Cents that add back up to the deal's own total.
+  const software = Math.round(((rest * subOff) / total) * 100) / 100;
+  return { software, services: Math.max(0, Math.round((rest - software) * 100) / 100), hardware };
+}
 
 /** A booked deal's size the way the plan pays on it: monthly on a plan paid
  *  in months of MRR, a year of subscription on every other. */
@@ -39,6 +59,14 @@ export default function BookedList({
   editingId?: string | null;
 }) {
   const size = sizeColumn(plan);
+  // Software and services side by side; hardware too when the plan pays it
+  // its own rate and it has its own discount.
+  const lines: { key: Line; label: string; pct: (d: DealRow) => number }[] = [
+    { key: 'software', label: 'Software', pct: (d) => d.subscription_discount_pct },
+    { key: 'services', label: 'Services', pct: (d) => d.one_time_discount_pct },
+    ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
+  ];
+  const cols = 5 + lines.length * 2;
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,37 +129,64 @@ export default function BookedList({
           <table className="deals">
             <caption className="sr-only">Booked deals</caption>
             <thead>
-              <tr>
-                <th scope="col">Deal</th>
-                <th scope="col">Booked</th>
-                <th scope="col">{size.label}</th>
-                <th scope="col">Discount</th>
-                <th scope="col">Commission</th>
-                <th scope="col">Left on the table</th>
-                <th scope="col">
+              <tr className="deals-groups">
+                <th scope="col" rowSpan={2}>Deal</th>
+                <th scope="col" rowSpan={2}>Booked</th>
+                <th scope="col" rowSpan={2}>{size.label}</th>
+                <th scope="colgroup" colSpan={lines.length} className="deals-group">
+                  Discount
+                </th>
+                <th scope="col" rowSpan={2}>Commission</th>
+                <th scope="colgroup" colSpan={lines.length} className="deals-group">
+                  Left on the table
+                </th>
+                <th scope="col" rowSpan={2}>
                   <span className="sr-only">Actions</span>
                 </th>
+              </tr>
+              <tr className="deals-sub">
+                {lines.map((l) => (
+                  <th key={`d-${l.key}`} scope="col">
+                    {l.label}
+                  </th>
+                ))}
+                {lines.map((l) => (
+                  <th key={`l-${l.key}`} scope="col">
+                    {l.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             {shown.map((g) => (
               <tbody key={g.period}>
                 {all && (
                   <tr className="deals-period">
-                    <th scope="colgroup" colSpan={7}>
+                    <th scope="colgroup" colSpan={cols}>
                       {g.period}
                     </th>
                   </tr>
                 )}
                 {g.rows.map((d) => {
-                  const disc = Math.round(blendedDisc(d) * 10) / 10;
+                  const lost = lostByLine(plan, d);
                   return (
                     <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
                       <td className={`deals-name${d.name ? '' : ' is-dim'}`}>{d.name || 'Unnamed'}</td>
                       <td>{fmtDate(d.created_at)}</td>
                       <td>{fmtMoney(size.of(d))}</td>
-                      <td className={disc > 0 ? '' : 'is-dim'}>{disc > 0 ? fmtPctShort(disc) : 'None'}</td>
+                      {lines.map((l) => {
+                        const p = l.pct(d);
+                        return (
+                          <td key={`d-${l.key}`} className={p > 0 ? '' : 'is-dim'}>
+                            {fmtPctShort(Math.round(p * 10) / 10)}
+                          </td>
+                        );
+                      })}
                       <td>{fmtMoney(d.commission_earned)}</td>
-                      <td className={d.money_left_on_table > 0 ? 'is-red' : 'is-dim'}>{fmtMoney(d.money_left_on_table)}</td>
+                      {lines.map((l) => (
+                        <td key={`l-${l.key}`} className={lost[l.key] >= 0.005 ? 'is-red' : 'is-dim'}>
+                          {fmtMoney(lost[l.key])}
+                        </td>
+                      ))}
                       <td>
                         <span className="deals-actions">
                         {onEdit && (

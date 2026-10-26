@@ -49,11 +49,11 @@ function rows(opening: Opening | null, plan: CompPlan = PLAN): DealRow[] {
   const PLAN = plan;
   const out: DealRow[] = [];
   let ptd = withPeriodOpening(PLAN, periodToDateFrom([]), opening, periodKey(PLAN.period));
-  [[deal(24000, 10, 3000), 9], [deal(18000, 0), 4]].forEach(([d, ago], i) => {
+  [[{ ...deal(24000, 10, 3000), oneTimeDiscountPct: 25 }, 9], [deal(18000, 0), 4]].forEach(([d, ago], i) => {
     const r = calc(PLAN, d as DealInput, ptd);
     const row: DealRow = {
       id: `dev-${i}`, one_time_amount: (d as DealInput).oneTime, subscription_amount: (d as DealInput).subscription, subscription_mode: 'acv', units: 1,
-      one_time_discount_pct: 0, subscription_discount_pct: (d as DealInput).subscriptionDiscountPct, quota_credit: r.credit, arr: r.subAnnual,
+      one_time_discount_pct: (d as DealInput).oneTimeDiscountPct, subscription_discount_pct: (d as DealInput).subscriptionDiscountPct, quota_credit: r.credit, arr: r.subAnnual,
       commission_base: r.commissionBase, commission_earned: r.commissionEffective, money_left_on_table: r.lost, saas_commission: r.saasCommissionEffective,
       hardware_amount: (d as DealInput).hardware, hardware_discount_pct: 0, hardware_commission: r.hardwareCommission, created_at: day(ago as number).toISOString(),
       name: i === 0 ? 'Harbor Grill' : '',
