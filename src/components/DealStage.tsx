@@ -638,8 +638,8 @@ export default function DealStage({
                     </h2>
                     <p className="dc-start-p">
                       {app
-                        ? 'Enter the subscription and anything one-time. This shows what the deal pays you and what each point of discount costs.'
-                        : 'Put in the subscription and anything one-time. This card shows what the deal pays you, what each point of discount costs, and where your accelerator and bonus lines are.'}
+                        ? 'Enter the subscription and any services. This shows what the deal pays you and what each point of discount costs.'
+                        : 'Put in the subscription and any services. This card shows what the deal pays you, what each point of discount costs, and where your accelerator and bonus lines are.'}
                     </p>
                     <button type="button" className={`btn ${app ? 'btn-secondary' : 'btn-primary'}`} onClick={startEntering}>
                       {app ? 'Enter the subscription' : 'Start with the subscription'} <span aria-hidden="true">&darr;</span>

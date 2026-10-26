@@ -62,11 +62,11 @@ export default function BookedList({
   // Software and services side by side; hardware too when the plan pays it
   // its own rate and it has its own discount.
   const lines: { key: Line; label: string; pct: (d: DealRow) => number }[] = [
-    { key: 'software', label: 'Software', pct: (d) => d.subscription_discount_pct },
+    { key: 'software', label: 'Subscription', pct: (d) => d.subscription_discount_pct },
     { key: 'services', label: 'Services', pct: (d) => d.one_time_discount_pct },
     ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
   ];
-  const cols = 5 + lines.length * 2;
+  const cols = 5 + lines.length;
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,32 +129,19 @@ export default function BookedList({
           <table className="deals">
             <caption className="sr-only">Booked deals</caption>
             <thead>
-              <tr className="deals-groups">
-                <th scope="col" rowSpan={2}>Deal</th>
-                <th scope="col" rowSpan={2}>Booked</th>
-                <th scope="col" rowSpan={2}>{size.label}</th>
-                <th scope="colgroup" colSpan={lines.length} className="deals-group">
-                  Discount
-                </th>
-                <th scope="col" rowSpan={2}>Commission</th>
-                <th scope="colgroup" colSpan={lines.length} className="deals-group">
-                  Left on the table
-                </th>
-                <th scope="col" rowSpan={2}>
+              <tr>
+                <th scope="col">Deal</th>
+                <th scope="col">Booked</th>
+                <th scope="col">{size.label}</th>
+                <th scope="col">Commission</th>
+                {lines.map((l) => (
+                  <th key={l.key} scope="col">
+                    {l.label} discount
+                  </th>
+                ))}
+                <th scope="col">
                   <span className="sr-only">Actions</span>
                 </th>
-              </tr>
-              <tr className="deals-sub">
-                {lines.map((l) => (
-                  <th key={`d-${l.key}`} scope="col">
-                    {l.label}
-                  </th>
-                ))}
-                {lines.map((l) => (
-                  <th key={`l-${l.key}`} scope="col">
-                    {l.label}
-                  </th>
-                ))}
               </tr>
             </thead>
             {shown.map((g) => (
@@ -171,23 +158,22 @@ export default function BookedList({
                   return (
                     <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
                       <td className={`deals-name${d.name ? '' : ' is-dim'}`}>{d.name || 'Unnamed'}</td>
-                      <td>{fmtDate(d.created_at)}</td>
-                      <td>{fmtMoney(size.of(d))}</td>
+                      <td className="deals-date">{fmtDate(d.created_at)}</td>
+                      <td className="deals-size" data-label={size.label}>
+                        {fmtMoney(size.of(d))}
+                      </td>
+                      <td className="deals-pay">{fmtMoney(d.commission_earned)}</td>
                       {lines.map((l) => {
-                        const p = l.pct(d);
+                        const p = Math.round(l.pct(d) * 10) / 10;
+                        const cost = lost[l.key];
                         return (
-                          <td key={`d-${l.key}`} className={p > 0 ? '' : 'is-dim'}>
-                            {fmtPctShort(Math.round(p * 10) / 10)}
+                          <td key={l.key} className="deals-disc" data-label={l.label}>
+                            <span className={p > 0 ? '' : 'is-dim'}>{fmtPctShort(p)}</span>
+                            {cost >= 0.005 && <span className="deals-cost">&minus;{fmtMoney(cost)}</span>}
                           </td>
                         );
                       })}
-                      <td>{fmtMoney(d.commission_earned)}</td>
-                      {lines.map((l) => (
-                        <td key={`l-${l.key}`} className={lost[l.key] >= 0.005 ? 'is-red' : 'is-dim'}>
-                          {fmtMoney(lost[l.key])}
-                        </td>
-                      ))}
-                      <td>
+                      <td className="deals-act">
                         <span className="deals-actions">
                         {onEdit && (
                           <button

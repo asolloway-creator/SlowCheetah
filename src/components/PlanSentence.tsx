@@ -440,7 +440,7 @@ export default function PlanSentence({
       {percent && (
         <NumField
           id="w1"
-          label={hwOwn ? 'Setup and services count at' : 'One-time products count at'}
+          label="Services count at"
           value={p.one_time_weight}
           suffix="%"
           max={100}
@@ -454,7 +454,7 @@ export default function PlanSentence({
             label="Hardware pays"
             value={hwOwn ? 'own' : 'with'}
             options={[
-              ['with', 'Same as one-time'],
+              ['with', 'Same as services'],
               ['own', 'Its own flat rate'],
             ]}
             onChange={(v) => setHardware(v === 'own')}

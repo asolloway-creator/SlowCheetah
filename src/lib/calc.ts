@@ -819,7 +819,7 @@ export const PRESETS: Preset[] = [
     id: 'units-switch',
     name: 'Monthly units · rate accelerator',
     blurb:
-      'Commission is a % of commissionable deal value. Hit quota and every deal that month earns the accelerated rate. One-time products count at 40% weight.',
+      'Commission is a % of commissionable deal value. Hit quota and every deal that month earns the accelerated rate. Services count at 40%.',
     plan: {
       role_name: 'Senior AE',
       period: 'month',

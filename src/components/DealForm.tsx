@@ -48,7 +48,10 @@ export default function DealForm({
   const hwAmount = deal.hardware ?? 0;
   const hwOff = deal.hardwareDiscountPct ?? 0;
   const hwCost = hw ? costOf(plan, deal, ptd, 'hardwareDiscountPct') : 0;
-  const otName = hw ? 'Setup and services' : 'One-time products';
+  // One name for the one-time line everywhere: setup, onboarding,
+  // implementation and any other one-time charge (hardware too, unless the
+  // plan pays it a rate of its own).
+  const otName = 'Services';
 
   const units = (
     <div className="deal-units">

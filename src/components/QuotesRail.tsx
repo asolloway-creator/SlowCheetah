@@ -16,7 +16,8 @@ function sizeOf(d: DealInput): string {
   const year = d.subMode === 'acv' ? d.subscription : d.subscription * 12;
   const parts = [`${fmt(year)} a year`];
   if (d.units > 1) parts.push(`${d.units} units`);
-  if (d.oneTime + (d.hardware ?? 0) > 0) parts.push(`${fmt(d.oneTime + (d.hardware ?? 0))} one-time`);
+  if (d.oneTime > 0) parts.push(`${fmt(d.oneTime)} services`);
+  if ((d.hardware ?? 0) > 0) parts.push(`${fmt(d.hardware as number)} hardware`);
   return parts.join(' · ');
 }
 
