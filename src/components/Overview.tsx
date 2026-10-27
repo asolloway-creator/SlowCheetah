@@ -11,6 +11,7 @@ import {
   periodSummary,
   quarterlyKickerSummary,
   stepRatePct,
+  type Calendar,
   type CompPlan,
   type Opening,
   type OpeningInput,
@@ -21,7 +22,8 @@ import {
 import { standing, tierName } from '@/components/opening';
 import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
-import { earnedNow, lostNow, rateLift } from '@/components/discounts';
+import MonthRecap from '@/components/MonthRecap';
+import { earnedNow, lostNow, rateLift, type Targets } from '@/components/discounts';
 import OpeningFields from '@/components/OpeningFields';
 
 /**
@@ -43,13 +45,16 @@ export default function Overview({
   basePlan,
   onRate,
   calendar,
+  targets,
 }: {
   /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
   /** The plan as entered, before this period's rate adjustment. */
   basePlan: CompPlan;
   onRate: (rate: number | null) => Promise<{ error?: string }>;
-  calendar: { daysLeft: number; quarterDaysLeft: number };
+  calendar: Calendar;
+  /** The rep's own discount targets, for the recap. */
+  targets?: Targets;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
@@ -97,6 +102,8 @@ export default function Overview({
           <span aria-hidden="true">+</span> New deal
         </button>
       </div>
+
+      <MonthRecap plan={plan} deals={deals} today={calendar.today} periodStart={calendar.periodStart} targets={targets} />
 
       <div className="ov-kpis">
         <div className="kpi kpi-quota">

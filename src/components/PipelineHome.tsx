@@ -81,6 +81,7 @@ export default function PipelineHome({
           onRate={onRate}
           onNew={onNew}
           calendar={calendar}
+          targets={targets}
         />
       )}
       after={({ editDeal, editingId }) => (

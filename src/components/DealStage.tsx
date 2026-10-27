@@ -178,7 +178,7 @@ export default function DealStage({
   const [removing, setRemoving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
-  const [msg, setMsg] = useState<{ booked?: boolean; updated?: boolean; error?: string }>({});
+  const [msg, setMsg] = useState<{ booked?: boolean; updated?: boolean; quoted?: boolean; error?: string }>({});
   // A booked deal reopened to change it, and what's typed in for booking.
   const [editing, setEditing] = useState<{ id: string; deal: DealInput; row: DealRow } | null>(null);
   // A booked deal in the card is priced against the period without itself,
@@ -205,10 +205,10 @@ export default function DealStage({
   const [bookedOn, setBookedOn] = useState(calendar?.today ?? '');
   // "Booked" says its piece and goes, so it never sits on the next deal.
   useEffect(() => {
-    if (!msg.booked && !msg.updated) return;
-    const t = window.setTimeout(() => setMsg((m) => (m.booked || m.updated ? {} : m)), 6000);
+    if (!msg.booked && !msg.updated && !msg.quoted) return;
+    const t = window.setTimeout(() => setMsg((m) => (m.booked || m.updated || m.quoted ? {} : m)), 6000);
     return () => window.clearTimeout(t);
-  }, [msg.booked, msg.updated]);
+  }, [msg.booked, msg.updated, msg.quoted]);
 
   // The landing page's card: the stock sample, before the visitor has a plan
   // of their own. No deal builder and no booking. The card plays its one
@@ -381,7 +381,9 @@ export default function DealStage({
     setQuoteError(null);
     let res: { error?: string; id?: string };
     try {
-      res = await onSaveQuote({ id: asNew ? null : activeQuote, name: asNew ? quoteName : (active?.name ?? ''), deal });
+      // In the workspace the Deal name field names the quote too.
+      const name = app ? bookName.trim() : asNew ? quoteName : (active?.name ?? '');
+      res = await onSaveQuote({ id: asNew ? null : activeQuote, name, deal });
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -392,7 +394,54 @@ export default function DealStage({
     setDirty(false);
     setNaming(false);
     setQuoteName('');
+    setMsg(asNew && app ? { quoted: true } : {});
+  }
+
+  // Close a quote straight from the list. Won books it today, under its
+  // name, at its saved numbers; lost drops it. Either way, if it's the one
+  // on the card, the card clears.
+  async function quoteWon(q: Quote) {
+    setQuoteBusy(true);
     setMsg({});
+    let res: { error?: string };
+    try {
+      res = await onSave(q.deal, { name: q.name, bookedOn: calendar?.today });
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    if (!res.error && onDeleteQuote) {
+      try {
+        await onDeleteQuote(q.id);
+      } catch {}
+    }
+    setQuoteBusy(false);
+    if (res.error) return setMsg({ error: res.error });
+    track('deal_booked', ctx);
+    if (activeQuote === q.id) {
+      setActiveQuote(null);
+      setDeal(EMPTY);
+      setDirty(false);
+      setBookName('');
+    }
+    setMsg({ booked: true });
+  }
+  async function quoteLost(q: Quote) {
+    if (!onDeleteQuote) return;
+    setQuoteBusy(true);
+    let res: { error?: string };
+    try {
+      res = await onDeleteQuote(q.id);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setQuoteBusy(false);
+    if (res.error) return setQuoteError(res.error);
+    if (activeQuote === q.id) {
+      setActiveQuote(null);
+      setDeal(EMPTY);
+      setDirty(false);
+      setBookName('');
+    }
   }
 
   async function removeQuote() {
@@ -511,6 +560,9 @@ export default function DealStage({
       onOpen={openFromRail}
       onNew={newDeal}
       compact={app}
+      onWon={app ? (q) => void quoteWon(q) : undefined}
+      onLost={app ? (q) => void quoteLost(q) : undefined}
+      busy={quoteBusy}
     />
   ) : null;
 
@@ -569,7 +621,7 @@ export default function DealStage({
   return (
     <>
       {top?.({ onNew: newFromHead })}
-      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}${noRail ? ' no-rail' : ''}${app && empty && !(msg.booked || msg.updated || msg.error) ? ' is-empty' : ''}`} aria-label="Deal">
+      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}${noRail ? ' no-rail' : ''}${app && empty && !(msg.booked || msg.updated || msg.quoted || msg.error) ? ' is-empty' : ''}`} aria-label="Deal">
         <div className="ds-grid">
           {app ? (
             !noRail && <div className="ds-rail">{rail}</div>
@@ -720,7 +772,7 @@ export default function DealStage({
                   </div>
                 )}
 
-                {!showcase && (!empty || naming || Boolean(msg.booked || msg.updated || msg.error || quoteError)) && (
+                {!showcase && (!empty || naming || Boolean(msg.booked || msg.updated || msg.quoted || msg.error || quoteError)) && (
                 <div className="dc-sec">
                   {copy.detail && !app && <p className="dc-detail">{copy.detail}</p>}
                   {!empty && !app && <Ledger className="dc-ledger" rows={rows} />}
@@ -786,24 +838,61 @@ export default function DealStage({
                       {dirty && !pending && !msg.booked && !msg.error && !isCostly && (
                         <span className="nudge-ring book-nudge-ring" aria-hidden="true" />
                       )}
-                      {quotesOn && !editing && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={quoteBusy || empty || (active !== null && !dirty)}
-                          onClick={() => (active ? void saveQuote(false) : setNaming(true))}
-                        >
-                          {active ? (quoteBusy ? 'Saving…' : dirty ? 'Save changes' : 'Saved') : 'Save as a quote'}
-                        </button>
+                      {app && quotesOn && !editing ? (
+                        // The habit: price it, save the quote you send, book it
+                        // when it closes. A new deal's main step is the quote; an
+                        // open quote's is closing it.
+                        active ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              disabled={quoteBusy || !dirty}
+                              onClick={() => void saveQuote(false)}
+                            >
+                              {quoteBusy ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
+                            </button>
+                            <button type="button" className="btn btn-block btn-primary" disabled={pending || empty} onClick={book}>
+                              {pending ? 'Booking…' : 'Closed won: book it'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" className="btn btn-secondary" disabled={pending || empty} onClick={book}>
+                              {pending ? 'Booking…' : 'Book as closed won'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-block btn-primary"
+                              disabled={quoteBusy || empty}
+                              onClick={() => void saveQuote(true)}
+                            >
+                              {quoteBusy ? 'Saving…' : 'Save quote'}
+                            </button>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          {quotesOn && !editing && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              disabled={quoteBusy || empty || (active !== null && !dirty)}
+                              onClick={() => (active ? void saveQuote(false) : setNaming(true))}
+                            >
+                              {active ? (quoteBusy ? 'Saving…' : dirty ? 'Save changes' : 'Saved') : 'Save as a quote'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className={`btn btn-block ${showcase ? 'btn-secondary' : 'btn-primary'}`}
+                            disabled={pending || empty}
+                            onClick={book}
+                          >
+                            {editing ? (pending ? 'Saving…' : 'Save changes') : pending ? 'Booking…' : 'Book this deal'}
+                          </button>
+                        </>
                       )}
-                      <button
-                        type="button"
-                        className={`btn btn-block ${showcase ? 'btn-secondary' : 'btn-primary'}`}
-                        disabled={pending || empty}
-                        onClick={book}
-                      >
-                        {editing ? (pending ? 'Saving…' : 'Save changes') : pending ? 'Booking…' : 'Book this deal'}
-                      </button>
                     </div>
                     </>
                     )
@@ -812,6 +901,7 @@ export default function DealStage({
                   {quoteError && <p className="after is-error">{quoteError}</p>}
                   {msg.error && <p className="after is-error">{msg.error}</p>}
                   {msg.updated && <p className="after">Changes saved. Your numbers and booked deals include them.</p>}
+                  {msg.quoted && <p className="after">Saved to your open quotes. When it closes, book it from there in one tap.</p>}
                   {msg.booked && (
                     <>
                       <p className="after">

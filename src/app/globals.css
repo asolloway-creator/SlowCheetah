@@ -1878,3 +1878,39 @@ main.app { padding-bottom: 56px; }
   .cd-table tbody tr td.t-act .cd-act { padding-left: 0; padding-right: 12px; }
   .cd-table tbody tr.is-editing { background: var(--sun-wash); border-radius: 8px; }
 }
+
+/* Open quotes: each one opens in the card, or closes right here. */
+.ds.is-app .pipe-item { border-radius: 8px; }
+.ds.is-app .pipe-item.is-active { background: var(--sun-wash); box-shadow: inset 0 0 0 1px #EBCB6B; }
+.ds.is-app .pipe-item.is-active .pipe-row { background: transparent; }
+.pipe-row-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px 8px; margin-top: -2px; }
+.pipe-age { font: 500 12px/1.2 var(--ui); color: var(--ink-3); }
+.pipe-acts { display: inline-flex; align-items: center; gap: 4px; font: 500 12px/1.2 var(--ui); color: var(--ink-2); }
+.pipe-act { padding: 3px 7px; border-radius: 6px; font: 600 12px/1.2 var(--ui); color: var(--ink-2); background: var(--white); box-shadow: inset 0 0 0 1px var(--line-2); }
+.pipe-act:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--ink-3); color: var(--ink); }
+.pipe-act.is-won { color: var(--green); box-shadow: inset 0 0 0 1px rgba(10, 122, 61, 0.35); }
+
+/* The start-of-month recap: last period, against the one before. */
+.recap { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--sun); }
+.recap-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.recap-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font: 650 15px/1.3 var(--ui); color: var(--ink); }
+.recap-sub { font: 500 13px/1.3 var(--ui); color: var(--ink-3); }
+.recap-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 20px; margin-top: 12px; }
+.recap-nums > div { display: grid; gap: 3px; align-content: start; }
+.recap-k { font: 500 12px/1.2 var(--ui); color: var(--ink-3); }
+.recap-v { font: 750 22px/1.1 var(--display); letter-spacing: -0.015em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.recap-v.is-earned { color: var(--green); }
+.recap-v.is-lost { color: var(--red); }
+.recap-t { font: 600 12px/1.3 var(--ui); }
+.recap-t.is-over { color: var(--red); }
+.recap-t.is-within { color: var(--green); }
+.recap-vs { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font: 500 13px/1.45 var(--ui); color: var(--ink-2); }
+
+/* Last month beside this month's average, on each line's tile. */
+.dt-last { font: 500 12px/1.2 var(--ui); color: var(--ink-3); }
+.dt-last.is-better { color: var(--green); }
+.dt-last.is-worse { color: var(--red); }
+
+/* Earlier months: a one-line summary over each period's deals. */
+.cd-period { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cd-period-sum { font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); }

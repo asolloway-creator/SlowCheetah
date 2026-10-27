@@ -74,6 +74,58 @@ export default function DevScreens({ view }: { view: string }) {
     { id: 'q1', name: 'Q4 expansion', deal: deal(9000), createdAt: day(2).toISOString(), updatedAt: day(1).toISOString() },
   ];
 
+  if (view === 'home-recap') {
+    // A month that just started: last month's deals and the month before,
+    // and two open quotes, so the recap, earlier months and quick Won/Lost show.
+    const plan = RETRO;
+    const now = new Date();
+    const at = (monthsBack: number, day: number) => new Date(now.getFullYear(), now.getMonth() - monthsBack, day, 12).toISOString();
+    const mk = (id: string, name: string, when: string, annual: number, subOff: number, ot: number, otOff: number): DealRow => {
+      const d: DealInput = { oneTime: ot, subscription: annual, subMode: 'acv', units: 1, oneTimeDiscountPct: otOff, subscriptionDiscountPct: subOff, hardware: 0, hardwareDiscountPct: 0 };
+      const r = calc(plan, d, periodToDateFrom([]));
+      return {
+        id, name, created_at: when, one_time_amount: ot, subscription_amount: annual, subscription_mode: 'acv', units: 1,
+        one_time_discount_pct: otOff, subscription_discount_pct: subOff, quota_credit: r.credit, arr: r.subAnnual,
+        commission_base: r.commissionBase, commission_earned: r.commissionEffective, money_left_on_table: r.lost,
+        saas_commission: r.saasCommissionEffective, hardware_amount: 0, hardware_discount_pct: 0, hardware_commission: 0,
+      };
+    };
+    const deals = [
+      mk('a1', 'Harbor Grill', at(0, 1), 14000, 10, 4000, 80),
+      mk('b1', 'Lebanese Taverna Baltimore NEW', at(1, 24), 21600, 15, 6000, 90),
+      mk('b2', 'Good Trouble Roasters', at(1, 12), 18000, 20, 5000, 95),
+      mk('c1', 'CinCin', at(2, 20), 16000, 25, 6000, 98),
+      mk('c2', 'Aiko', at(2, 8), 12000, 30, 4000, 100),
+    ];
+    const cur = deals.filter((d) => new Date(d.created_at).getMonth() === now.getMonth());
+    const quotes: Quote[] = [
+      { id: 'q1', name: 'Vasilis', deal: deal(9060, 21.6), createdAt: day(16).toISOString(), updatedAt: day(2).toISOString() },
+      { id: 'q2', name: 'Dogfish Reston', deal: deal(9060), createdAt: day(0).toISOString(), updatedAt: day(0).toISOString() },
+    ];
+    const cal = calendarInZone('month', 'America/New_York');
+    return (
+      <Shell current="/" email={EMAIL} width="full">
+        <PipelineHome
+          plan={plan}
+          ptd={periodToDateFrom(cur)}
+          qtd={quarterToDateFrom(deals)}
+          opening={null}
+          quotes={quotes}
+          deals={deals}
+          onSave={ok}
+          onSaveQuote={async () => ({ id: 'q9' })}
+          onDeleteQuote={ok}
+          onDeleteDeal={ok}
+          onOpening={ok}
+          onUpdateDeal={ok}
+          onRate={ok}
+          calendar={{ ...cal, today: cal.periodStart.replace(/-01$/, '-03') }}
+          targets={{ software: 15, services: 75 }}
+          onTarget={ok}
+        />
+      </Shell>
+    );
+  }
   if (view === 'home-retro' || view === 'home-crossed') {
     // home-crossed: the same deals against a lower quota, so the month is
     // past its retro accelerator and every deal has moved up with it.

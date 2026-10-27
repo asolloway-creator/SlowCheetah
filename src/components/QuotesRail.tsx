@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { calc, pipeline, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, periodNoun } from '@/lib/format';
 import { tierName } from '@/components/opening';
@@ -37,6 +38,9 @@ export default function QuotesRail({
   onOpen,
   onNew,
   compact = false,
+  onWon,
+  onLost,
+  busy = false,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -47,6 +51,10 @@ export default function QuotesRail({
   onNew: () => void;
   /** In the product: a quiet list label, with "New deal" up in the page head. */
   compact?: boolean;
+  /** Close a quote straight from the list: book it today, or drop it. */
+  onWon?: (q: Quote) => void;
+  onLost?: (q: Quote) => void;
+  busy?: boolean;
 }) {
   const noun = periodNoun(plan);
   const head = compact ? (
@@ -111,31 +119,91 @@ export default function QuotesRail({
     <section className="pipe" aria-labelledby="pipe-h">
       {head}
       <ul className="pipe-list">
-        {quotes.map((q) => {
-          const r = calc(plan, q.deal, ptd);
-          return (
-            <li key={q.id}>
-              <button
-                type="button"
-                className={`pipe-row${q.id === activeId ? ' is-active' : ''}`}
-                aria-pressed={q.id === activeId}
-                onClick={() => onOpen(q)}
-              >
-                <span className="pipe-row-main">
-                  <span className="pipe-row-name">{quoteLabel(q)}</span>
-                  <span className="pipe-row-size">
-                    {sizeOf(q.deal)}
-                    {r.crossesAccelerator ? ' · crosses your accelerator' : ''}
-                  </span>
-                </span>
-                {/* The same figure the card leads with: commission on this deal. */}
-                <span className="pipe-row-pay">{fmtMoney(r.commissionEffective)}</span>
-              </button>
-            </li>
-          );
-        })}
+        {quotes.map((q) => (
+          <QuoteRow
+            key={q.id}
+            q={q}
+            pay={calc(plan, q.deal, ptd)}
+            active={q.id === activeId}
+            onOpen={onOpen}
+            onWon={onWon}
+            onLost={onLost}
+            busy={busy}
+          />
+        ))}
       </ul>
       <p className="pipe-sum">{sum}</p>
     </section>
+  );
+}
+
+/** "today", "1 day", "15 days": how long a quote has been open. */
+function openFor(iso: string): string {
+  const days = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+  return days === 0 ? 'Saved today' : `Open ${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/** One open quote: open it in the card, or close it right here. */
+function QuoteRow({
+  q,
+  pay,
+  active,
+  onOpen,
+  onWon,
+  onLost,
+  busy,
+}: {
+  q: Quote;
+  pay: ReturnType<typeof calc>;
+  active: boolean;
+  onOpen: (q: Quote) => void;
+  onWon?: (q: Quote) => void;
+  onLost?: (q: Quote) => void;
+  busy: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <li className={`pipe-item${active ? ' is-active' : ''}`}>
+      <button type="button" className="pipe-row" aria-pressed={active} onClick={() => onOpen(q)}>
+        <span className="pipe-row-main">
+          <span className="pipe-row-name">{quoteLabel(q)}</span>
+          <span className="pipe-row-size">
+            {sizeOf(q.deal)}
+            {pay.crossesAccelerator ? ' · crosses your accelerator' : ''}
+          </span>
+        </span>
+        {/* The same figure the card leads with: what this deal earns. */}
+        <span className="pipe-row-pay">{fmtMoney(pay.commissionEffective)}</span>
+      </button>
+      {(onWon || onLost) && (
+        <div className="pipe-row-foot">
+          <span className="pipe-age">{openFor(q.createdAt)}</span>
+          {confirming ? (
+            <span className="pipe-acts">
+              Remove it?
+              <button type="button" className="pipe-act" disabled={busy} onClick={() => onLost?.(q)}>
+                Yes, lost
+              </button>
+              <button type="button" className="pipe-act" onClick={() => setConfirming(false)}>
+                Keep
+              </button>
+            </span>
+          ) : (
+            <span className="pipe-acts">
+              {onWon && (
+                <button type="button" className="pipe-act is-won" disabled={busy} onClick={() => onWon(q)}>
+                  Won
+                </button>
+              )}
+              {onLost && (
+                <button type="button" className="pipe-act" disabled={busy} onClick={() => setConfirming(true)}>
+                  Lost
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

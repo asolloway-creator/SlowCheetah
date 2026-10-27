@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { paysHardware, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmt, fmtMoney } from '@/lib/format';
-import { costPerDollar, lostNow, offByLine, type Line, type Targets } from '@/components/discounts';
+import { costPerDollar, lostNow, offByLine, type Line, type PeriodTotals, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
@@ -28,6 +28,7 @@ export default function DiscountReport({
   targets = {},
   onTarget,
   lift = 1,
+  last = null,
 }: {
   plan: CompPlan;
   deals: DealRow[];
@@ -36,6 +37,8 @@ export default function DiscountReport({
   onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
   /** See rateLift: what each discount costs at the rate the period pays. */
   lift?: number;
+  /** The period before, to compare each line's average against. */
+  last?: { label: string; totals: PeriodTotals } | null;
 }) {
   const lines: Line[] = ['software', 'services', ...(paysHardware(plan) ? (['hardware'] as Line[]) : [])];
   const tiles = lines
@@ -67,6 +70,8 @@ export default function DiscountReport({
             label={LABEL[t.line]}
             {...t}
             noun={noun}
+            lastAvg={last?.totals.lines[t.line]?.avg}
+            lastLabel={last?.label}
             saved={targets[t.line]}
             onSave={onTarget ? (pct) => onTarget(t.line, pct) : undefined}
           />
@@ -87,8 +92,12 @@ function Tile({
   noun,
   saved,
   onSave,
+  lastAvg,
+  lastLabel,
 }: {
   label: string;
+  lastAvg?: number;
+  lastLabel?: string;
   list: number;
   off: number;
   cost: number;
@@ -133,6 +142,11 @@ function Tile({
         <div>
           <span className="dt-k">Average discount</span>
           <span className="dt-v">{pct0(avg)}</span>
+          {lastAvg !== undefined && (
+            <span className={`dt-last ${avg < lastAvg - 0.5 ? 'is-better' : avg > lastAvg + 0.5 ? 'is-worse' : ''}`}>
+              {lastLabel}: {pct0(lastAvg)}
+            </span>
+          )}
         </div>
         <div>
           <span className="dt-k">Left on the table</span>

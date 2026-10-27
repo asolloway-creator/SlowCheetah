@@ -1,4 +1,4 @@
-import { paysHardware, periodSummary, type CompPlan, type PeriodToDate } from '@/lib/calc';
+import { paysHardware, periodSummary, periodToDateFrom, type CompPlan, type PeriodToDate } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 
 /** The lines a deal's discounts fall on. */
@@ -110,4 +110,40 @@ export function costPerDollar(plan: CompPlan, line: Line): number {
   if (line === 'hardware') return (plan.hardware_rate ?? 0) / 100;
   if (plan.commission_style !== 'percent') return 0;
   return (plan.base_rate / 100) * (line === 'services' ? plan.one_time_weight / 100 : 1);
+}
+
+export type PeriodTotals = {
+  count: number;
+  earned: number;
+  lost: number;
+  /** Per line with anything listed: average discount by dollars, and cost. */
+  lines: Partial<Record<Line, { avg: number; cost: number; list: number; off: number }>>;
+};
+
+/**
+ * One period's deals added up: what they earned and what their discounts
+ * left on the table, at the rate that period paid. `lift` is that period's
+ * (see rateLift); for a closed period, pass null to work it out from its own
+ * deals, which is where it finished.
+ */
+export function periodTotals(plan: CompPlan, rows: DealRow[], lift: number | null): PeriodTotals {
+  const l = lift ?? rateLift(plan, periodToDateFrom(rows));
+  const totals: PeriodTotals = { count: rows.length, earned: 0, lost: 0, lines: {} };
+  for (const line of LINES) {
+    let list = 0;
+    let off = 0;
+    let cost = 0;
+    for (const d of rows) {
+      const o = offByLine(plan, d)[line];
+      list += o.list;
+      off += o.off;
+      cost += lostNow(plan, d, l)[line];
+    }
+    if (list > 0) totals.lines[line] = { avg: (off / list) * 100, cost, list, off };
+  }
+  for (const d of rows) {
+    totals.earned += earnedNow(plan, d, l);
+  }
+  totals.lost = Object.values(totals.lines).reduce((n, x) => n + (x?.cost ?? 0), 0);
+  return totals;
 }

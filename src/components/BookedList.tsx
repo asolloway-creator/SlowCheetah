@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
+import { paysHardware, periodLabel, periodOf, periodToDateFrom, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { earnedNow, lostNow, type Line, type Targets } from '@/components/discounts';
+import { earnedNow, lostNow, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
@@ -70,6 +70,8 @@ export default function BookedList({
   }
   const now = groups.find((g) => g.period === current)?.rows ?? [];
   const earlier = groups.filter((g) => g.period !== current);
+  // The period just before this one, for the tiles' "last month".
+  const last = earlier[0] ? periodTotals(plan, earlier[0].rows, null) : null;
 
   async function remove(id: string) {
     setBusy(id);
@@ -199,18 +201,42 @@ export default function BookedList({
         <p className="cd-empty">Nothing closed in {current} yet. Book a deal when it closes and it lands here.</p>
       ) : (
         <>
-          <DiscountReport plan={plan} deals={now} noun={noun} targets={targets} onTarget={onTarget} lift={lift} />
+          <DiscountReport
+            plan={plan}
+            deals={now}
+            noun={noun}
+            targets={targets}
+            onTarget={onTarget}
+            lift={lift}
+            last={last && earlier[0] ? { label: earlier[0].period.split(' ')[0], totals: last } : null}
+          />
           <div className="cd-scroll">{table(now, lift, `Deals closed in ${current}`)}</div>
         </>
       )}
 
       {showEarlier &&
-        earlier.map((g) => (
-          <div key={g.period} className="cd-earlier">
-            <h3 className="cd-period">{g.period}</h3>
-            <div className="cd-scroll">{table(g.rows, null, `Deals closed in ${g.period}`)}</div>
-          </div>
-        ))}
+        earlier.map((g) => {
+          // Where that period finished: its own lift, from its own deals.
+          const gl = rateLift(plan, periodToDateFrom(g.rows));
+          const t = periodTotals(plan, g.rows, gl);
+          const avg = (l: Line) => t.lines[l];
+          return (
+            <div key={g.period} className="cd-earlier">
+              <h3 className="cd-period">
+                {g.period}
+                <span className="cd-period-sum">
+                  {t.count} deal{t.count === 1 ? '' : 's'} · Earned {fmtMoney(t.earned)} · Left on the table{' '}
+                  <span className="is-red">{fmtMoney(t.lost)}</span>
+                  {lines
+                    .filter((l) => avg(l.key))
+                    .map((l) => ` · ${l.label} ${Math.round(avg(l.key)!.avg)}%`)
+                    .join('')}
+                </span>
+              </h3>
+              <div className="cd-scroll">{table(g.rows, gl, `Deals closed in ${g.period}`)}</div>
+            </div>
+          );
+        })}
     </section>
   );
 }

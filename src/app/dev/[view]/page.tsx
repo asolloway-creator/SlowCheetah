@@ -9,6 +9,6 @@ import DevScreens from './DevScreens';
 export default async function DevPage({ params }: { params: Promise<{ view: string }> }) {
   if (process.env.NODE_ENV !== 'development') notFound();
   const { view } = await params;
-  if (!['home', 'home-new', 'home-retro', 'home-crossed', 'plan', 'plan-new'].includes(view)) notFound();
+  if (!['home', 'home-new', 'home-retro', 'home-crossed', 'home-recap', 'plan', 'plan-new'].includes(view)) notFound();
   return <DevScreens view={view} />;
 }
