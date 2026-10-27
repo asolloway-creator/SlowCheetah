@@ -36,6 +36,7 @@ export default function DiscountSlider({
   holdAt = null,
   hint = '',
   zeroPrompt = true,
+  lineKind = 'bonus',
 }: {
   id: string;
   label: string;
@@ -68,7 +69,15 @@ export default function DiscountSlider({
   /** "Hold the line. Try 0%" when nothing's past a line. Off on the landing
    *  card, whose story ends holding at the line on purpose. */
   zeroPrompt?: boolean;
+  /** What the line stands for: the Quarterly Bonus, or (when no bonus is at
+   *  stake) the accelerator this deal crosses, with the most it can be
+   *  discounted and still cross. Only the words change. */
+  lineKind?: 'bonus' | 'accelerator';
 }) {
+  const words =
+    lineKind === 'accelerator'
+      ? { keptLong: '', kept: 'Crosses', lostLong: '', lost: 'Falls short', chip: 'Accelerator line' }
+      : { keptLong: 'Bonus ', kept: 'kept', lostLong: 'Bonus ', lost: 'lost', chip: 'Bonus line' };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const cancelled = useRef(false);
@@ -246,7 +255,8 @@ export default function DiscountSlider({
           <span className="slider-flank is-kept" aria-hidden="true">
             <i />
             <span>
-              <span className="slider-flank-long">Bonus </span>kept
+              {words.keptLong && <span className="slider-flank-long">{words.keptLong}</span>}
+              {words.kept}
             </span>
           </span>
         )}
@@ -254,7 +264,8 @@ export default function DiscountSlider({
           <span className="slider-flank is-lost" aria-hidden="true">
             <i />
             <span>
-              <span className="slider-flank-long">Bonus </span>lost
+              {words.lostLong && <span className="slider-flank-long">{words.lostLong}</span>}
+              {words.lost}
             </span>
           </span>
         )}
@@ -283,7 +294,7 @@ export default function DiscountSlider({
           ))}
           {kx != null && (
             <span className="slider-line-chip">
-              Bonus line <b>{fmtPctShort(kx)}</b>
+              {words.chip} <b>{fmtPctShort(kx)}</b>
             </span>
           )}
         </div>

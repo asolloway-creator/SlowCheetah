@@ -1,0 +1,138 @@
+'use client';
+
+import { useState } from 'react';
+import { paysHardware, type CompPlan } from '@/lib/calc';
+import type { DealRow } from '@/lib/queries';
+import { fmt, fmtMoney } from '@/lib/format';
+import { costPerDollar, lostByLine, offByLine, type Line } from '@/components/discounts';
+
+const LABEL: Record<Line, string> = {
+  software: 'Subscription',
+  services: 'One-time products & services',
+  hardware: 'Hardware',
+};
+
+const pct0 = (n: number) => `${Math.round(n)}%`;
+
+/**
+ * Where this period's discounts went: for each line, the average discount
+ * (by dollars), what it cost the rep, and a target to try: "if it had
+ * averaged 75%", what they'd have kept and the customer would have paid.
+ * Built from the booked deals alone, so it's the rep's own record, not a
+ * guess.
+ */
+export default function DiscountReport({ plan, deals, noun }: { plan: CompPlan; deals: DealRow[]; noun: string }) {
+  const lines: Line[] = ['software', 'services', ...(paysHardware(plan) ? (['hardware'] as Line[]) : [])];
+  const totals = lines.map((line) => {
+    let list = 0;
+    let off = 0;
+    let cost = 0;
+    for (const d of deals) {
+      const o = offByLine(plan, d)[line];
+      list += o.list;
+      off += o.off;
+      cost += lostByLine(plan, d)[line];
+    }
+    const avg = list > 0 ? (off / list) * 100 : 0;
+    const perDollar = off > 0 ? cost / off : costPerDollar(plan, line);
+    return { line, list, off, cost, avg, perDollar };
+  });
+  const shown = totals.filter((t) => t.list > 0);
+  const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
+  const paid = deals.reduce((n, d) => n + d.commission_earned, 0);
+  const share = paid + lost > 0 ? Math.round((lost / (paid + lost)) * 100) : 0;
+  if (!shown.length || lost < 0.005) return null;
+
+  return (
+    <section className="disc-report" aria-labelledby="disc-h">
+      <div className="disc-head">
+        <h3 id="disc-h" className="app-label">
+          Where your discounts went
+        </h3>
+        <p className="disc-total">
+          <span className="is-red">{fmtMoney(lost)}</span> left on the table this {noun}, {share}% of what these deals
+          would have paid at full price.
+        </p>
+      </div>
+      {/* The trade a rep makes on every deal: which line a point of discount
+          is cheapest on, at this period's own mix and rate. */}
+      {shown.length > 1 && (
+        <p className="disc-point">
+          One point of discount costs you about{' '}
+          {shown.map((t, i) => (
+            <span key={t.line}>
+              {i > 0 && (i === shown.length - 1 ? ' and ' : ', ')}
+              <b>{fmt((t.perDollar * t.list) / 100)}</b> on {LABEL[t.line].toLowerCase()}
+            </span>
+          ))}
+          .
+        </p>
+      )}
+      <div className="disc-lines">
+        {shown.map((t) => (
+          <DiscountLine key={t.line} label={LABEL[t.line]} {...t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DiscountLine({
+  label,
+  list,
+  off,
+  cost,
+  avg,
+  perDollar,
+}: {
+  label: string;
+  list: number;
+  off: number;
+  cost: number;
+  avg: number;
+  perDollar: number;
+}) {
+  // A target worth trying: about fifteen points under where it is now.
+  const [target, setTarget] = useState(() => Math.max(0, Math.floor(avg / 5) * 5 - 15));
+  const offAtTarget = (target / 100) * list;
+  const keep = cost - perDollar * offAtTarget;
+  const collected = off - offAtTarget;
+  const below = target < avg - 0.05;
+  const id = `disc-${label.replace(/\W+/g, '-').toLowerCase()}`;
+
+  return (
+    <div className="disc-line">
+      <p className="disc-name">{label}</p>
+      <p className="disc-avg">
+        <b>{pct0(avg)}</b> average discount
+      </p>
+      <p className="disc-cost">
+        Cost you <span className="is-red">{fmtMoney(cost)}</span> · {fmt(off)} off {fmt(list)}
+      </p>
+      <div className="disc-try">
+        <label className="disc-try-label" htmlFor={id}>
+          If it averaged <b>{target}%</b>
+        </label>
+        <input
+          id={id}
+          className="disc-range"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={target}
+          onChange={(e) => setTarget(Number(e.target.value))}
+        />
+        <p className="disc-if" aria-live="polite">
+          {below ? (
+            <>
+              You&rsquo;d keep <span className="is-green">+{fmtMoney(keep)}</span> · customers pay {fmt(collected)} more
+            </>
+          ) : (
+            <>That&rsquo;s at or above where it is now, {pct0(avg)}.</>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}

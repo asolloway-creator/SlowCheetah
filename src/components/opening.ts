@@ -494,6 +494,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
   const named = (i: number) => (steps.length > 1 && i > 0 ? 'your next accelerator step' : 'your accelerator');
   const th = fmtCredit(plan, stepAt(r.step).threshold);
   const bump = `${fmtPctShort(stepAt(r.step).rate)}`;
+  // How a retro accelerator reads on a statement: the rate every deal moves
+  // to, not "24.2% more" (the same thing as a percent of a percent).
+  const paysMore =
+    plan.commission_style === 'percent'
+      ? `${fmtRatePct(stepRatePct(plan, stepAt(r.step)))} instead of ${fmtRatePct(plan.base_rate)}`
+      : `${bump} more`;
   const accelRate = fmtRateShort(plan, stepAt(r.step).rate);
   const nextStep: AcceleratorStep | null = steps[r.step + 1] ?? null;
   const pct = fmtPctShort(deal.subscriptionDiscountPct);
@@ -594,7 +600,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
               signed: true,
               caption: safeCaptionCrossed,
             },
-            sentence: `This deal crosses ${th}, so every deal you’ve closed this ${noun} now pays ${bump} more.`,
+            sentence: `This deal crosses ${th}, so every deal you’ve closed this ${noun} now pays ${paysMore}.`,
             detail: residual,
           }
         : {
@@ -627,7 +633,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
         ...base,
         secondary: null,
         sentence: retro
-          ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${bump} more.${
+          ? `You’re past your accelerator. Every deal this ${noun}, including this one, pays ${paysMore}.${
               nextStep ? ` Another ${toNext} makes it ${fmtPctShort(nextStep.rate)}.` : ''
             }`
           : `You’re past your accelerator. Every deal this ${noun}, including this one, earns ${accelRate}.${

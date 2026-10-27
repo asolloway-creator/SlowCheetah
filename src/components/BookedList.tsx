@@ -3,37 +3,12 @@
 import { Fragment, useState } from 'react';
 import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
+import { lostByLine, type Line } from '@/components/discounts';
+import DiscountReport from '@/components/DiscountReport';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
 /** "Oct 26": inside a period the year is the page's own. */
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-type Line = 'software' | 'services' | 'hardware';
-
-/**
- * What each line's discount cost, from the deal's stored total
- * (money_left_on_table). On a percent plan every line pays the same rate on
- * its commissionable dollars, so the total splits by the commissionable
- * dollars each discount took off: a year of subscription, one-time at the
- * plan's weight. Hardware on its own flat rate is its own slice, worked out
- * exactly. A plan paid in months of MRR pays on the subscription only.
- */
-function lostByLine(plan: CompPlan, d: DealRow): Record<Line, number> {
-  const split = paysHardware(plan);
-  const hwRate = split ? (plan.hardware_rate as number) / 100 : 0;
-  const hwOff = (d.hardware_amount ?? 0) * ((d.hardware_discount_pct ?? 0) / 100);
-  const hardware = split ? Math.min(d.money_left_on_table, hwOff * hwRate) : 0;
-  const rest = Math.max(0, d.money_left_on_table - hardware);
-  if (plan.commission_style !== 'percent') return { software: rest, services: 0, hardware };
-  const subPct = d.subscription_discount_pct / 100;
-  const subOff = subPct > 0 && subPct < 1 ? (d.arr / (1 - subPct)) * subPct : 0;
-  const otOff = (d.one_time_amount * (d.one_time_discount_pct / 100) + (split ? 0 : hwOff)) * (plan.one_time_weight / 100);
-  const total = subOff + otOff;
-  if (!(total > 0)) return { software: rest, services: 0, hardware };
-  // Cents that add back up to the deal's own total.
-  const software = Math.round(((rest * subOff) / total) * 100) / 100;
-  return { software, services: Math.max(0, Math.round((rest - software) * 100) / 100), hardware };
-}
 
 /** A booked deal's size the way the plan pays on it: monthly on a plan paid
  *  in months of MRR, a year of subscription on every other. */
@@ -120,6 +95,7 @@ export default function BookedList({
           </p>
         )}
       </div>
+      {now.length > 0 && <DiscountReport plan={plan} deals={now} noun={noun} />}
       {error && (
         <p className="history-error" role="alert">
           {error}

@@ -249,6 +249,10 @@ export default function DealStage({
   const kickerCrossPct = useMemo(() => kickerCrossDiscountPct(plan, o, qtd ?? null), [plan, o, qtd]);
   // Past a line, the most the discount can be and still keep what it's costing.
   const holdAt = useMemo(() => holdLinePct(plan, deal, ptd, qtd ?? null), [plan, deal, ptd, qtd]);
+  // No bonus at stake but the deal crosses the accelerator at full price:
+  // mark the most it can be discounted and still cross, the same way.
+  const accelLinePct = !showcase && kickerCrossPct === null ? o.safeDiscountPct : null;
+  const lineKind: 'bonus' | 'accelerator' = kickerCrossPct === null && accelLinePct !== null ? 'accelerator' : 'bonus';
   const groundingDetail = kickerGroundingDetail(plan, qtd ?? null);
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -529,11 +533,13 @@ export default function DealStage({
         ) : null
       }
       disabled={empty || r.subMrrList <= 0}
-      kickerBreakpointPct={kickerCrossPct}
-      costsATier={Boolean(xEffect?.costsATier)}
+      kickerBreakpointPct={kickerCrossPct ?? accelLinePct}
+      costsATier={Boolean(xEffect?.costsATier) || (lineKind === 'accelerator' && o.state === 'blocked')}
+      lineKind={lineKind}
       holdAt={holdAt}
       hint={showcase ? show.hint : ''}
-      zeroPrompt={!showcase}
+      // On a deal that crosses either way, "Try 0%" argues with the line.
+      zeroPrompt={!showcase && lineKind !== 'accelerator'}
     />
   );
 
