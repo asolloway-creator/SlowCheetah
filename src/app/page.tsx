@@ -9,6 +9,7 @@ import {
   saveQuoteAction,
   saveRateAction,
   saveTargetAction,
+  unbookDealAction,
   updateDealAction,
 } from './actions';
 import { Shell } from './AccountViews';
@@ -46,6 +47,7 @@ export default async function Home() {
         onSaveQuote={saveQuoteAction}
         onDeleteQuote={deleteQuoteAction}
         onDeleteDeal={deleteDealAction}
+        onUnbookDeal={unbookDealAction}
         onOpening={saveOpeningAction}
         onUpdateDeal={updateDealAction}
         onRate={saveRateAction}

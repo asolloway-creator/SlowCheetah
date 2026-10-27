@@ -1867,7 +1867,7 @@ main.app { padding-bottom: 56px; }
 .cd-table .c-num { width: 112px; }
 .cd-table .c-disc { width: 118px; }
 .cd-table .c-disc-wide { width: 150px; }
-.cd-table .c-act { width: 156px; }
+.cd-table .c-act { width: 214px; }
 .cd-earlier { margin-top: 18px; }
 .cd-period { font: 650 13px/1.3 var(--ui); color: var(--ink-2); }
 

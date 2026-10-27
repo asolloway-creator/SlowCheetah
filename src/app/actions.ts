@@ -466,6 +466,50 @@ export async function saveQuoteAction(input: {
   return { id: String(data.id) };
 }
 
+/**
+ * Takes a booked deal back out of the period: it goes back in the pipeline
+ * as an open quote, with its name and numbers, and leaves the closed deals.
+ * The quote is written first, so a failure part way never loses the deal;
+ * if the deal can't be removed, the new quote is taken back out.
+ */
+export async function unbookDealAction(id: string): Promise<Result & { id?: string }> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to change deals.' };
+  const [{ data: row, error: readError }, { data: label }] = await Promise.all([
+    supabase
+      .from('deals')
+      .select('one_time_amount, subscription_amount, subscription_mode, units, one_time_discount_pct, subscription_discount_pct, hardware_amount, hardware_discount_pct')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase.from('deal_labels').select('name').eq('deal_id', id).eq('user_id', user.id).maybeSingle(),
+  ]);
+  if (readError || !row) return { error: 'That deal is already gone. Refresh the page.' };
+  const deal = cleanDeal({
+    oneTime: Number(row.one_time_amount),
+    subscription: Number(row.subscription_amount),
+    subMode: row.subscription_mode,
+    units: Math.max(1, Number(row.units)),
+    oneTimeDiscountPct: Number(row.one_time_discount_pct),
+    subscriptionDiscountPct: Number(row.subscription_discount_pct),
+    hardware: Number(row.hardware_amount ?? 0),
+    hardwareDiscountPct: Number(row.hardware_discount_pct ?? 0),
+  });
+  const { data: quote, error: quoteError } = await supabase
+    .from('quotes')
+    .insert({ user_id: user.id, ...quoteRow(label?.name ?? '', deal) })
+    .select('id')
+    .single();
+  if (quoteError || !quote) return { error: 'That didn’t go through. Try again in a moment.' };
+  const { error } = await supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+  if (error) {
+    await supabase.from('quotes').delete().eq('id', quote.id).eq('user_id', user.id);
+    return { error: 'That didn’t go through. Try again in a moment.' };
+  }
+  revalidatePath('/', 'layout');
+  return { id: String(quote.id) };
+}
+
 export async function deleteQuoteAction(id: string): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to remove quotes.' };

@@ -116,6 +116,7 @@ export default function DevScreens({ view }: { view: string }) {
           onSaveQuote={async () => ({ id: 'q9' })}
           onDeleteQuote={ok}
           onDeleteDeal={ok}
+          onUnbookDeal={async () => ({ id: 'q8' })}
           onOpening={ok}
           onUpdateDeal={ok}
           onRate={ok}
@@ -145,6 +146,7 @@ export default function DevScreens({ view }: { view: string }) {
           onSaveQuote={async () => ({ id: 'q1' })}
           onDeleteQuote={ok}
           onDeleteDeal={ok}
+          onUnbookDeal={async () => ({ id: 'q8' })}
           onOpening={ok}
           onUpdateDeal={ok}
           onRate={ok}
@@ -169,6 +171,7 @@ export default function DevScreens({ view }: { view: string }) {
           onSaveQuote={async () => ({ id: 'q1' })}
           onDeleteQuote={ok}
           onDeleteDeal={ok}
+          onUnbookDeal={async () => ({ id: 'q8' })}
           onOpening={ok}
           onUpdateDeal={ok}
           onRate={ok}

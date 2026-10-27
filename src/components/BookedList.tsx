@@ -33,6 +33,7 @@ export default function BookedList({
   onDelete,
   onEdit,
   onCopy,
+  onUnbook,
   editingId = null,
   targets = {},
   onTarget,
@@ -45,6 +46,8 @@ export default function BookedList({
   onEdit?: (d: DealRow) => void;
   /** Starts a new deal from this one's numbers. */
   onCopy?: (d: DealRow) => void;
+  /** Back to the pipeline as an open quote. */
+  onUnbook?: (d: DealRow) => Promise<{ error?: string }>;
   editingId?: string | null;
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
@@ -59,7 +62,7 @@ export default function BookedList({
     ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
   ];
   const [showEarlier, setShowEarlier] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<{ id: string; act: 'unbook' | 'delete' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const current = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -76,12 +79,12 @@ export default function BookedList({
   // The period just before this one, for the tiles' "last month".
   const last = earlier[0] ? periodTotals(plan, earlier[0].rows, null) : null;
 
-  async function remove(id: string) {
-    setBusy(id);
+  async function run(id: string, act: 'unbook' | 'delete', go: () => Promise<{ error?: string }>) {
+    setBusy({ id, act });
     setError(null);
     let res: { error?: string };
     try {
-      res = await onDelete(id);
+      res = await go();
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -173,14 +176,26 @@ export default function BookedList({
                       Copy
                     </button>
                   )}
+                  {onUnbook && (
+                    <button
+                      type="button"
+                      className="cd-act"
+                      aria-label={`Unbook ${d.name || `the deal from ${fmtDate(d.created_at)}`}: back to your open quotes`}
+                      title="Back to your open quotes"
+                      disabled={busy?.id === d.id}
+                      onClick={() => void run(d.id, 'unbook', () => onUnbook(d))}
+                    >
+                      {busy?.id === d.id && busy.act === 'unbook' ? 'Unbooking…' : 'Unbook'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="cd-act"
                     aria-label={`Delete ${d.name || `deal from ${fmtDate(d.created_at)}`}`}
-                    disabled={busy === d.id}
-                    onClick={() => void remove(d.id)}
+                    disabled={busy?.id === d.id}
+                    onClick={() => void run(d.id, 'delete', () => onDelete(d.id))}
                   >
-                    {busy === d.id ? 'Deleting…' : 'Delete'}
+                    {busy?.id === d.id && busy.act === 'delete' ? 'Deleting…' : 'Delete'}
                   </button>
                 </span>
               </td>

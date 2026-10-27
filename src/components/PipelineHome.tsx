@@ -28,6 +28,7 @@ export default function PipelineHome({
   onSaveQuote,
   onDeleteQuote,
   onDeleteDeal,
+  onUnbookDeal,
   onOpening,
   onUpdateDeal,
   onRate,
@@ -51,6 +52,8 @@ export default function PipelineHome({
   onSaveQuote: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<Result & { id?: string }>;
   onDeleteQuote: (id: string) => Promise<Result>;
   onDeleteDeal: (id: string) => Promise<Result>;
+  /** A booked deal back to an open quote. */
+  onUnbookDeal: (id: string) => Promise<Result & { id?: string }>;
   onOpening: (o: OpeningInput) => Promise<Result>;
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
@@ -69,6 +72,7 @@ export default function PipelineHome({
       quotes={quotes}
       onSaveQuote={onSaveQuote}
       onDeleteQuote={onDeleteQuote}
+      onUnbookDeal={onUnbookDeal}
       top={({ onNew }) => (
         <Overview
           plan={paying}
@@ -84,7 +88,7 @@ export default function PipelineHome({
           targets={targets}
         />
       )}
-      after={({ editDeal, copyDeal, editingId }) => (
+      after={({ editDeal, copyDeal, unbookDeal, editingId }) => (
         <BookedList
           plan={paying}
           deals={deals}
@@ -92,6 +96,7 @@ export default function PipelineHome({
           onEdit={editDeal}
           editingId={editingId}
           onCopy={copyDeal}
+          onUnbook={unbookDeal}
           targets={targets}
           onTarget={onTarget}
           lift={rateLift(paying, ptd)}

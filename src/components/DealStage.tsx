@@ -131,6 +131,7 @@ export default function DealStage({
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
+  onUnbookDeal,
   initialQuoteId = null,
 }: {
   plan: CompPlan;
@@ -161,11 +162,18 @@ export default function DealStage({
    *  reopen a booked deal in the card. */
   after?:
     | ReactNode
-    | ((api: { editDeal: (row: DealRow) => void; copyDeal: (row: DealRow) => void; editingId: string | null }) => ReactNode);
+    | ((api: {
+        editDeal: (row: DealRow) => void;
+        copyDeal: (row: DealRow) => void;
+        unbookDeal: (row: DealRow) => Promise<{ error?: string }>;
+        editingId: string | null;
+      }) => ReactNode);
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
   onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
   onDeleteQuote?: (id: string) => Promise<{ error?: string }>;
+  /** A booked deal back in the pipeline as an open quote. */
+  onUnbookDeal?: (id: string) => Promise<{ error?: string; id?: string }>;
   /** The quote the page opens on (signed in: the most recent one). */
   initialQuoteId?: string | null;
 }) {
@@ -569,6 +577,20 @@ export default function DealStage({
       el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
     });
   }
+  // A booked deal back to an open quote. If it's the one open in the card,
+  // the card stays on it, now as that quote.
+  async function unbookDeal(row: DealRow): Promise<{ error?: string }> {
+    if (!onUnbookDeal) return { error: 'That didn’t go through. Try again in a moment.' };
+    const res = await onUnbookDeal(row.id);
+    if (res.error) return res;
+    if (editing?.id === row.id) {
+      setEditing(null);
+      setActiveQuote(res.id ?? null);
+      setDirty(false);
+      setMsg({});
+    }
+    return {};
+  }
   function newFromHead() {
     newDeal();
     requestAnimationFrame(startEntering);
@@ -590,7 +612,7 @@ export default function DealStage({
   ) : null;
 
   const introBlock = intro ?? <div className="ds-title">{rail}</div>;
-  const afterNode = typeof after === 'function' ? after({ editDeal, copyDeal, editingId: editing?.id ?? null }) : after;
+  const afterNode = typeof after === 'function' ? after({ editDeal, copyDeal, unbookDeal, editingId: editing?.id ?? null }) : after;
   // Nothing in the pipeline yet: the workspace drops its empty first column.
   const noRail = app && quotes.length === 0;
 
