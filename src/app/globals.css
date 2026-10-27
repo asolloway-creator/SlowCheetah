@@ -1695,54 +1695,6 @@ main.app { padding-bottom: 56px; }
 .ov-rate-box .field-input { height: 42px; font-size: 16px; }
 .start-card-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-/* Booked deals: named, with Edit beside Delete; the one in the card marked. */
-.deals thead th:nth-child(2), .deals tbody td:nth-child(2) { text-align: left; }
-.deals-name { max-width: 128px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.deals-name.is-dim { font-weight: 500; }
-.deals-actions { display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; }
-.booked .deals .row-delete { opacity: 1; min-width: 0; padding: 0 4px; font-size: 13.5px; }
-.booked .deals .deals-actions .row-delete:first-child { color: var(--ink-2); font-weight: 600; }
-.booked .deals .deals-actions .row-delete:first-child:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.deals tr.is-editing td { background: var(--sun-wash); }
-
-/* Booked table: each line's discount, with what it cost beside it. */
-.deals th.deals-disc-h { line-height: 1.3; vertical-align: bottom; white-space: normal; width: 8.4em; }
-.deals td.deals-act { width: 1%; }
-/* Each discount: percent and cost in two fixed columns, so every row lines up. */
-.deals .deals-disc-in { display: inline-grid; grid-template-columns: 3.2em 4.8em; column-gap: 6px; justify-content: end; }
-.deals .deals-pct { text-align: right; }
-.deals .deals-cost { text-align: right; color: var(--red); font-weight: 600; }
-/* Name and commission carry the row. */
-.deals tbody td:first-child { color: var(--ink); }
-.deals td.deals-pay { font-weight: 650; }
-
-/* Booked deals where the table doesn't fit (a phone, or a laptop with the
-   result card beside it): each deal a short stack, not a wide table. Keyed
-   to the list's own width, not the screen's. Name and commission, then the
-   day and its size, then each discount. */
-.ds .booked { container: booked / inline-size; }
-@container booked (max-width: 779px) {
-  .ds .booked .table-scroll { overflow: visible; }
-  .ds .booked table.deals, .ds .booked .deals tbody { display: block; }
-  .ds .booked .deals thead { display: none; }
-  .ds .booked .deals tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
-  .ds .booked .deals tbody tr:last-child { border-bottom: 0; }
-  .ds .booked .deals tbody td { display: block; height: auto; padding: 0; border: 0; text-align: left; font-size: 13.5px; line-height: 1.4; }
-  .ds .booked .deals td.deals-name { grid-column: 1; grid-row: 1; max-width: none; font-size: 14.5px; }
-  .ds .booked .deals td.deals-pay { grid-column: 2; grid-row: 1; text-align: right; font-weight: 650; font-size: 14.5px; }
-  .ds .booked .deals td.deals-date { grid-column: 1; grid-row: 2; color: var(--ink-3); }
-  .ds .booked .deals td.deals-size { grid-column: 2; grid-row: 2; text-align: right; color: var(--ink-2); }
-  .ds .booked .deals td.deals-disc { grid-column: 1 / -1; display: flex; gap: 8px; }
-  .ds .booked .deals td.deals-size::before, .ds .booked .deals td.deals-disc::before { content: attr(data-label) " "; color: var(--ink-3); }
-  .ds .booked .deals td.deals-disc::before { content: attr(data-label); flex: 1 1 0; min-width: 0; }
-  .ds .booked .deals td.deals-disc .deals-disc-in { flex: none; }
-  .ds .booked .deals .deals-disc-in { grid-template-columns: 3.4em 4.6em; }
-  .ds .booked .deals td.deals-act { grid-column: 1 / -1; margin-top: 4px; }
-  .ds .booked .deals td.deals-act .row-delete { opacity: 1; }
-  .ds .booked .deals .deals-period { display: block; }
-  .ds .booked .deals .deals-period th { display: block; padding: 16px 4px 4px; text-align: left; }
-}
-
 /* The workspace shows no result card until there's a deal to show: on a
    wide screen its column stays put (so the page doesn't shift on the first
    keystroke), on a phone the fields come first. A booked or error message
@@ -1752,27 +1704,71 @@ main.app { padding-bottom: 56px; }
   .ds.is-app.is-empty .ds-aside { display: none; }
 }
 
-/* Wide enough for the table: keep it snug so nothing clips. */
-@container booked (min-width: 780px) {
-  .ds .booked .deals td, .ds .booked .deals th { padding-left: 8px; padding-right: 8px; }
-}
-.ds .booked .deals-actions { gap: 10px; }
-.ds .booked .deals th.deals-won-h, .ds .booked .deals th.deals-disc-h { line-height: 1.3; }
-@container booked (min-width: 780px) {
-  .ds .booked .deals th.deals-won-h { white-space: normal; width: 5.5em; }
-  .ds .booked .deals td.deals-date { white-space: nowrap; }
-}
-
-/* The booked list has a row to itself, so the table can breathe. */
 .ds.is-app .ds-after { margin-top: 0; }
-@container booked (min-width: 900px) {
-  .ds .booked .deals td.deals-name { max-width: 210px; }
-}
-@container booked (min-width: 1160px) {
-  .ds .booked .deals td.deals-name { max-width: 280px; }
-  .ds .booked .deals th.deals-won-h { width: auto; white-space: nowrap; }
-  .ds .booked .deals th.deals-disc-h { white-space: nowrap; width: auto; }
-  .ds .booked .deals td, .ds .booked .deals th { padding-left: 14px; padding-right: 14px; }
-  .ds .booked .deals-disc-in { grid-template-columns: 3.6em 5.2em; column-gap: 10px; }
-}
 .ds.is-app .ds-grid { row-gap: 16px; }
+
+/* =========================================================================
+   Booked deals. One grid: the deal, when it closed, what it booked and paid,
+   then each line's discount with what it cost. Every number column is
+   right-aligned under a right-aligned header; the discount pairs sit under
+   a group heading. Where the list is too narrow for it (a phone, a laptop),
+   each deal becomes a short stack instead. Keyed to the list's own width.
+   ========================================================================= */
+.ds .booked { container: booked / inline-size; }
+.deals-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.deals-table th, .deals-table td { padding: 0 10px; vertical-align: middle; white-space: nowrap; }
+.deals-table th { font: 600 12.5px/1.25 var(--ui); color: var(--ink-3); text-align: right; border-bottom: 0; white-space: normal; vertical-align: bottom; }
+.deals-table td { height: 50px; font-size: 14px; text-align: right; border-bottom: 1px solid var(--line); }
+.deals-table tbody tr:last-child td { border-bottom: 0; }
+.deals-table thead tr:last-child th { padding-bottom: 8px; border-bottom: 1px solid var(--line-2); }
+.deals-table th.t-left, .deals-table td.t-left { text-align: left; padding-left: 4px; }
+.deals-table th.t-end, .deals-table td.t-end { padding-right: 4px; }
+.deals-table .t-group { text-align: center; color: var(--ink-2); font-weight: 650; padding: 0 0 6px; }
+.deals-table .t-group span { display: block; padding-bottom: 6px; border-bottom: 1px solid var(--line-2); }
+.deals-table .t-gap { width: 14px; padding: 0; }
+.deals-table .t-name { color: var(--ink); font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
+.deals-table .t-name.is-dim { font-weight: 500; }
+.deals-table .t-date { color: var(--ink-2); }
+.deals-table .t-pay { font-weight: 650; color: var(--ink); }
+.deals-table .t-pct, .deals-table thead tr:last-child th:nth-child(odd) { padding-left: 24px; }
+.deals-table .t-pct.is-dim, .deals-table .t-cost.is-dim { color: var(--ink-3); }
+.deals-table .t-cost { color: var(--red); font-weight: 600; }
+.deals-table .t-cost.is-dim { color: var(--ink-3); font-weight: 500; }
+.deals-table .t-act { white-space: nowrap; }
+.deals-table .t-act .deals-actions { display: inline-flex; gap: 4px; }
+.deals-table .row-delete { opacity: 1; min-width: 0; padding: 0 6px; font-size: 13.5px; }
+.deals-table .row-delete:first-child { color: var(--ink-2); font-weight: 600; }
+.deals-table .row-delete:first-child:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.deals-table tbody tr:hover td { background: var(--paper); }
+.deals-table tr.is-editing td { background: var(--sun-wash); }
+.deals-table .deals-period th { text-align: left; font: 700 14px/1.3 var(--ui); color: var(--ink); padding: 18px 4px 6px; border-bottom: 0; }
+.deals-table .c-name { width: auto; }
+.deals-table .c-date { width: 96px; }
+.deals-table .c-arr { width: 100px; }
+.deals-table .c-pay { width: 100px; }
+.deals-table .c-pct { width: 92px; }
+.deals-table .c-cost { width: 96px; }
+.deals-table .c-act { width: 116px; }
+
+@container booked (max-width: 1099px) {
+  .ds .booked .table-scroll { overflow: visible; }
+  .deals-table, .deals-table tbody { display: block; width: 100%; }
+  .deals-table colgroup, .deals-table thead { display: none; }
+  .deals-table tbody tr.t-row { display: grid; grid-template-columns: minmax(0, 1fr) 4.2em 5.6em; gap: 3px 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+  .deals-table tbody tr.t-row:last-child { border-bottom: 0; }
+  .deals-table tbody tr.t-row td { display: block; height: auto; padding: 0; border: 0; text-align: right; font-size: 13.5px; line-height: 1.45; background: none; overflow: visible; width: auto; white-space: normal; }
+  .deals-table tr.t-row td.t-name { grid-column: 1 / 3; grid-row: 1; text-align: left; font-size: 14.5px; white-space: normal; }
+  .deals-table tr.t-row td.t-pay { grid-column: 3; grid-row: 1; font-size: 14.5px; }
+  .deals-table tr.t-row td.t-date { grid-column: 1; grid-row: 2; text-align: left; color: var(--ink-3); }
+  .deals-table tr.t-row td.t-arr { grid-column: 2 / 4; grid-row: 2; color: var(--ink-2); }
+  .deals-table tr.t-row td.t-arr::before { content: "Booked ARR "; color: var(--ink-3); }
+  .deals-table tr.t-row td.t-pct { grid-column: 1 / 3; display: flex; gap: 8px; justify-content: space-between; }
+  .deals-table tr.t-row td.t-pct::before { content: attr(data-label); color: var(--ink-3); text-align: left; }
+  .deals-table tr.t-row td.t-cost { grid-column: 3; }
+  .deals-table tr.t-row td.t-gap { display: none; }
+  .deals-table tr.t-row td.t-act { grid-column: 1 / -1; text-align: left; margin-top: 4px; }
+  .deals-table tr.t-row td.t-act .row-delete { padding-left: 0; padding-right: 10px; }
+  .deals-table tbody tr.is-editing { background: var(--sun-wash); border-radius: 8px; }
+  .deals-table .deals-period { display: block; }
+  .deals-table .deals-period th { display: block; padding: 16px 4px 4px; }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
@@ -69,7 +69,7 @@ export default function BookedList({
     { key: 'services', label: 'One-time products & services', pct: (d) => d.one_time_discount_pct },
     ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
   ];
-  const cols = 5 + lines.length;
+  const cols = 5 + lines.length * 2;
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,24 +129,51 @@ export default function BookedList({
         <p className="booked-empty">Nothing booked in {current} yet. Book a deal when it closes and it lands here.</p>
       ) : (
         <div className="table-scroll">
-          <table className="deals">
+          <table className="deals deals-table">
             <caption className="sr-only">Booked deals</caption>
+            <colgroup>
+              <col className="c-name" />
+              <col className="c-date" />
+              <col className="c-arr" />
+              <col className="c-pay" />
+              {lines.map((l) => (
+                <Fragment key={l.key}>
+                  <col className="c-pct" />
+                  <col className="c-cost" />
+                </Fragment>
+              ))}
+              <col className="c-act" />
+            </colgroup>
             <thead>
               <tr>
-                <th scope="col">Deal</th>
-                <th scope="col" className="deals-won-h">
+                <th scope="col" rowSpan={2} className="t-left">
+                  Deal
+                </th>
+                <th scope="col" rowSpan={2}>
                   Date Closed Won
                 </th>
-                <th scope="col">{size.label}</th>
-                <th scope="col">Commission</th>
+                <th scope="col" rowSpan={2}>
+                  {size.label}
+                </th>
+                <th scope="col" rowSpan={2}>
+                  Commission
+                </th>
                 {lines.map((l) => (
-                  <th key={l.key} scope="col" className="deals-disc-h">
-                    {l.label} discount
+                  <th key={l.key} scope="colgroup" colSpan={2} className="t-group">
+                    <span>{l.label}</span>
                   </th>
                 ))}
-                <th scope="col">
+                <th scope="col" rowSpan={2} className="t-end">
                   <span className="sr-only">Actions</span>
                 </th>
+              </tr>
+              <tr>
+                {lines.map((l) => (
+                  <Fragment key={l.key}>
+                    <th scope="col">Discount</th>
+                    <th scope="col">Left on the table</th>
+                  </Fragment>
+                ))}
               </tr>
             </thead>
             {shown.map((g) => (
@@ -161,46 +188,48 @@ export default function BookedList({
                 {g.rows.map((d) => {
                   const lost = lostByLine(plan, d);
                   return (
-                    <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
-                      <td className={`deals-name${d.name ? '' : ' is-dim'}`}>{d.name || 'Unnamed'}</td>
-                      <td className="deals-date">{fmtDay(d.created_at)}</td>
-                      <td className="deals-size" data-label={size.label}>
-                        {fmtMoney(size.of(d))}
+                    <tr key={d.id} className={`t-row${d.id === editingId ? ' is-editing' : ''}`}>
+                      <td className={`t-left t-name${d.name ? '' : ' is-dim'}`} title={d.name || undefined}>
+                        {d.name || 'Unnamed'}
                       </td>
-                      <td className="deals-pay">{fmtMoney(d.commission_earned)}</td>
+                      <td className="t-date">{fmtDay(d.created_at)}</td>
+                      <td className="t-arr">{fmtMoney(size.of(d))}</td>
+                      <td className="t-pay">{fmtMoney(d.commission_earned)}</td>
                       {lines.map((l) => {
                         const p = Math.round(l.pct(d) * 10) / 10;
                         const cost = lost[l.key];
                         return (
-                          <td key={l.key} className="deals-disc" data-label={l.label}>
-                            <span className="deals-disc-in">
-                              <span className={`deals-pct${p > 0 ? '' : ' is-dim'}`}>{fmtPctShort(p)}</span>
-                              <span className="deals-cost">{cost >= 0.005 ? `−${fmtMoney(cost)}` : ''}</span>
-                            </span>
-                          </td>
+                          <Fragment key={l.key}>
+                            <td className={`t-pct${p > 0 ? '' : ' is-dim'}`} data-label={`${l.label} discount`}>
+                              {fmtPctShort(p)}
+                            </td>
+                            <td className={`t-cost${cost >= 0.005 ? '' : ' is-dim'}`}>
+                              {cost >= 0.005 ? `\u2212${fmtMoney(cost)}` : '$0'}
+                            </td>
+                          </Fragment>
                         );
                       })}
-                      <td className="deals-act">
+                      <td className="t-end t-act">
                         <span className="deals-actions">
-                        {onEdit && (
+                          {onEdit && (
+                            <button
+                              type="button"
+                              className="row-delete"
+                              aria-label={`Change ${d.name || `deal from ${fmtDate(d.created_at)}`}`}
+                              onClick={() => onEdit(d)}
+                            >
+                              Edit
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="row-delete"
-                            aria-label={`Change ${d.name || `deal from ${fmtDate(d.created_at)}`}`}
-                            onClick={() => onEdit(d)}
+                            aria-label={`Delete deal from ${fmtDate(d.created_at)}`}
+                            disabled={busy === d.id}
+                            onClick={() => void remove(d.id)}
                           >
-                            Edit
+                            {busy === d.id ? 'Deleting…' : 'Delete'}
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          className="row-delete"
-                          aria-label={`Delete deal from ${fmtDate(d.created_at)}`}
-                          disabled={busy === d.id}
-                          onClick={() => void remove(d.id)}
-                        >
-                          {busy === d.id ? 'Deleting…' : 'Delete'}
-                        </button>
                         </span>
                       </td>
                     </tr>
