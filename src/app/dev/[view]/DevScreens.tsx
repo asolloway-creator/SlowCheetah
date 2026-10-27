@@ -56,7 +56,7 @@ function rows(opening: Opening | null, plan: CompPlan = PLAN): DealRow[] {
       one_time_discount_pct: (d as DealInput).oneTimeDiscountPct, subscription_discount_pct: (d as DealInput).subscriptionDiscountPct, quota_credit: r.credit, arr: r.subAnnual,
       commission_base: r.commissionBase, commission_earned: r.commissionEffective, money_left_on_table: r.lost, saas_commission: r.saasCommissionEffective,
       hardware_amount: (d as DealInput).hardware, hardware_discount_pct: 0, hardware_commission: r.hardwareCommission, created_at: day(ago as number).toISOString(),
-      name: i === 0 ? 'Harbor Grill' : '',
+      name: i === 0 ? 'Lebanese Taverna Baltimore NEW' : 'Good Trouble Roasters',
     };
     out.unshift(row);
     ptd = { ...ptd, creditBooked: ptd.creditBooked + r.credit, commissionBooked: ptd.commissionBooked + r.commissionBase, earnedBooked: ptd.earnedBooked + r.commissionEffective };

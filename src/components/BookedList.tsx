@@ -5,6 +5,9 @@ import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
+/** "Oct 26": inside a period the year is the page's own. */
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
 type Line = 'software' | 'services' | 'hardware';
 
 /**
@@ -131,14 +134,14 @@ export default function BookedList({
             <thead>
               <tr>
                 <th scope="col">Deal</th>
-                <th scope="col">Date Closed Won</th>
+                <th scope="col" className="deals-won-h">
+                  Date Closed Won
+                </th>
                 <th scope="col">{size.label}</th>
                 <th scope="col">Commission</th>
                 {lines.map((l) => (
                   <th key={l.key} scope="col" className="deals-disc-h">
-                    {l.label}
-                    <br />
-                    discount
+                    {l.label} discount
                   </th>
                 ))}
                 <th scope="col">
@@ -160,7 +163,7 @@ export default function BookedList({
                   return (
                     <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
                       <td className={`deals-name${d.name ? '' : ' is-dim'}`}>{d.name || 'Unnamed'}</td>
-                      <td className="deals-date">{fmtDate(d.created_at)}</td>
+                      <td className="deals-date">{fmtDay(d.created_at)}</td>
                       <td className="deals-size" data-label={size.label}>
                         {fmtMoney(size.of(d))}
                       </td>
@@ -170,8 +173,10 @@ export default function BookedList({
                         const cost = lost[l.key];
                         return (
                           <td key={l.key} className="deals-disc" data-label={l.label}>
-                            <span className={p > 0 ? '' : 'is-dim'}>{fmtPctShort(p)}</span>
-                            {cost >= 0.005 && <span className="deals-cost">&minus;{fmtMoney(cost)}</span>}
+                            <span className="deals-disc-in">
+                              <span className={`deals-pct${p > 0 ? '' : ' is-dim'}`}>{fmtPctShort(p)}</span>
+                              <span className="deals-cost">{cost >= 0.005 ? `−${fmtMoney(cost)}` : ''}</span>
+                            </span>
                           </td>
                         );
                       })}
