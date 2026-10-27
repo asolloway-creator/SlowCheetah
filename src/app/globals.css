@@ -1790,3 +1790,39 @@ main.app { padding-bottom: 56px; }
 .disc-if { font: 500 13.5px/1.4 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; min-height: 1.4em; }
 .disc-point { margin-top: 6px; font: 500 13.5px/1.45 var(--ui); color: var(--ink-2); }
 .disc-point b { color: var(--ink); font-weight: 650; }
+
+/* The deal form in the workspace: each line's amount and its discount on
+   one row, its note underneath. */
+.deal-rows { display: grid; gap: 18px; margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line); }
+.deal-row { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 0 12px; align-items: end; }
+.deal-row-note { grid-column: 1 / -1; margin-top: 6px; }
+.deal-row-units { grid-template-columns: minmax(0, 220px); }
+.deal-row .field-box.has-suffix .field-input { padding-right: 34px; }
+@media (max-width: 600px) { .deal-row { grid-template-columns: minmax(0, 1fr) 104px; } }
+
+/* The slider in the workspace: the same control, quiet. A thin track, a
+   round thumb, the value above it and, when one is at stake, the line and
+   its label. No scale: the typed field beside the amount gives the number,
+   this shows where it sits against the line. The landing page keeps the
+   full stage version. */
+.ds.is-app .slider-lg { --tw: 20px; --th: 20px; }
+.ds.is-app .slider-lg .slider-body { height: 74px; margin-top: 2px; }
+.ds.is-app .slider-lg .bubble { height: 24px; padding: 0 8px; border-radius: 7px; font: 650 13px/24px var(--ui); }
+.ds.is-app .slider-lg .bubble::after { width: 8px; height: 8px; margin-left: -4px; bottom: -3px; }
+.ds.is-app .slider-lg .bubble-input { width: 56px; }
+.ds.is-app .slider-lg .slider-track { top: 38px; height: 6px; border-radius: 3px; background: var(--cream-2); box-shadow: none; }
+.ds.is-app .slider-lg .slider-fill { border-radius: 3px; background: var(--ink); box-shadow: none; }
+.ds.is-app .slider-lg.is-costly .slider-fill, .ds.is-app .slider-lg.is-tier-crossed .slider-fill { background: var(--red); }
+.ds.is-app .slider-lg .slider-zone { background: rgba(28, 24, 18, 0.06); }
+.ds.is-app .slider-lg.is-tier-crossed .slider-zone { background: rgba(196, 41, 28, 0.12); }
+.ds.is-app .slider-lg .slider-input { top: 31px; }
+.ds.is-app .slider-lg .slider-input::-webkit-slider-thumb { border-radius: 50%; background: var(--white); box-shadow: 0 1px 3px rgba(28, 24, 18, 0.25); }
+.ds.is-app .slider-lg .slider-input::-moz-range-thumb { border-radius: 50%; box-shadow: 0 1px 3px rgba(28, 24, 18, 0.25); }
+.ds.is-app .slider-lg .slider-line { top: 31px; height: 20px; width: 2px; }
+.ds.is-app .slider-lg .slider-line::before { top: -4px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--white); }
+.ds.is-app .slider-lg .slider-flank, .ds.is-app .slider-lg .slider-tick, .ds.is-app .slider-lg .slider-tick-label,
+.ds.is-app .slider-lg .slider-idle-ring, .ds.is-app .slider-lg .slider-tier-ring { display: none; }
+.ds.is-app .slider-lg .slider-scale { top: 54px; height: 20px; }
+.ds.is-app .slider-lg .slider-line-chip { top: 0; padding: 3px 6px; border-radius: 5px; font-size: 11.5px; }
+.ds.is-app .slider-lg .slider-foot { margin-top: 2px; }
+.ds.is-app .slider-lg .slider-caption { font-size: 13px; color: var(--ink-3); }

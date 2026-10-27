@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  calc,
   periodLabel,
   type CompPlan,
   type DealInput,
@@ -237,7 +238,20 @@ export default function DealStage({
 
 
   const o = useMemo(() => outcome(plan, deal, ptd), [plan, deal, ptd]);
-  const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd), [plan, deal, o, ptd]);
+  // The open quotes besides the one on the card, priced where the period
+  // stands: what crossing the accelerator would add to them.
+  const pipelineAtStake = useMemo(() => {
+    const others = quotes.filter((q) => q.id !== activeQuote);
+    let base = 0;
+    let commissionable = 0;
+    for (const q of others) {
+      const rq = calc(plan, q.deal, ptd);
+      base += rq.commissionBase;
+      commissionable += rq.commissionable;
+    }
+    return { count: others.length, base, commissionable };
+  }, [quotes, activeQuote, plan, ptd]);
+  const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd, pipelineAtStake), [plan, deal, o, ptd, pipelineAtStake]);
   // Independent of the accelerator's own outcome above — this deal can cross
   // the accelerator and cost a quarterly kicker tier at the same time. null
   // whenever the plan has no quarterly_kicker or qtd wasn't fetched.

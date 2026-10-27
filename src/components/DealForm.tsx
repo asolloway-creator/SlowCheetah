@@ -100,6 +100,90 @@ export default function DealForm({
       </>
       )}
 
+      {compact ? (
+        // The workspace: each line is its amount and its discount, typed,
+        // side by side. The card's slider follows whatever's typed here, and
+        // dragging it fills these in, so there's one number either way.
+        <div className="deal-rows">
+          <div className="deal-row">
+            <NumField
+              id="sub"
+              label="Subscription"
+              prefix="$"
+              blankZero
+              placeholder="0"
+              suffix={acv ? 'per year' : 'per month'}
+              value={deal.subscription}
+              onChange={(n) => set('subscription', n)}
+              head={
+                <Segmented
+                  label="Subscription is quoted"
+                  value={deal.subMode}
+                  options={[
+                    ['mrr', 'per month'],
+                    ['acv', 'per year'],
+                  ]}
+                  onChange={(v) => set('subMode', v)}
+                />
+              }
+            />
+            <NumField
+              id="subPct"
+              label="Discount"
+              suffix="%"
+              max={100}
+              value={deal.subscriptionDiscountPct}
+              onChange={(n) => set('subscriptionDiscountPct', n)}
+              head={<span aria-hidden="true" />}
+            />
+            <p className="field-note deal-row-note">{derived}</p>
+          </div>
+          <div className="deal-row">
+            <NumField id="ot" label={otName} prefix="$" value={deal.oneTime} blankZero placeholder="0" onChange={(n) => set('oneTime', n)} />
+            <NumField
+              id="otPct"
+              label="Discount"
+              suffix="%"
+              max={100}
+              value={deal.oneTimeDiscountPct}
+              onChange={(n) => set('oneTimeDiscountPct', n)}
+            />
+            <p className="field-note deal-row-note">
+              {otCost > 0 ? (
+                <>
+                  {fmtPctShort(deal.oneTimeDiscountPct)} off {otName.toLowerCase()} costs you{' '}
+                  <span className="is-red">{fmtMoney(otCost)}</span>.
+                </>
+              ) : (
+                oneTimeCopy(plan, deal, otCost)
+              )}
+            </p>
+          </div>
+          {hw && (
+            <div className="deal-row">
+              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} blankZero placeholder="0" onChange={(n) => set('hardware', n)} />
+              <NumField
+                id="hwPct"
+                label="Discount"
+                suffix="%"
+                max={100}
+                value={hwOff}
+                onChange={(n) => set('hardwareDiscountPct', n)}
+              />
+              <p className="field-note deal-row-note">
+                {hwCost > 0 ? (
+                  <>
+                    {fmtPctShort(hwOff)} off hardware costs you <span className="is-red">{fmtMoney(hwCost)}</span>.
+                  </>
+                ) : (
+                  hardwareCopy(plan, deal, hwCost)
+                )}
+              </p>
+            </div>
+          )}
+          <div className="deal-row deal-row-units">{units}</div>
+        </div>
+      ) : (
       <div className="deal-fields">
         <div className="deal-sub">
           <NumField
@@ -180,6 +264,7 @@ export default function DealForm({
           </p>
         </div>
       </div>
+      )}
       {footer}
     </section>
   );

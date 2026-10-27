@@ -482,7 +482,11 @@ export type OutcomeCopy = {
   figureText: string;
 };
 
-export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: PeriodToDate): OutcomeCopy {
+/** The rep's open quotes, priced where the period stands now: what crossing
+ *  the accelerator would add to them if they close this period. */
+export type PipelineAtStake = { count: number; base: number; commissionable: number };
+
+export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: PeriodToDate, pipeline?: PipelineAtStake): OutcomeCopy {
   const { r } = o;
   const noun = periodNoun(plan);
   const retro = plan.accelerator_style === 'retro_bump';
@@ -580,12 +584,30 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
       // to name the mechanism, not re-derive numbers a second time.
       const under = named(r.stepFull);
       const to = steps.length > 1 && !retro ? `to ${fmtRateShort(plan, stepAt(r.stepFull).rate)} ` : '';
+      // What crossing is worth, in dollars: on what's already closed (a retro
+      // plan repays it), and on the open quotes if they close this period.
+      const bumpAt = (i: number) => (i >= 0 ? stepAt(i).rate : 0);
+      const closedWorth = retro ? ((bumpAt(r.stepFull) - bumpAt(r.stepBefore)) / 100) * ptd.commissionBooked : 0;
+      const rateNow = r.stepBefore >= 0 ? stepAt(r.stepBefore).rate : plan.base_rate;
+      const quotesWorth = !pipeline?.count
+        ? 0
+        : retro
+          ? ((bumpAt(r.stepFull) - bumpAt(r.stepBefore)) / 100) * pipeline.base
+          : plan.commission_style === 'percent'
+            ? ((stepAt(r.stepFull).rate - rateNow) / 100) * pipeline.commissionable
+            : 0;
+      const onQuotes =
+        quotesWorth >= 1
+          ? `about ${fmtMoney(quotesWorth)} on your ${pipeline!.count === 1 ? 'open quote' : `${pipeline!.count} open quotes`} if ${pipeline!.count === 1 ? 'it closes' : 'they close'} this ${noun}`
+          : '';
       return {
         ...base,
         secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
         sentence: retro
-          ? `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay on every deal you've already closed this ${noun}.`
-          : `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay ${to}on every deal after this one.`,
+          ? closedWorth >= 1
+            ? `A ${pct} discount is what's keeping this under ${under}. Crossing it would add ${fmtMoney(closedWorth)} to what you've already closed this ${noun}${onQuotes ? `, and ${onQuotes}` : ''}.`
+            : `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay on every deal you close this ${noun}${onQuotes ? `: ${onQuotes}` : ''}.`
+          : `A ${pct} discount is what's keeping this under ${under}. Crossing it would raise pay ${to}on every deal after this one${onQuotes ? `: ${onQuotes}` : ''}.`,
         detail: null,
       };
     }
