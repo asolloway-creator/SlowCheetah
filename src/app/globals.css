@@ -1795,7 +1795,7 @@ main.app { padding-bottom: 56px; }
 /* The deal form in the workspace: each line's amount and its discount on
    one row, its note underneath. */
 .deal-rows { display: grid; gap: 18px; margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line); }
-.deal-row { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 0 12px; align-items: end; }
+.deal-row { display: grid; grid-template-columns: minmax(0, 1fr) 148px; gap: 0 12px; align-items: end; }
 .deal-row-note { grid-column: 1 / -1; margin-top: 6px; }
 .deal-row-units { grid-template-columns: minmax(0, 220px); }
 .deal-row .field-box.has-suffix .field-input { padding-right: 34px; }
@@ -1840,3 +1840,11 @@ main.app { padding-bottom: 56px; }
 }
 .pinned.is-below .pinned-up { transform: rotate(180deg); }
 .pinned.is-below .pinned-btn:hover .pinned-up { transform: rotate(180deg) translateY(-2px); }
+
+/* Your own discount targets. */
+.field-target { font: 500 11.5px/1 var(--ui); color: var(--ink-3); white-space: nowrap; }
+.deal-row.is-over > .field:nth-child(2) .field-input { box-shadow: inset 0 0 0 1.5px #E3A08F; background: #FFF9F7; }
+.deal-over { display: block; margin-top: 2px; color: var(--red-ink); }
+.disc-vs { margin-top: 4px; font: 600 12.5px/1.3 var(--ui); color: var(--green); }
+.disc-vs.is-over { color: var(--red); }
+.disc-set { display: flex; gap: 6px; align-items: baseline; margin: 2px 0 6px; font: 500 13px/1.3 var(--ui); color: var(--ink-3); }

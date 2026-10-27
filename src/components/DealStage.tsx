@@ -24,6 +24,7 @@ import KickerOutcome from '@/components/KickerOutcome';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import type { DealRow } from '@/lib/queries';
+import type { Targets } from '@/components/discounts';
 import {
   EMPTY,
   SAMPLE,
@@ -125,6 +126,7 @@ export default function DealStage({
   after,
   onUpdateDeal,
   calendar,
+  targets,
   quotes = [],
   onSaveQuote,
   onDeleteQuote,
@@ -143,6 +145,8 @@ export default function DealStage({
   /** Today and the period's first day in the rep's zone ('YYYY-MM-DD'): the
    *  range a booked day can be picked from. */
   calendar?: { today: string; periodStart: string };
+  /** The rep's own discount targets, shown where each discount is typed. */
+  targets?: Targets;
   initialDeal?: DealInput;
   /** Top-left content beside the result card. Defaults to a page title. */
   intro?: ReactNode;
@@ -842,6 +846,7 @@ export default function DealStage({
                 deal={deal}
                 set={set}
                 compact={app}
+                targets={targets}
                 footer={
                   dirty || Boolean(msg.booked) ? (
                     <p className="deal-start-over">

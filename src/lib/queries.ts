@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { parseTargets, type Targets } from '@/components/discounts';
 import {
   currentOpening,
   periodKeyInZone,
@@ -52,6 +53,19 @@ export type DealRow = {
   /** v15: the rep's own name for the deal (deal_labels), or ''. */
   name: string;
 };
+
+/** The rep's discount targets (comp_plans.targets). Never throws: where they
+ *  can't be read the page opens without them. */
+export async function getTargets(userId: string): Promise<Targets> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('comp_plans').select('targets').eq('user_id', userId).maybeSingle();
+    if (error || !data) return {};
+    return parseTargets((data as { targets?: unknown }).targets);
+  } catch {
+    return {};
+  }
+}
 
 /** The signed-in user, or null — pages fall back to demo mode when null. */
 export async function currentUser() {

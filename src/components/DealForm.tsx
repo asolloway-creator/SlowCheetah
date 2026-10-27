@@ -8,6 +8,7 @@ import NumField from '@/components/NumField';
 import Segmented from '@/components/Segmented';
 import DiscountSlider from '@/components/DiscountSlider';
 import { costOf, hardwareCopy, oneTimeCopy } from '@/components/opening';
+import type { Line, Targets } from '@/components/discounts';
 
 type Setter = <K extends keyof DealInput>(k: K, v: DealInput[K]) => void;
 
@@ -21,6 +22,7 @@ export default function DealForm({
   set,
   footer,
   compact = false,
+  targets,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -29,6 +31,9 @@ export default function DealForm({
   footer?: ReactNode;
   /** In the product: a working label and the plan in one quiet line. */
   compact?: boolean;
+  /** The rep's own discount targets: shown on each Discount field, and
+   *  flagged, with what the extra points cost, when a discount goes past. */
+  targets?: Targets;
 }) {
   const d = deal.subscriptionDiscountPct;
   const acv = deal.subMode === 'acv';
@@ -52,6 +57,34 @@ export default function DealForm({
   // implementation and any other one-time charge (hardware too, unless the
   // plan pays it a rate of its own).
   const otName = 'One-time products & services';
+
+  // A discount past the rep's own target: by how much, and what those
+  // extra points cost them on this deal.
+  type Key = 'subscriptionDiscountPct' | 'oneTimeDiscountPct' | 'hardwareDiscountPct';
+  const over = (key: Key, line: Line) => {
+    const t = targets?.[line];
+    const v = deal[key] ?? 0;
+    if (t === undefined || !(v > t + 1e-9)) return null;
+    const extra = Math.max(0, costOf(plan, deal, ptd, key) - costOf(plan, { ...deal, [key]: t }, ptd, key));
+    return { t, pts: Math.round((v - t) * 10) / 10, extra };
+  };
+  const targetHead = (line: Line) =>
+    targets?.[line] !== undefined ? <span className="field-target">Target {fmtPctShort(targets[line] as number)}</span> : undefined;
+  const overNote = (o: { t: number; pts: number; extra: number } | null) =>
+    o && (
+      <span className="deal-over">
+        {parseFloat(o.pts.toFixed(1))} {o.pts === 1 ? 'point' : 'points'} over your {fmtPctShort(o.t)} target
+        {o.extra >= 0.005 && (
+          <>
+            : those points cost you <span className="is-red">{fmtMoney(o.extra)}</span>
+          </>
+        )}
+        .
+      </span>
+    );
+  const subOver = over('subscriptionDiscountPct', 'software');
+  const otOver = over('oneTimeDiscountPct', 'services');
+  const hwOver = over('hardwareDiscountPct', 'hardware');
 
   const units = (
     <div className="deal-units">
@@ -105,7 +138,7 @@ export default function DealForm({
         // side by side. The card's slider follows whatever's typed here, and
         // dragging it fills these in, so there's one number either way.
         <div className="deal-rows">
-          <div className="deal-row">
+          <div className={`deal-row${subOver ? ' is-over' : ''}`}>
             <NumField
               id="sub"
               label="Subscription"
@@ -134,12 +167,24 @@ export default function DealForm({
               max={100}
               value={deal.subscriptionDiscountPct}
               onChange={(n) => set('subscriptionDiscountPct', n)}
+              head={targetHead('software') ?? <span aria-hidden="true" />}
+            />
+            <p className="field-note deal-row-note">
+              {derived}
+              {overNote(subOver)}
+            </p>
+          </div>
+          <div className={`deal-row${otOver ? ' is-over' : ''}`}>
+            <NumField
+              id="ot"
+              label={otName}
+              prefix="$"
+              value={deal.oneTime}
+              blankZero
+              placeholder="0"
+              onChange={(n) => set('oneTime', n)}
               head={<span aria-hidden="true" />}
             />
-            <p className="field-note deal-row-note">{derived}</p>
-          </div>
-          <div className="deal-row">
-            <NumField id="ot" label={otName} prefix="$" value={deal.oneTime} blankZero placeholder="0" onChange={(n) => set('oneTime', n)} />
             <NumField
               id="otPct"
               label="Discount"
@@ -147,9 +192,12 @@ export default function DealForm({
               max={100}
               value={deal.oneTimeDiscountPct}
               onChange={(n) => set('oneTimeDiscountPct', n)}
+              head={targetHead('services') ?? <span aria-hidden="true" />}
             />
             <p className="field-note deal-row-note">
-              {otCost > 0 ? (
+              {otOver ? (
+                overNote(otOver)
+              ) : otCost > 0 ? (
                 <>
                   {fmtPctShort(deal.oneTimeDiscountPct)} off {otName.toLowerCase()} costs you{' '}
                   <span className="is-red">{fmtMoney(otCost)}</span>.
@@ -160,8 +208,17 @@ export default function DealForm({
             </p>
           </div>
           {hw && (
-            <div className="deal-row">
-              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} blankZero placeholder="0" onChange={(n) => set('hardware', n)} />
+            <div className={`deal-row${hwOver ? ' is-over' : ''}`}>
+              <NumField
+                id="hw"
+                label="Hardware"
+                prefix="$"
+                value={hwAmount}
+                blankZero
+                placeholder="0"
+                onChange={(n) => set('hardware', n)}
+                head={<span aria-hidden="true" />}
+              />
               <NumField
                 id="hwPct"
                 label="Discount"
@@ -169,9 +226,12 @@ export default function DealForm({
                 max={100}
                 value={hwOff}
                 onChange={(n) => set('hardwareDiscountPct', n)}
+                head={targetHead('hardware') ?? <span aria-hidden="true" />}
               />
               <p className="field-note deal-row-note">
-                {hwCost > 0 ? (
+                {hwOver ? (
+                  overNote(hwOver)
+                ) : hwCost > 0 ? (
                   <>
                     {fmtPctShort(hwOff)} off hardware costs you <span className="is-red">{fmtMoney(hwCost)}</span>.
                   </>

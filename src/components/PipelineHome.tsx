@@ -5,6 +5,7 @@ import type { DealRow } from '@/lib/queries';
 import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
+import type { Line, Targets } from '@/components/discounts';
 
 type Result = { error?: string };
 type BookMeta = { name?: string; bookedOn?: string };
@@ -31,6 +32,8 @@ export default function PipelineHome({
   onUpdateDeal,
   onRate,
   calendar,
+  targets = {},
+  onTarget,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -42,6 +45,9 @@ export default function PipelineHome({
   onUpdateDeal: (id: string, deal: DealInput, meta?: BookMeta) => Promise<Result>;
   onRate: (rate: number | null) => Promise<Result>;
   calendar: Calendar;
+  /** The rep's own discount targets, per line. */
+  targets?: Targets;
+  onTarget?: (line: Line, pct: number | null) => Promise<Result>;
   onSaveQuote: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<Result & { id?: string }>;
   onDeleteQuote: (id: string) => Promise<Result>;
   onDeleteDeal: (id: string) => Promise<Result>;
@@ -59,6 +65,7 @@ export default function PipelineHome({
       onSave={onSave}
       onUpdateDeal={onUpdateDeal}
       calendar={calendar}
+      targets={targets}
       quotes={quotes}
       onSaveQuote={onSaveQuote}
       onDeleteQuote={onDeleteQuote}
@@ -77,7 +84,15 @@ export default function PipelineHome({
         />
       )}
       after={({ editDeal, editingId }) => (
-        <BookedList plan={paying} deals={deals} onDelete={onDeleteDeal} onEdit={editDeal} editingId={editingId} />
+        <BookedList
+          plan={paying}
+          deals={deals}
+          onDelete={onDeleteDeal}
+          onEdit={editDeal}
+          editingId={editingId}
+          targets={targets}
+          onTarget={onTarget}
+        />
       )}
     />
   );

@@ -108,6 +108,14 @@
 -- v12 database:
 --   alter table public.comp_plans add column if not exists accelerator_steps jsonb;
 --
+-- v16 (2026-10-27) adds comp_plans.targets: the rep's own discount targets
+-- per line ({ software, services, hardware }: percent, 0 to 100), set from
+-- "Where your discounts went" and shown on each Discount field. Nullable
+-- jsonb, validated app-side (components/discounts.ts parseTargets), owner-only
+-- RLS already covers it, never copied into plan_records. Additive, applied
+-- 2026-10-27:
+--   alter table public.comp_plans add column if not exists targets jsonb;
+--
 -- v15 (2026-10-26) adds public.deal_labels: the rep's own name for a booked
 -- deal, kept apart from public.deals because deals has an admin read policy
 -- and a name can hold anything (same reason quotes has none). Owner-only RLS,

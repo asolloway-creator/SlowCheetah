@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { paysHardware, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmt, fmtMoney } from '@/lib/format';
-import { costPerDollar, lostByLine, offByLine, type Line } from '@/components/discounts';
+import { costPerDollar, lostByLine, offByLine, type Line, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
@@ -21,7 +21,19 @@ const pct0 = (n: number) => `${Math.round(n)}%`;
  * Built from the booked deals alone, so it's the rep's own record, not a
  * guess.
  */
-export default function DiscountReport({ plan, deals, noun }: { plan: CompPlan; deals: DealRow[]; noun: string }) {
+export default function DiscountReport({
+  plan,
+  deals,
+  noun,
+  targets = {},
+  onTarget,
+}: {
+  plan: CompPlan;
+  deals: DealRow[];
+  noun: string;
+  targets?: Targets;
+  onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
+}) {
   const lines: Line[] = ['software', 'services', ...(paysHardware(plan) ? (['hardware'] as Line[]) : [])];
   const totals = lines.map((line) => {
     let list = 0;
@@ -70,7 +82,14 @@ export default function DiscountReport({ plan, deals, noun }: { plan: CompPlan; 
       )}
       <div className="disc-lines">
         {shown.map((t) => (
-          <DiscountLine key={t.line} label={LABEL[t.line]} {...t} />
+          <DiscountLine
+            key={t.line}
+            label={LABEL[t.line]}
+            {...t}
+            noun={noun}
+            saved={targets[t.line]}
+            onSave={onTarget ? (pct) => onTarget(t.line, pct) : undefined}
+          />
         ))}
       </div>
     </section>
@@ -84,16 +103,40 @@ function DiscountLine({
   cost,
   avg,
   perDollar,
+  noun,
+  saved,
+  onSave,
 }: {
   label: string;
+  noun: string;
+  /** The rep's saved target for this line, if any. */
+  saved?: number;
+  onSave?: (pct: number | null) => Promise<{ error?: string }>;
   list: number;
   off: number;
   cost: number;
   avg: number;
   perDollar: number;
 }) {
-  // A target worth trying: about fifteen points under where it is now.
-  const [target, setTarget] = useState(() => Math.max(0, Math.floor(avg / 5) * 5 - 15));
+  // Their own target when they've set one; otherwise one worth trying,
+  // about fifteen points under where it is now.
+  const [target, setTarget] = useState(() => saved ?? Math.max(0, Math.floor(avg / 5) * 5 - 15));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save(pct: number | null) {
+    if (!onSave) return;
+    setBusy(true);
+    setError(null);
+    let res: { error?: string };
+    try {
+      res = await onSave(pct);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setBusy(false);
+    if (res.error) setError(res.error);
+  }
+  const overSaved = saved !== undefined ? Math.round((avg - saved) * 10) / 10 : null;
   const offAtTarget = (target / 100) * list;
   const keep = cost - perDollar * offAtTarget;
   const collected = off - offAtTarget;
@@ -106,12 +149,19 @@ function DiscountLine({
       <p className="disc-avg">
         <b>{pct0(avg)}</b> average discount
       </p>
+      {saved !== undefined && overSaved !== null && (
+        <p className={`disc-vs${overSaved > 0 ? ' is-over' : ''}`}>
+          {overSaved > 0
+            ? `${Math.round(overSaved)} ${Math.round(overSaved) === 1 ? 'point' : 'points'} over your ${pct0(saved)} target this ${noun}`
+            : `Within your ${pct0(saved)} target this ${noun}`}
+        </p>
+      )}
       <p className="disc-cost">
         {fmt(off)} off {fmt(list)} list · cost you <span className="is-red">{fmtMoney(cost)}</span>
       </p>
       <div className="disc-try">
         <label className="disc-try-label" htmlFor={id}>
-          If it averaged <b>{target}%</b>
+          {saved !== undefined && Math.abs(saved - target) < 0.05 ? 'At your target' : 'If it averaged'} <b>{target}%</b>
         </label>
         <input
           id={id}
@@ -123,6 +173,23 @@ function DiscountLine({
           value={target}
           onChange={(e) => setTarget(Number(e.target.value))}
         />
+        {onSave && (
+          <p className="disc-set">
+            {saved === undefined || Math.abs(saved - target) > 0.05 ? (
+              <button type="button" className="btn-text" disabled={busy} onClick={() => void save(target)}>
+                {busy ? 'Saving…' : `Make ${target}% my target`}
+              </button>
+            ) : (
+              <>
+                <span>Your target</span>{' '}
+                <button type="button" className="btn-text" disabled={busy} onClick={() => void save(null)}>
+                  {busy ? 'Clearing…' : 'Clear it'}
+                </button>
+              </>
+            )}
+            {error && <span className="is-red"> {error}</span>}
+          </p>
+        )}
         <p className="disc-if" aria-live="polite">
           {below ? (
             <>

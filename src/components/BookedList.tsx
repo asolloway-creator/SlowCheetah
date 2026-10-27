@@ -3,7 +3,7 @@
 import { Fragment, useState } from 'react';
 import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { lostByLine, type Line } from '@/components/discounts';
+import { lostByLine, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
@@ -28,6 +28,8 @@ export default function BookedList({
   onDelete,
   onEdit,
   editingId = null,
+  targets = {},
+  onTarget,
 }: {
   plan: CompPlan;
   deals: DealRow[];
@@ -35,6 +37,8 @@ export default function BookedList({
   /** Opens a booked deal in the card to change it. */
   onEdit?: (d: DealRow) => void;
   editingId?: string | null;
+  targets?: Targets;
+  onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
 }) {
   const size = sizeColumn(plan);
   // Software and services side by side; hardware too when the plan pays it
@@ -90,7 +94,7 @@ export default function BookedList({
           </p>
         )}
       </div>
-      {now.length > 0 && <DiscountReport plan={plan} deals={now} noun={noun} />}
+      {now.length > 0 && <DiscountReport plan={plan} deals={now} noun={noun} targets={targets} onTarget={onTarget} />}
       {error && (
         <p className="history-error" role="alert">
           {error}

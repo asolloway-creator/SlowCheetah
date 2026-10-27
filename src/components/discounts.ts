@@ -4,6 +4,23 @@ import type { DealRow } from '@/lib/queries';
 /** The lines a deal's discounts fall on. */
 export type Line = 'software' | 'services' | 'hardware';
 
+/** The rep's own discount ceilings, per line, in percent: the most they mean
+ *  to give. Their rule, not the company's approval limits. */
+export type Targets = Partial<Record<Line, number>>;
+
+export const LINES: Line[] = ['software', 'services', 'hardware'];
+
+/** Targets as stored (comp_plans.targets), cleaned. Anything odd is dropped. */
+export function parseTargets(v: unknown): Targets {
+  const out: Targets = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const line of LINES) {
+    const n = (v as Record<string, unknown>)[line];
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100) out[line] = Math.round(n * 10) / 10;
+  }
+  return out;
+}
+
 /**
  * What each line's discount cost, from the deal's stored total
  * (money_left_on_table). On a percent plan every line pays the same rate on

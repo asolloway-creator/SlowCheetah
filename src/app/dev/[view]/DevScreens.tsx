@@ -95,6 +95,8 @@ export default function DevScreens({ view }: { view: string }) {
           onUpdateDeal={ok}
           onRate={ok}
           calendar={calendarInZone('month', 'America/New_York')}
+          targets={{ software: 5, services: 20 }}
+          onTarget={ok}
         />
       </Shell>
     );

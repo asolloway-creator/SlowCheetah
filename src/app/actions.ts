@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { currentUser, getCompPlan, getOpening, getPeriodToDate, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getOpening, getPeriodToDate, getTargets, repTimeZone } from '@/lib/queries';
+import { LINES, type Line } from '@/components/discounts';
 import {
   calc,
   calendarInZone,
@@ -397,6 +398,21 @@ export async function saveRateAction(rate: number | null): Promise<Result> {
     ? { ...current, rateAdjust: rateAdjust || null }
     : { periodKey, credit: 0, quarterKey: periodKeyInZone('quarter', tz), quarterArr: null, entered: false, rateAdjust: rateAdjust || null };
   const { error } = await supabase.from('comp_plans').update({ opening }).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/** Sets (or, with null, clears) the rep's own discount target for one line. */
+export async function saveTargetAction(line: Line, pct: number | null): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to set a target.' };
+  if (!LINES.includes(line)) return { error: 'That isn’t a line on a deal.' };
+  if (pct !== null && !(Number.isFinite(pct) && pct >= 0 && pct <= 100)) return { error: 'Pick a target between 0% and 100%.' };
+  const targets = await getTargets(user.id);
+  if (pct === null) delete targets[line];
+  else targets[line] = Math.round(pct * 10) / 10;
+  const { error } = await supabase.from('comp_plans').update({ targets }).eq('user_id', user.id);
   if (error) return { error: 'That didn’t save. Try again in a moment.' };
   revalidatePath('/', 'layout');
   return {};
