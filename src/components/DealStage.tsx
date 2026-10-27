@@ -540,7 +540,7 @@ export default function DealStage({
   return (
     <>
       {top?.({ onNew: newFromHead })}
-      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}${noRail ? ' no-rail' : ''}`} aria-label="Deal">
+      <section className={`ds${demo ? ' is-demo' : ''}${showcase ? ' is-showcase' : ''}${app ? ' is-app' : ''}${noRail ? ' no-rail' : ''}${app && empty && !(msg.booked || msg.updated || msg.error) ? ' is-empty' : ''}`} aria-label="Deal">
         <div className="ds-grid">
           {app ? (
             !noRail && <div className="ds-rail">{rail}</div>
@@ -627,7 +627,7 @@ export default function DealStage({
                   </div>
                 )}
 
-                {empty && !showcase ? (
+                {empty && !showcase && app ? null : empty && !showcase ? (
                   <div className="dc-sec dc-start">
                     <p className="dc-start-label">
                       <span className="sq sq-pays" aria-hidden="true" />

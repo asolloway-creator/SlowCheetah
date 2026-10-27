@@ -1732,3 +1732,12 @@ main.app { padding-bottom: 56px; }
   .ds .booked .deals .deals-period { display: block; }
   .ds .booked .deals .deals-period th { display: block; padding: 16px 4px 4px; text-align: left; }
 }
+
+/* The workspace shows no result card until there's a deal to show: on a
+   wide screen its column stays put (so the page doesn't shift on the first
+   keystroke), on a phone the fields come first. A booked or error message
+   still shows. */
+.ds.is-app.is-empty .deal-card { display: none; }
+@media (max-width: 860px) {
+  .ds.is-app.is-empty .ds-aside { display: none; }
+}
