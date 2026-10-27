@@ -159,7 +159,9 @@ export default function DealStage({
   top?: (p: { onNew: () => void }) => ReactNode;
   /** Under the deal fields (the home page's booked deals), given a way to
    *  reopen a booked deal in the card. */
-  after?: ReactNode | ((api: { editDeal: (row: DealRow) => void; editingId: string | null }) => ReactNode);
+  after?:
+    | ReactNode
+    | ((api: { editDeal: (row: DealRow) => void; copyDeal: (row: DealRow) => void; editingId: string | null }) => ReactNode);
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
   onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
@@ -546,6 +548,27 @@ export default function DealStage({
       document.getElementById('deal-card')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
     });
   }
+  // A closed deal's numbers as a new deal: the next location of the same
+  // group, the same package to a new account. Name selected to retype.
+  function copyDeal(row: DealRow) {
+    setActiveQuote(null);
+    setEditing(null);
+    setBookName(row.name);
+    setBookedOn(calendar?.today ?? '');
+    setDeal(dealFromRow(row));
+    setDirty(true);
+    setMsg({});
+    setNaming(false);
+    setRemoving(false);
+    setQuoteError(null);
+    requestAnimationFrame(() => {
+      const el = document.getElementById('dealName') as HTMLInputElement | null;
+      el?.focus({ preventScroll: true });
+      el?.select();
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    });
+  }
   function newFromHead() {
     newDeal();
     requestAnimationFrame(startEntering);
@@ -567,7 +590,7 @@ export default function DealStage({
   ) : null;
 
   const introBlock = intro ?? <div className="ds-title">{rail}</div>;
-  const afterNode = typeof after === 'function' ? after({ editDeal, editingId: editing?.id ?? null }) : after;
+  const afterNode = typeof after === 'function' ? after({ editDeal, copyDeal, editingId: editing?.id ?? null }) : after;
   // Nothing in the pipeline yet: the workspace drops its empty first column.
   const noRail = app && quotes.length === 0;
 
@@ -811,16 +834,6 @@ export default function DealStage({
                     {app && (
                       <div className="book-meta">
                         <label className="field">
-                          <span className="field-label">Deal name</span>
-                          <input
-                            className="field-input"
-                            maxLength={80}
-                            placeholder="Optional"
-                            value={bookName}
-                            onChange={(e) => setBookName(e.target.value)}
-                          />
-                        </label>
-                        <label className="field">
                           <span className="field-label">Date Closed Won</span>
                           <input
                             className="field-input"
@@ -944,6 +957,15 @@ export default function DealStage({
                 set={set}
                 compact={app}
                 targets={targets}
+                name={app ? bookName : undefined}
+                onName={
+                  app
+                    ? (v) => {
+                        setBookName(v);
+                        setDirty(true);
+                      }
+                    : undefined
+                }
                 footer={
                   dirty || Boolean(msg.booked) ? (
                     <p className="deal-start-over">

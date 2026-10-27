@@ -84,13 +84,14 @@ export default function PipelineHome({
           targets={targets}
         />
       )}
-      after={({ editDeal, editingId }) => (
+      after={({ editDeal, copyDeal, editingId }) => (
         <BookedList
           plan={paying}
           deals={deals}
           onDelete={onDeleteDeal}
           onEdit={editDeal}
           editingId={editingId}
+          onCopy={copyDeal}
           targets={targets}
           onTarget={onTarget}
           lift={rateLift(paying, ptd)}

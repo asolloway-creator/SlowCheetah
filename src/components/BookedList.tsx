@@ -32,6 +32,7 @@ export default function BookedList({
   deals,
   onDelete,
   onEdit,
+  onCopy,
   editingId = null,
   targets = {},
   onTarget,
@@ -42,6 +43,8 @@ export default function BookedList({
   onDelete: (id: string) => Promise<{ error?: string }>;
   /** Opens a booked deal in the card to change it. */
   onEdit?: (d: DealRow) => void;
+  /** Starts a new deal from this one's numbers. */
+  onCopy?: (d: DealRow) => void;
   editingId?: string | null;
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
@@ -158,6 +161,16 @@ export default function BookedList({
                       onClick={() => onEdit(d)}
                     >
                       Edit
+                    </button>
+                  )}
+                  {onCopy && (
+                    <button
+                      type="button"
+                      className="cd-act"
+                      aria-label={`Start a new deal from ${d.name || `the deal from ${fmtDate(d.created_at)}`}`}
+                      onClick={() => onCopy(d)}
+                    >
+                      Copy
                     </button>
                   )}
                   <button

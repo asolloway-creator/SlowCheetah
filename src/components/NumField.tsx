@@ -29,6 +29,7 @@ export default function NumField({
   stepper = false,
   blankZero = false,
   placeholder,
+  adorn,
 }: {
   id: string;
   label: string;
@@ -51,6 +52,8 @@ export default function NumField({
   /** Show an empty box rather than "0" when nothing's been entered. */
   blankZero?: boolean;
   placeholder?: string;
+  /** A control inside the field, at its right edge (the discount's % / $). */
+  adorn?: ReactNode;
 }) {
   const shown = (n: number) => (blankZero && n === 0 ? '' : display(n));
   const [focused, setFocused] = useState(false);
@@ -94,7 +97,7 @@ export default function NumField({
       ) : (
         <label className="field-label" htmlFor={id}>{label}</label>
       )}
-      <div className={`field-box${prefix ? ' has-prefix' : ''}${suffix ? ' has-suffix' : ''}${stepper ? ' has-stepper' : ''}`}>
+      <div className={`field-box${prefix ? ' has-prefix' : ''}${suffix ? ' has-suffix' : ''}${stepper ? ' has-stepper' : ''}${adorn ? ' has-adorn' : ''}`}>
         {stepper && (
           <button
             type="button"
@@ -139,6 +142,7 @@ export default function NumField({
           }}
         />
         {suffix && <span className="field-suffix" aria-hidden="true">{suffix}</span>}
+        {adorn}
         {stepper && (
           <button
             type="button"

@@ -1,10 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { paysHardware, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort, planSentence } from '@/lib/format';
 import NumField from '@/components/NumField';
+import DiscountField, { type DiscountMode } from '@/components/DiscountField';
 import Segmented from '@/components/Segmented';
 import DiscountSlider from '@/components/DiscountSlider';
 import { costOf, hardwareCopy, oneTimeCopy } from '@/components/opening';
@@ -23,6 +24,8 @@ export default function DealForm({
   footer,
   compact = false,
   targets,
+  name,
+  onName,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -34,7 +37,12 @@ export default function DealForm({
   /** The rep's own discount targets: shown on each Discount field, and
    *  flagged, with what the extra points cost, when a discount goes past. */
   targets?: Targets;
+  /** The deal's name, typed first (the workspace). */
+  name?: string;
+  onName?: (v: string) => void;
 }) {
+  // How each line's discount is typed: a percent, or the price quoted.
+  const [modes, setModes] = useState<Record<Line, DiscountMode>>({ software: 'pct', services: 'pct', hardware: 'pct' });
   const d = deal.subscriptionDiscountPct;
   const acv = deal.subMode === 'acv';
   const listAnnual = acv ? deal.subscription : deal.subscription * 12;
@@ -138,6 +146,23 @@ export default function DealForm({
         // side by side. The card's slider follows whatever's typed here, and
         // dragging it fills these in, so there's one number either way.
         <div className="deal-rows">
+          {onName && (
+            <div className="deal-name">
+              <label className="field-label" htmlFor="dealName">
+                Deal name
+              </label>
+              <div className="field-box">
+                <input
+                  id="dealName"
+                  className="field-input"
+                  maxLength={80}
+                  placeholder="Who is this for? Optional"
+                  value={name ?? ''}
+                  onChange={(e) => onName(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
           <div className={`deal-row${subOver ? ' is-over' : ''}`}>
             <NumField
               id="sub"
@@ -160,14 +185,14 @@ export default function DealForm({
                 />
               }
             />
-            <NumField
+            <DiscountField
               id="subPct"
-              label="Discount"
-              suffix="%"
-              max={100}
-              value={deal.subscriptionDiscountPct}
-              onChange={(n) => set('subscriptionDiscountPct', n)}
-              head={targetHead('software') ?? <span aria-hidden="true" />}
+              list={deal.subscription}
+              pct={deal.subscriptionDiscountPct}
+              onPct={(n) => set('subscriptionDiscountPct', n)}
+              mode={modes.software}
+              onMode={(m) => setModes((x) => ({ ...x, software: m }))}
+              target={targetHead('software')}
             />
             <p className="field-note deal-row-note">
               {derived}
@@ -185,14 +210,14 @@ export default function DealForm({
               onChange={(n) => set('oneTime', n)}
               head={<span aria-hidden="true" />}
             />
-            <NumField
+            <DiscountField
               id="otPct"
-              label="Discount"
-              suffix="%"
-              max={100}
-              value={deal.oneTimeDiscountPct}
-              onChange={(n) => set('oneTimeDiscountPct', n)}
-              head={targetHead('services') ?? <span aria-hidden="true" />}
+              list={deal.oneTime}
+              pct={deal.oneTimeDiscountPct}
+              onPct={(n) => set('oneTimeDiscountPct', n)}
+              mode={modes.services}
+              onMode={(m) => setModes((x) => ({ ...x, services: m }))}
+              target={targetHead('services')}
             />
             <p className="field-note deal-row-note">
               {otOver ? (
@@ -219,14 +244,14 @@ export default function DealForm({
                 onChange={(n) => set('hardware', n)}
                 head={<span aria-hidden="true" />}
               />
-              <NumField
+              <DiscountField
                 id="hwPct"
-                label="Discount"
-                suffix="%"
-                max={100}
-                value={hwOff}
-                onChange={(n) => set('hardwareDiscountPct', n)}
-                head={targetHead('hardware') ?? <span aria-hidden="true" />}
+                list={hwAmount}
+                pct={hwOff}
+                onPct={(n) => set('hardwareDiscountPct', n)}
+                mode={modes.hardware}
+                onMode={(m) => setModes((x) => ({ ...x, hardware: m }))}
+                target={targetHead('hardware')}
               />
               <p className="field-note deal-row-note">
                 {hwOver ? (
@@ -241,7 +266,8 @@ export default function DealForm({
               </p>
             </div>
           )}
-          <div className="deal-row deal-row-units">{units}</div>
+          {/* Units only change anything on a plan whose quota is units. */}
+          {plan.quota_basis === 'units' && <div className="deal-row deal-row-units">{units}</div>}
         </div>
       ) : (
       <div className="deal-fields">
