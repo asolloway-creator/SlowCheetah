@@ -24,23 +24,25 @@ export default function PinnedOutcome({
   tone: Tone;
   hidden: boolean;
 }) {
-  const [above, setAbove] = useState(false);
+  // Where the figure is: on screen, scrolled up past the bar, or still
+  // below (a phone, where the fields come before the card).
+  const [where, setWhere] = useState<'in' | 'above' | 'below'>('in');
 
   useEffect(() => {
     const el = document.getElementById(targetId);
     if (!el || typeof IntersectionObserver === 'undefined') return;
     const io = new IntersectionObserver(
-      ([e]) => setAbove(!e.isIntersecting && e.boundingClientRect.top < MASTHEAD),
+      ([e]) => setWhere(e.isIntersecting ? 'in' : e.boundingClientRect.top < MASTHEAD ? 'above' : 'below'),
       { threshold: 0, rootMargin: `-${MASTHEAD}px 0px 0px 0px` },
     );
     io.observe(el);
     return () => io.disconnect();
   }, [targetId, hidden]);
 
-  const visible = above && !hidden;
+  const visible = where !== 'in' && !hidden;
 
   return (
-    <div className={`pinned${visible ? ' is-visible' : ''}`} aria-hidden={!visible}>
+    <div className={`pinned${visible ? ' is-visible' : ''}${where === 'below' ? ' is-below' : ''}`} aria-hidden={!visible}>
       <button
         type="button"
         className="pinned-btn"

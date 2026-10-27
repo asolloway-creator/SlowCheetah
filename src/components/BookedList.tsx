@@ -61,7 +61,6 @@ export default function BookedList({
   const now = groups.find((g) => g.period === current)?.rows ?? [];
   const earlier = groups.filter((g) => g.period !== current);
   const paid = now.reduce((n, d) => n + d.commission_earned, 0);
-  const lost = now.reduce((n, d) => n + d.money_left_on_table, 0);
   const shown = all ? groups : [{ period: current, rows: now }];
 
   async function remove(id: string) {
@@ -81,17 +80,13 @@ export default function BookedList({
     <section className="booked" aria-labelledby="booked-h">
       <div className="booked-head">
         <h2 id="booked-h" className="booked-h">
-          Booked this {noun}
+          Deals closed this {noun}
         </h2>
+        {/* The commission and what was left on the table are in the numbers
+            above and in Where your discounts went; here, just the count. */}
         {now.length > 0 && (
           <p className="booked-sum">
             {now.length} deal{now.length === 1 ? '' : 's'} · {fmtMoney(paid)} in commission
-            {lost > 0 && (
-              <>
-                {' · '}
-                <span className="is-red">{fmtMoney(lost)}</span> left on the table
-              </>
-            )}
           </p>
         )}
       </div>

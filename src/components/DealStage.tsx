@@ -537,7 +537,9 @@ export default function DealStage({
       aside={
         // On the landing card the line is always there, just invisible at
         // $0, so the slider never jumps down when the first cost appears.
-        (o.atStake > 0 || showcase) && !empty ? (
+        // In the workspace, a loss already leads the card as "Commission left
+        // on the table": the same figure here would only repeat it.
+        (o.atStake > 0 || showcase) && !empty && !(app && (o.state === 'blocked' || o.state === 'loss')) ? (
           <p className={`slider-cost${o.atStake > 0 ? '' : ' is-zero'}`} aria-hidden={o.atStake > 0 ? undefined : true}>
             {showcase ? 'Costs you' : 'This deal’s discounts cost you'}{' '}
             <b>

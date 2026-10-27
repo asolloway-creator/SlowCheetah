@@ -107,7 +107,7 @@ function DiscountLine({
         <b>{pct0(avg)}</b> average discount
       </p>
       <p className="disc-cost">
-        Cost you <span className="is-red">{fmtMoney(cost)}</span> · {fmt(off)} off {fmt(list)}
+        {fmt(off)} off {fmt(list)} list · cost you <span className="is-red">{fmtMoney(cost)}</span>
       </p>
       <div className="disc-try">
         <label className="disc-try-label" htmlFor={id}>

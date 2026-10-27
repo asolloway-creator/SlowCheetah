@@ -602,7 +602,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
           : '';
       return {
         ...base,
-        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
+        secondary: { label: 'Commission left on the table', value: o.atStake, tone: 'red', signed: false, caption: safeCaptionBlocked },
         sentence: retro
           ? closedWorth >= 1
             ? `A ${pct} discount is what's keeping this under ${under}. Crossing it would add ${fmtMoney(closedWorth)} to what you've already closed this ${noun}${onQuotes ? `, and ${onQuotes}` : ''}.`
@@ -643,7 +643,7 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
     case 'loss':
       return {
         ...base,
-        secondary: { label: 'Left on the table', value: o.atStake, tone: 'red', signed: false },
+        secondary: { label: 'Commission left on the table', value: o.atStake, tone: 'red', signed: false },
         // atStake is already the secondary figure above — no need to say
         // the dollar amount twice.
         sentence: `The customer saves ${fmtMoney(r.customerSavesAnnual)} a year, and you’re paying for part of it.`,
