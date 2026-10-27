@@ -2,15 +2,31 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 /**
  * The signed-in rep's account button: their plan and signing out, out of the
  * way of the three places they work in (the tabs). Opens on click; Escape or
- * a click anywhere else closes it.
+ * a click anywhere else closes it. The product owner also gets a link to
+ * the dashboard: the database's own admin list decides (is_admin()), and
+ * /admin checks again, so nobody else sees it or can open it.
  */
 export default function AccountMenu({ email, current }: { email: string; current: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    createClient()
+      .rpc('is_admin')
+      .then(({ data }) => {
+        if (live && data === true) setAdmin(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +68,11 @@ export default function AccountMenu({ email, current }: { email: string; current
           <Link role="menuitem" className="acct-item" href="/plan" onClick={() => setOpen(false)}>
             Your plan
           </Link>
+          {admin && (
+            <Link role="menuitem" className="acct-item" href="/admin" onClick={() => setOpen(false)}>
+              Dashboard
+            </Link>
+          )}
           <form action="/auth/signout" method="post">
             <button role="menuitem" type="submit" className="acct-item">
               Sign out
