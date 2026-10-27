@@ -74,8 +74,10 @@ export default function DevScreens({ view }: { view: string }) {
     { id: 'q1', name: 'Q4 expansion', deal: deal(9000), createdAt: day(2).toISOString(), updatedAt: day(1).toISOString() },
   ];
 
-  if (view === 'home-retro') {
-    const plan = RETRO;
+  if (view === 'home-retro' || view === 'home-crossed') {
+    // home-crossed: the same deals against a lower quota, so the month is
+    // past its retro accelerator and every deal has moved up with it.
+    const plan = view === 'home-crossed' ? { ...RETRO, quota: 30000, accelerator_threshold: 30000 } : RETRO;
     const o: Opening = { periodKey: periodKey('month'), credit: 0, quarterKey: periodKey('quarter'), quarterArr: null, rateAdjust: 1 };
     const rr = rows(null, plan);
     return (

@@ -3,7 +3,7 @@
 import { Fragment, useState } from 'react';
 import { paysHardware, periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { lostByLine, type Line, type Targets } from '@/components/discounts';
+import { earnedNow, lostNow, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
@@ -30,6 +30,7 @@ export default function BookedList({
   editingId = null,
   targets = {},
   onTarget,
+  lift = 1,
 }: {
   plan: CompPlan;
   deals: DealRow[];
@@ -39,6 +40,9 @@ export default function BookedList({
   editingId?: string | null;
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
+  /** This period's deals pay this much more than they were saved at (a retro
+   *  accelerator, crossed): see rateLift. Earlier periods are as saved. */
+  lift?: number;
 }) {
   const size = sizeColumn(plan);
   // Software and services side by side; hardware too when the plan pays it
@@ -64,7 +68,8 @@ export default function BookedList({
   }
   const now = groups.find((g) => g.period === current)?.rows ?? [];
   const earlier = groups.filter((g) => g.period !== current);
-  const paid = now.reduce((n, d) => n + d.commission_earned, 0);
+  const liftOf = (d: DealRow) => (periodOf(plan.period, d.created_at) === current ? lift : null);
+  const paid = now.reduce((n, d) => n + earnedNow(plan, d, lift), 0);
   const shown = all ? groups : [{ period: current, rows: now }];
 
   async function remove(id: string) {
@@ -94,7 +99,7 @@ export default function BookedList({
           </p>
         )}
       </div>
-      {now.length > 0 && <DiscountReport plan={plan} deals={now} noun={noun} targets={targets} onTarget={onTarget} />}
+      {now.length > 0 && <DiscountReport plan={plan} deals={now} noun={noun} targets={targets} onTarget={onTarget} lift={lift} />}
       {error && (
         <p className="history-error" role="alert">
           {error}
@@ -161,7 +166,7 @@ export default function BookedList({
                   </tr>
                 )}
                 {g.rows.map((d) => {
-                  const lost = lostByLine(plan, d);
+                  const lost = lostNow(plan, d, liftOf(d));
                   return (
                     <tr key={d.id} className={`t-row${d.id === editingId ? ' is-editing' : ''}`}>
                       <td className={`t-left t-name${d.name ? '' : ' is-dim'}`} title={d.name || undefined}>
@@ -169,7 +174,7 @@ export default function BookedList({
                       </td>
                       <td className="t-date">{fmtDay(d.created_at)}</td>
                       <td className="t-arr">{fmtMoney(size.of(d))}</td>
-                      <td className="t-pay">{fmtMoney(d.commission_earned)}</td>
+                      <td className="t-pay">{fmtMoney(earnedNow(plan, d, liftOf(d)))}</td>
                       {lines.map((l) => {
                         const p = Math.round(l.pct(d) * 10) / 10;
                         const cost = lost[l.key];

@@ -5,7 +5,7 @@ import type { DealRow } from '@/lib/queries';
 import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
-import type { Line, Targets } from '@/components/discounts';
+import { rateLift, type Line, type Targets } from '@/components/discounts';
 
 type Result = { error?: string };
 type BookMeta = { name?: string; bookedOn?: string };
@@ -92,6 +92,7 @@ export default function PipelineHome({
           editingId={editingId}
           targets={targets}
           onTarget={onTarget}
+          lift={rateLift(paying, ptd)}
         />
       )}
     />

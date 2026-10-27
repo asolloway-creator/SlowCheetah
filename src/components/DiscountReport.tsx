@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { paysHardware, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmt, fmtMoney } from '@/lib/format';
-import { costPerDollar, lostByLine, offByLine, type Line, type Targets } from '@/components/discounts';
+import { costPerDollar, lostNow, offByLine, type Line, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
@@ -27,10 +27,13 @@ export default function DiscountReport({
   noun,
   targets = {},
   onTarget,
+  lift = 1,
 }: {
   plan: CompPlan;
   deals: DealRow[];
   noun: string;
+  /** See rateLift: what each discount costs at the rate the period pays. */
+  lift?: number;
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
 }) {
@@ -43,16 +46,14 @@ export default function DiscountReport({
       const o = offByLine(plan, d)[line];
       list += o.list;
       off += o.off;
-      cost += lostByLine(plan, d)[line];
+      cost += lostNow(plan, d, lift)[line];
     }
     const avg = list > 0 ? (off / list) * 100 : 0;
     const perDollar = off > 0 ? cost / off : costPerDollar(plan, line);
     return { line, list, off, cost, avg, perDollar };
   });
   const shown = totals.filter((t) => t.list > 0);
-  const lost = deals.reduce((n, d) => n + d.money_left_on_table, 0);
-  const paid = deals.reduce((n, d) => n + d.commission_earned, 0);
-  const share = paid + lost > 0 ? Math.round((lost / (paid + lost)) * 100) : 0;
+  const lost = totals.reduce((n, t) => n + t.cost, 0);
   if (!shown.length || lost < 0.005) return null;
 
   return (
@@ -61,10 +62,6 @@ export default function DiscountReport({
         <h3 id="disc-h" className="app-label">
           Where your discounts went
         </h3>
-        <p className="disc-total">
-          <span className="is-red">{fmtMoney(lost)}</span> left on the table this {noun}, {share}% of what these deals
-          would have paid at full price.
-        </p>
       </div>
       {/* The trade a rep makes on every deal: which line a point of discount
           is cheapest on, at this period's own mix and rate. */}

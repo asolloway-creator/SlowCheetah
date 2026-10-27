@@ -1,4 +1,4 @@
-import { paysHardware, type CompPlan } from '@/lib/calc';
+import { paysHardware, periodSummary, type CompPlan, type PeriodToDate } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 
 /** The lines a deal's discounts fall on. */
@@ -44,6 +44,46 @@ export function lostByLine(plan: CompPlan, d: DealRow): Record<Line, number> {
   // Cents that add back up to the deal's own total.
   const software = Math.round(((rest * subOff) / total) * 100) / 100;
   return { software, services: Math.max(0, Math.round((rest - software) * 100) / 100), hardware };
+}
+
+/**
+ * How much more every deal booked this period pays than it was saved at: on
+ * a retro plan past its accelerator, the whole period moves to the higher
+ * rate (8.26% deals now pay 10.26%), so what each earned and what each
+ * discount cost both grow by the same factor. 1 otherwise: a rate-switch
+ * deal is saved at the rate it actually earns.
+ */
+export function rateLift(plan: CompPlan, ptd: PeriodToDate): number {
+  if (plan.accelerator_style !== 'retro_bump') return 1;
+  const s = periodSummary(plan, ptd);
+  return s.step ? 1 + s.step.rate / 100 : 1;
+}
+
+/** How far above its base rate a deal was saved: 1 for a deal saved before
+ *  its period crossed a retro accelerator, the bump for one saved after. */
+function savedLift(d: DealRow): number {
+  const hw = d.hardware_commission ?? 0;
+  return d.commission_base > 0 ? (d.commission_earned - hw) / d.commission_base : 1;
+}
+
+/**
+ * A booked deal's commission as its period pays now. On a retro plan every
+ * deal in the period is at its base commission times `lift`, whenever it was
+ * saved (commission_base is always the pre-accelerator figure). Elsewhere,
+ * and with `lift` null (an earlier period, as it was), what was saved.
+ * Hardware on its own flat rate never moves.
+ */
+export function earnedNow(plan: CompPlan, d: DealRow, lift: number | null): number {
+  if (lift === null || plan.accelerator_style !== 'retro_bump') return d.commission_earned;
+  return d.commission_base * lift + (d.hardware_commission ?? 0);
+}
+
+/** What each line's discount costs as its period pays now (see earnedNow). */
+export function lostNow(plan: CompPlan, d: DealRow, lift: number | null): Record<Line, number> {
+  const l = lostByLine(plan, d);
+  if (lift === null || plan.accelerator_style !== 'retro_bump') return l;
+  const f = lift / savedLift(d);
+  return { software: l.software * f, services: l.services * f, hardware: l.hardware };
 }
 
 /** What a booked deal listed at and what its discount took off, per line,

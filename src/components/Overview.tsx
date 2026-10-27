@@ -21,6 +21,7 @@ import {
 import { standing, tierName } from '@/components/opening';
 import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
+import { earnedNow, lostNow, rateLift } from '@/components/discounts';
 import OpeningFields from '@/components/OpeningFields';
 
 /**
@@ -63,8 +64,15 @@ export default function Overview({
   const answered = openingAnswered(opening);
   const now = deals.filter((d) => periodOf(plan.period, d.created_at) === label);
   const monthName = plan.period === 'month' ? label.split(' ')[0] : label;
-  const paid = now.reduce((n, d) => n + d.commission_earned, 0);
-  const lost = now.reduce((n, d) => n + d.money_left_on_table, 0);
+  // At the rate the period actually pays (past a retro accelerator, every
+  // deal booked this period has moved up with it).
+  const lift = rateLift(plan, ptd);
+  const paid = now.reduce((n, d) => n + earnedNow(plan, d, lift), 0);
+  const lost = now.reduce((n, d) => {
+    const l = lostNow(plan, d, lift);
+    return n + l.software + l.services + l.hardware;
+  }, 0);
+  const keptShare = paid + lost > 0 ? paid / (paid + lost) : 1;
 
   return (
     <section className="ov" aria-labelledby="ov-h">
@@ -103,17 +111,31 @@ export default function Overview({
           <QuotaNote plan={plan} ptd={ptd} deals={now} daysLeft={calendar.daysLeft} monthName={monthName} />
         </div>
         {plan.quarterly_kicker && qtd && <BonusKpi plan={plan} qtd={qtd} quarterDaysLeft={calendar.quarterDaysLeft} />}
-        <div className="kpi">
-          <p className="app-label">Commission booked</p>
-          <p className="kpi-value">{fmtMoney(paid)}</p>
+        {/* What the month paid and what its discounts gave away, side by
+            side at the same weight: the second is the one to change. */}
+        <div className="kpi kpi-money">
+          <p className="app-label">Commission this {noun}</p>
+          <div className="kpi-split">
+            <div>
+              <p className="kpi-sub">Earned</p>
+              <p className="kpi-value is-earned">{fmtMoney(paid)}</p>
+            </div>
+            <div>
+              <p className="kpi-sub">Left on the table</p>
+              <p className={`kpi-value${lost >= 0.005 ? ' is-lost' : ''}`}>{fmtMoney(lost)}</p>
+            </div>
+          </div>
+          <span
+            className="kpi-split-bar"
+            role="img"
+            aria-label={`Kept ${Math.round(keptShare * 100)}% of what these deals would have paid at full price`}
+            style={vars({ '--w': pct(keptShare) })}
+          />
           <p className="kpi-note">
-            {now.length} deal{now.length === 1 ? '' : 's'} this {noun}
-            {lost > 0 && (
-              <>
-                {' · '}
-                <span className="is-red">{fmtMoney(lost)}</span> left on the table
-              </>
-            )}
+            {now.length === 0
+              ? `No deals closed this ${noun} yet.`
+              : `${now.length} deal${now.length === 1 ? '' : 's'} · you kept ${Math.round(keptShare * 100)}% of what full price would have paid`}
+            {lift > 1 && now.length > 0 && <> · at {fmtRatePct(plan.base_rate * lift)} now that you&rsquo;ve crossed</>}
           </p>
         </div>
       </div>
