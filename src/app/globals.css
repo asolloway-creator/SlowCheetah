@@ -1862,3 +1862,27 @@ main.app { padding-bottom: 56px; }
 @media (max-width: 600px) {
   .ov-kpis .kpi-money, .ov-kpis .kpi-bonus { grid-column: 1 / -1; }
 }
+
+/* The deal's result in the workspace: earned and left on the table at the
+   same weight (like "Commission this month"), one line on the accelerator
+   when it's in play, the slider, two facts. */
+.dr .app-label { margin-bottom: 10px; }
+.dr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.dr-fig { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 12px 14px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+.dr-k { font: 600 12.5px/1.2 var(--ui); color: var(--ink-3); }
+.dr-v { font: 750 30px/1.05 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.dr-v.is-earned { color: var(--green); }
+.dr-v.is-lost { color: var(--red); }
+.dr-v.is-zero { color: var(--ink-3); }
+.dr-c { font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dr-stake { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font: 500 13.5px/1.45 var(--ui); }
+.dr-stake b { font-weight: 650; }
+.dr-stake.is-good { background: var(--green-wash); color: #0B5A2E; }
+.dr-stake.is-bad { background: var(--red-wash); color: var(--red-ink); }
+.dr-stake.is-plain { background: var(--paper); color: var(--ink-2); border: 1px solid var(--line); }
+.dr-kicker { margin-top: 10px; }
+.dr-kicker .kicker-outcome { margin-top: 0; }
+.dr-slider { margin-top: 16px; }
+.dr-slider .slider-head { min-height: 0; }
+.dr-facts { margin-top: 14px; }
+@media (max-width: 600px) { .dr-v { font-size: 26px; } .dr-two { gap: 10px; } .dr-fig { padding: 10px 12px; } }

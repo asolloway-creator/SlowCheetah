@@ -21,6 +21,7 @@ import Ledger, { type LedgerRow } from '@/components/Ledger';
 import PinnedOutcome from '@/components/PinnedOutcome';
 import TweenedMoney from '@/components/TweenedMoney';
 import KickerOutcome from '@/components/KickerOutcome';
+import DealResult from '@/components/DealResult';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import type { DealRow } from '@/lib/queries';
@@ -522,7 +523,7 @@ export default function DealStage({
     <DiscountSlider
       size="lg"
       id="subD"
-      label="Discount on the subscription"
+      label={app ? 'Subscription discount' : 'Discount on the subscription'}
       value={deal.subscriptionDiscountPct}
       onChange={(v) => {
         if (showcase) show.takeOver();
@@ -543,7 +544,9 @@ export default function DealStage({
         // $0, so the slider never jumps down when the first cost appears.
         // In the workspace, a loss already leads the card as "Commission left
         // on the table": the same figure here would only repeat it.
-        (o.atStake > 0 || showcase) && !empty && !(app && (o.state === 'blocked' || o.state === 'loss')) ? (
+        // In the workspace, the card leads with what the discounts left on
+        // the table: the slider doesn't repeat it.
+        (o.atStake > 0 || showcase) && !empty && !app ? (
           <p className={`slider-cost${o.atStake > 0 ? '' : ' is-zero'}`} aria-hidden={o.atStake > 0 ? undefined : true}>
             {showcase ? 'Costs you' : 'This deal’s discounts cost you'}{' '}
             <b>
@@ -671,6 +674,10 @@ export default function DealStage({
                       {app ? 'Enter the subscription' : 'Start with the subscription'} <span aria-hidden="true">&darr;</span>
                     </button>
                   </div>
+                ) : app ? (
+                  <div className="dc-sec">
+                    <DealResult plan={plan} deal={deal} ptd={ptd} o={o} copy={copy} kicker={xCopy} slider={slider} facts={rows} />
+                  </div>
                 ) : (
                   <>
                     <div className="dc-sec">
@@ -686,7 +693,7 @@ export default function DealStage({
                   </>
                 )}
 
-                {!showcase && !empty && (
+                {!showcase && !empty && !app && (
                   <div className="dc-sec">
                     <div className={`dc-sentence${accelMoment ? ' has-icon' : ''}`}>
                       {accelMoment && (
@@ -715,8 +722,8 @@ export default function DealStage({
 
                 {!showcase && (!empty || naming || Boolean(msg.booked || msg.updated || msg.error || quoteError)) && (
                 <div className="dc-sec">
-                  {copy.detail && <p className="dc-detail">{copy.detail}</p>}
-                  {!empty && <Ledger className="dc-ledger" rows={rows} />}
+                  {copy.detail && !app && <p className="dc-detail">{copy.detail}</p>}
+                  {!empty && !app && <Ledger className="dc-ledger" rows={rows} />}
                   {naming ? (
                     <div className="quote-naming">
                       <label className="field-label" htmlFor="quote-name">
