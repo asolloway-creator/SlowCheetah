@@ -534,13 +534,6 @@ main { display: block; padding-bottom: 80px; }
 .pipe-row-pay { flex: none; font: 800 20px/1 var(--display); letter-spacing: -0.015em; color: var(--green); font-variant-numeric: tabular-nums; }
 .pipe-sum { margin-top: 14px; font: 500 14.5px/1.5 var(--ui); color: var(--ink-2); }
 
-.booked { margin-top: 64px; padding-top: 36px; border-top: 1px solid var(--line); }
-.booked-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; }
-.booked-h { font: 750 26px/1.15 var(--display); letter-spacing: -0.018em; }
-.booked-sum { font: 500 14.5px/1.4 var(--ui); color: var(--ink-2); }
-.booked-empty { margin-top: 12px; font: 500 15.5px/1.55 var(--ui); color: var(--ink-2); }
-.booked .table-scroll { margin-top: 18px; }
-.booked-all { margin-top: 16px; }
 .back-link { margin-top: 36px; }
 .back-link + .cap .page-title, .back-link + * .page-title { margin-top: 20px; }
 
@@ -1492,7 +1485,6 @@ main { display: block; padding-bottom: 80px; }
   .btn:active:not(:disabled) { transform: none; }
 }
 
-
 /* =========================================================================
    The product, signed in. The landing page sells; this is where the work
    happens, so it goes quiet: a plain top bar, flat white panels on a near
@@ -1595,13 +1587,9 @@ main.app { padding-bottom: 56px; }
 .ds.is-app .period-card-h { font: 600 13px/1.2 var(--ui); color: var(--ink-2); letter-spacing: 0; }
 
 .ds.is-app .ds-after { grid-area: after; margin-top: 16px; min-width: 0; }
-.ds.is-app .booked { margin-top: 0; padding: 14px 16px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
-.ds.is-app .booked-h { font: 600 13px/1.2 var(--ui); color: var(--ink-2); letter-spacing: 0; }
-.ds.is-app .booked-sum { font-size: 13px; color: var(--ink-3); }
-.ds.is-app .booked .table-scroll { margin-top: 8px; box-shadow: none; border-radius: 0; background: transparent; }
+
 .ds.is-app .deals th { font-size: 12.5px; }
 .ds.is-app .deals td { height: 42px; font-size: 14px; }
-.ds.is-app .booked-empty { font-size: 13.5px; color: var(--ink-3); padding-bottom: 8px; }
 
 @media (max-width: 1180px) {
   .ds.is-app .ds-grid { grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: auto auto auto; grid-template-areas: "rail rail" "main aside" "after after"; row-gap: 16px; }
@@ -1708,90 +1696,6 @@ main.app { padding-bottom: 56px; }
 .ds.is-app .ds-after { margin-top: 0; }
 .ds.is-app .ds-grid { row-gap: 16px; }
 
-/* =========================================================================
-   Booked deals. One grid: the deal, when it closed, what it booked and paid,
-   then each line's discount with what it cost. Every number column is
-   right-aligned under a right-aligned header; the discount pairs sit under
-   a group heading. Where the list is too narrow for it (a phone, a laptop),
-   each deal becomes a short stack instead. Keyed to the list's own width.
-   ========================================================================= */
-.ds .booked { container: booked / inline-size; }
-.deals-table { table-layout: fixed; width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.deals-table th, .deals-table td { padding: 0 10px; vertical-align: middle; white-space: nowrap; }
-.deals-table th { font: 600 12.5px/1.25 var(--ui); color: var(--ink-3); text-align: right; border-bottom: 0; white-space: normal; vertical-align: bottom; }
-.deals-table td { height: 50px; font-size: 14px; text-align: right; border-bottom: 1px solid var(--line); }
-.deals-table tbody tr:last-child td { border-bottom: 0; }
-.deals-table thead tr:last-child th { padding-bottom: 8px; border-bottom: 1px solid var(--line-2); }
-.deals-table th.t-left, .deals-table td.t-left { text-align: left; padding-left: 4px; }
-.deals-table th.t-end, .deals-table td.t-end { padding-right: 4px; }
-.deals-table .t-group { text-align: center; color: var(--ink-2); font-weight: 650; padding: 0 0 6px; }
-.deals-table .t-group span { display: block; padding-bottom: 6px; border-bottom: 1px solid var(--line-2); }
-.deals-table .t-gap { width: 14px; padding: 0; }
-.deals-table .t-name { color: var(--ink); font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
-.deals-table .t-name.is-dim { font-weight: 500; }
-.deals-table .t-date { color: var(--ink-2); }
-.deals-table .t-pay { font-weight: 650; color: var(--ink); }
-.deals-table .t-pct, .deals-table thead tr:last-child th:nth-child(odd) { padding-left: 24px; }
-.deals-table .t-pct.is-dim, .deals-table .t-cost.is-dim { color: var(--ink-3); }
-.deals-table .t-cost { color: var(--red); font-weight: 600; }
-.deals-table .t-cost.is-dim { color: var(--ink-3); font-weight: 500; }
-.deals-table .t-act { white-space: nowrap; }
-.deals-table .t-act .deals-actions { display: inline-flex; gap: 4px; }
-.deals-table .row-delete { opacity: 1; min-width: 0; padding: 0 6px; font-size: 13.5px; }
-.deals-table .row-delete:first-child { color: var(--ink-2); font-weight: 600; }
-.deals-table .row-delete:first-child:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.deals-table tbody tr:hover td { background: var(--paper); }
-.deals-table tr.is-editing td { background: var(--sun-wash); }
-.deals-table .deals-period th { text-align: left; font: 700 14px/1.3 var(--ui); color: var(--ink); padding: 18px 4px 6px; border-bottom: 0; }
-.deals-table .c-name { width: auto; }
-.deals-table .c-date { width: 96px; }
-.deals-table .c-arr { width: 100px; }
-.deals-table .c-pay { width: 100px; }
-.deals-table .c-pct { width: 92px; }
-.deals-table .c-cost { width: 96px; }
-.deals-table .c-act { width: 116px; }
-
-@container booked (max-width: 1099px) {
-  .ds .booked .table-scroll { overflow: visible; }
-  .deals-table, .deals-table tbody { display: block; width: 100%; }
-  .deals-table colgroup, .deals-table thead { display: none; }
-  .deals-table tbody tr.t-row { display: grid; grid-template-columns: minmax(0, 1fr) 4.2em 5.6em; gap: 3px 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
-  .deals-table tbody tr.t-row:last-child { border-bottom: 0; }
-  .deals-table tbody tr.t-row td { display: block; height: auto; padding: 0; border: 0; text-align: right; font-size: 13.5px; line-height: 1.45; background: none; overflow: visible; width: auto; white-space: normal; }
-  .deals-table tr.t-row td.t-name { grid-column: 1 / 3; grid-row: 1; text-align: left; font-size: 14.5px; white-space: normal; }
-  .deals-table tr.t-row td.t-pay { grid-column: 3; grid-row: 1; font-size: 14.5px; }
-  .deals-table tr.t-row td.t-date { grid-column: 1; grid-row: 2; text-align: left; color: var(--ink-3); }
-  .deals-table tr.t-row td.t-arr { grid-column: 2 / 4; grid-row: 2; color: var(--ink-2); }
-  .deals-table tr.t-row td.t-arr::before { content: "Booked ARR "; color: var(--ink-3); }
-  .deals-table tr.t-row td.t-pct { grid-column: 1 / 3; display: flex; gap: 8px; justify-content: space-between; }
-  .deals-table tr.t-row td.t-pct::before { content: attr(data-label); color: var(--ink-3); text-align: left; }
-  .deals-table tr.t-row td.t-cost { grid-column: 3; }
-  .deals-table tr.t-row td.t-gap { display: none; }
-  .deals-table tr.t-row td.t-act { grid-column: 1 / -1; text-align: left; margin-top: 4px; }
-  .deals-table tr.t-row td.t-act .row-delete { padding-left: 0; padding-right: 10px; }
-  .deals-table tbody tr.is-editing { background: var(--sun-wash); border-radius: 8px; }
-  .deals-table .deals-period { display: block; }
-  .deals-table .deals-period th { display: block; padding: 16px 4px 4px; }
-}
-
-/* Where your discounts went: one card per line, above the booked table. */
-.disc-report { margin: 14px 0 6px; padding: 14px 0 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.disc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
-.disc-total { font: 500 13.5px/1.45 var(--ui); color: var(--ink-2); }
-.disc-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
-.disc-line { padding: 14px 16px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
-.disc-name { font: 600 13px/1.3 var(--ui); color: var(--ink-2); }
-.disc-avg { margin-top: 6px; font: 500 13.5px/1.2 var(--ui); color: var(--ink-2); }
-.disc-avg b { margin-right: 4px; font: 700 24px/1 var(--display); letter-spacing: -0.015em; color: var(--ink); }
-.disc-cost { margin-top: 6px; font: 500 13.5px/1.4 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.disc-try { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line-2); }
-.disc-try-label { display: block; font: 500 13px/1.3 var(--ui); color: var(--ink-2); }
-.disc-try-label b { color: var(--ink); }
-.disc-range { width: 100%; margin: 8px 0 4px; accent-color: var(--ink); }
-.disc-if { font: 500 13.5px/1.4 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; min-height: 1.4em; }
-.disc-point { margin-top: 6px; font: 500 13.5px/1.45 var(--ui); color: var(--ink-2); }
-.disc-point b { color: var(--ink); font-weight: 650; }
-
 /* The deal form in the workspace: each line's amount and its discount on
    one row, its note underneath. */
 .deal-rows { display: grid; gap: 18px; margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line); }
@@ -1845,9 +1749,6 @@ main.app { padding-bottom: 56px; }
 .field-target { font: 500 11.5px/1 var(--ui); color: var(--ink-3); white-space: nowrap; }
 .deal-row.is-over > .field:nth-child(2) .field-input { box-shadow: inset 0 0 0 1.5px #E3A08F; background: #FFF9F7; }
 .deal-over { display: block; margin-top: 2px; color: var(--red-ink); }
-.disc-vs { margin-top: 4px; font: 600 12.5px/1.3 var(--ui); color: var(--green); }
-.disc-vs.is-over { color: var(--red); }
-.disc-set { display: flex; gap: 6px; align-items: baseline; margin: 2px 0 6px; font: 500 13px/1.3 var(--ui); color: var(--ink-3); }
 
 /* Commission this month: earned and left on the table at the same weight,
    with the split between them as one bar. */
@@ -1886,3 +1787,94 @@ main.app { padding-bottom: 56px; }
 .dr-slider .slider-head { min-height: 0; }
 .dr-facts { margin-top: 14px; }
 @media (max-width: 600px) { .dr-v { font-size: 26px; } .dr-two { gap: 10px; } .dr-fig { padding: 10px 12px; } }
+
+/* =========================================================================
+   Deals closed this month: how the discounts went, then the deals.
+   ========================================================================= */
+.cd { padding: 16px 18px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); container: closed / inline-size; }
+.cd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cd-h { display: flex; align-items: center; gap: 8px; font: 650 15px/1.2 var(--ui); color: var(--ink); }
+.cd-empty { margin: 10px 0 8px; font: 500 13.5px/1.5 var(--ui); color: var(--ink-3); }
+
+/* One tile per line: average discount and what it left on the table at the
+   same weight, what a point costs, and the rep's target. */
+.dt { margin-top: 14px; }
+.dt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.dt-tile { padding: 14px 16px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+.dt-name { font: 600 13px/1.3 var(--ui); color: var(--ink-2); }
+.dt-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.dt-nums > div { display: grid; gap: 4px; }
+.dt-k { font: 500 12px/1.2 var(--ui); color: var(--ink-3); }
+.dt-v { font: 750 26px/1.05 var(--display); letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.dt-v.is-lost { color: var(--red); }
+.dt-v.is-zero { color: var(--ink-3); }
+.dt-note { margin-top: 8px; font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dt-target { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font: 600 13px/1.3 var(--ui); }
+.dt-target .is-over { color: var(--red); }
+.dt-target .is-within { color: var(--green); }
+.dt-target .is-none { color: var(--ink-3); font-weight: 500; }
+.dt-edit { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.dt-edit-label { font: 500 13px/1.3 var(--ui); color: var(--ink-2); }
+.dt-edit-label b { color: var(--ink); }
+.dt-range { width: 100%; margin: 8px 0 4px; accent-color: var(--ink); }
+.dt-if { min-height: 1.4em; font: 500 13px/1.4 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.dt-edit-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+
+/* The deals: one header row, right-aligned numbers under right-aligned
+   headers, each discount's cost right under its percent, and Earned beside
+   Left on the table at the end of the row. */
+.cd-scroll { margin-top: 14px; }
+.cd-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cd-table th, .cd-table td { padding: 0 10px; text-align: right; vertical-align: middle; }
+.cd-table th { padding-bottom: 8px; font: 600 12px/1.3 var(--ui); color: var(--ink-3); vertical-align: bottom; border-bottom: 1px solid var(--line-2); }
+.cd-table td { height: 54px; font-size: 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cd-table tbody tr:last-child td { border-bottom: 0; }
+.cd-table tbody tr:hover td { background: var(--paper); }
+.cd-table tr.is-editing td { background: var(--sun-wash); }
+.cd-table .t-left { text-align: left; padding-left: 4px; }
+.cd-table .t-name { font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.cd-table .t-name.is-dim { font-weight: 500; color: var(--ink-3); }
+.cd-table .t-date { color: var(--ink-2); }
+.cd-table .t-disc span { display: block; line-height: 1.3; }
+.cd-table .t-pct { color: var(--ink); }
+.cd-table .t-cost { font-size: 12.5px; color: var(--red); }
+.cd-table .is-dim { color: var(--ink-3); }
+.cd-table .t-earned { font-weight: 650; color: var(--ink); }
+.cd-table .t-lost { font-weight: 650; color: var(--red); }
+.cd-table .t-lost.is-dim { font-weight: 500; color: var(--ink-3); }
+.cd-table .t-act { padding-right: 4px; }
+.cd-actions { display: inline-flex; gap: 2px; }
+.cd-act { padding: 4px 6px; border-radius: 6px; font: 500 13px/1 var(--ui); color: var(--ink-3); }
+.cd-act:hover:not(:disabled) { color: var(--ink); background: var(--cream); }
+.cd-act.is-edit { color: var(--ink-2); font-weight: 600; }
+.cd-table .c-date { width: 76px; }
+.cd-table .c-num { width: 112px; }
+.cd-table .c-disc { width: 118px; }
+.cd-table .c-disc-wide { width: 150px; }
+.cd-table .c-act { width: 104px; }
+.cd-earlier { margin-top: 18px; }
+.cd-period { font: 650 13px/1.3 var(--ui); color: var(--ink-2); }
+
+/* Too narrow for the table (a phone, a laptop with the card beside it):
+   each deal as a short stack. Keyed to the section's own width. */
+@container closed (max-width: 999px) {
+  .cd-table, .cd-table tbody { display: block; width: 100%; }
+  .cd-table colgroup, .cd-table thead { display: none; }
+  .cd-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+  .cd-table tbody tr:last-child { border-bottom: 0; }
+  .cd-table tbody tr td { display: block; height: auto; padding: 0; border: 0; background: none; white-space: normal; font-size: 13.5px; line-height: 1.4; }
+  .cd-table tbody tr td.t-name { grid-column: 1 / -1; grid-row: 1; font-size: 14.5px; }
+  .cd-table tbody tr td.t-date { grid-column: 1; grid-row: 2; text-align: left; color: var(--ink-3); }
+  .cd-table tbody tr td.t-arr { grid-column: 2 / -1; grid-row: 2; color: var(--ink-2); }
+  .cd-table tbody tr td.t-arr::before { content: attr(data-label) " "; color: var(--ink-3); }
+  .cd-table tbody tr td.t-disc { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 4em 6em; gap: 10px; text-align: right; }
+  .cd-table tbody tr td.t-disc::before { content: attr(data-label); text-align: left; color: var(--ink-3); }
+  .cd-table tbody tr td.t-disc span { display: inline; }
+  .cd-table tbody tr td.t-earned, .cd-table tbody tr td.t-lost { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 10px; }
+  .cd-table tbody tr td.t-earned { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line-2); }
+  .cd-table tbody tr td.t-earned::before { content: "Earned"; font-weight: 500; color: var(--ink-3); }
+  .cd-table tbody tr td.t-lost::before { content: "Left on the table"; font-weight: 500; color: var(--ink-3); }
+  .cd-table tbody tr td.t-act { grid-column: 1 / -1; text-align: left; }
+  .cd-table tbody tr td.t-act .cd-act { padding-left: 0; padding-right: 12px; }
+  .cd-table tbody tr.is-editing { background: var(--sun-wash); border-radius: 8px; }
+}
