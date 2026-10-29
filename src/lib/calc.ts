@@ -616,10 +616,10 @@ export type Quote = {
   forecast?: Forecast | null;
 };
 
-/** The rep's call on an open quote: closes this period for sure, probably,
- *  only if things break right, or not this period. */
-export type Forecast = 'commit' | 'likely' | 'stretch' | 'next';
-export const FORECASTS: Forecast[] = ['commit', 'likely', 'stretch', 'next'];
+/** The rep's call on an open quote: closes this period for sure, only if
+ *  things break right, or not this period. */
+export type Forecast = 'commit' | 'stretch' | 'next';
+export const FORECASTS: Forecast[] = ['commit', 'stretch', 'next'];
 
 /** Why a quote was lost (v18), when the rep says. */
 export type LostReason = 'price' | 'competitor' | 'no_decision' | 'timing' | 'other';

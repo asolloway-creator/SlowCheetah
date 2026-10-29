@@ -145,9 +145,9 @@ export default function DevScreens({ view }: { view: string }) {
     const quotes: Quote[] = [
       { id: 'k1', name: 'Copper Pot', deal: mrr(1050, 10, 3900, 50), createdAt: at(6), updatedAt: at(6), accountId: null, forecast: 'commit' },
       { id: 'k2', name: 'Blue Fern', deal: mrr(200, 0), createdAt: at(5), updatedAt: at(5), accountId: null, forecast: 'stretch' },
-      { id: 'k3', name: 'Juniper Hall Downtown', deal: mrr(950, 30), createdAt: at(4), updatedAt: at(4), accountId: 'acc-1', forecast: 'likely' },
-      { id: 'k4', name: 'Juniper Hall Midtown', deal: mrr(500, 15), createdAt: at(3), updatedAt: at(3), accountId: 'acc-1', forecast: 'likely' },
-      { id: 'k5', name: 'Juniper Hall Uptown', deal: mrr(1150, 35), createdAt: at(2), updatedAt: at(2), accountId: 'acc-1', forecast: 'likely' },
+      { id: 'k3', name: 'Juniper Hall Downtown', deal: mrr(950, 30), createdAt: at(4), updatedAt: at(4), accountId: 'acc-1', forecast: 'stretch' },
+      { id: 'k4', name: 'Juniper Hall Midtown', deal: mrr(500, 15), createdAt: at(3), updatedAt: at(3), accountId: 'acc-1', forecast: 'stretch' },
+      { id: 'k5', name: 'Juniper Hall Uptown', deal: mrr(1150, 35), createdAt: at(2), updatedAt: at(2), accountId: 'acc-1', forecast: 'stretch' },
       { id: 'k6', name: 'Maple and Rye Fairfax', deal: mrr(430, 20), createdAt: at(1), updatedAt: at(1), accountId: 'acc-2', forecast: null },
       { id: 'k7', name: 'Maple and Rye Vienna', deal: mrr(430, 20), createdAt: at(0), updatedAt: at(0), accountId: 'acc-2', forecast: 'next' },
     ];

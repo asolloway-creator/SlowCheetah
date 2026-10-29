@@ -26,20 +26,20 @@ const q = (id: string, sub: number, accountId: string | null, forecast: Quote['f
 });
 
 // 30,000 booked; quota 60,000. A: 12,000 ARR. Group G (one decision): 3 x 6,000 = 18,000. B: 3,000.
-const quotes = [q('a', 1000, null, 'commit', 1), q('g1', 500, 'g', 'commit', 2), q('g2', 500, 'g', 'likely', 3), q('g3', 500, 'g', 'commit', 4), q('b', 250, null, 'stretch', 5)];
+const quotes = [q('a', 1000, null, 'commit', 1), q('g1', 500, 'g', 'commit', 2), q('g2', 500, 'g', 'stretch', 3), q('g3', 500, 'g', 'commit', 4), q('b', 250, null, null, 5)];
 const accounts = [{ id: 'g', name: 'Group', oneDecision: true }];
 const units = closeUnits(quotes, accounts);
 
 check('an account that decides as one is one decision', units.length === 3 && units.some((u) => u.label === 'Group' && u.quotes.length === 3));
 const g = units.find((u) => u.label === 'Group')!;
-check('mixed calls take the most cautious one', g.forecast === 'likely' && g.mixed);
+check('mixed calls take the most cautious one', g.forecast === 'stretch' && g.mixed);
 
 const commit = closeLine(plan, ptd, null, units, 'commit');
-const best = closeLine(plan, ptd, null, units, 'best');
+const best = closeLine(plan, ptd, null, units, 'stretch');
 const all = closeLine(plan, ptd, null, units, 'all');
 check('commit counts only commits (A)', Math.round(commit.credit) === 42000, String(commit.credit));
-check('best case adds the likely group', Math.round(best.credit) === 60000 && best.hits, String(best.credit));
-check('everything adds the stretch', Math.round(all.credit) === 63000, String(all.credit));
+check('with stretch adds the stretch group', Math.round(best.credit) === 60000 && best.hits, String(best.credit));
+check('everything adds what has no call', Math.round(all.credit) === 63000, String(all.credit));
 check('lines never go down', commit.credit <= best.credit && best.credit <= all.credit && commit.commission <= best.commission && best.commission <= all.commission);
 check('crossing the retro accelerator lifts the whole month', Math.abs(best.commission - 60000 * 0.08 * 1.25 - 4 * 1000 * 0.5 * 0.333 * 0.08 * 1.25) < 1, String(best.commission));
 check('short line knows what crossing is worth', commit.crossingWorth !== null && commit.crossingWorth > 0 && commit.gap === 18000);

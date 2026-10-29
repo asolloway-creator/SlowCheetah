@@ -7,14 +7,13 @@ import { fmtCredit, fmtMoney } from '@/lib/format';
 
 const calls = (period: CompPlan['period']): { key: Forecast; label: string }[] => [
   { key: 'commit', label: 'Commit' },
-  { key: 'likely', label: 'Likely' },
   { key: 'stretch', label: 'Stretch' },
   { key: 'next', label: `Next ${period}` },
 ];
 
 const lineDefs = (period: CompPlan['period']): { key: LineKey; label: string; note: string }[] => [
   { key: 'commit', label: 'Commit', note: 'Only what you called Commit' },
-  { key: 'best', label: 'Best case', note: 'Commit and Likely' },
+  { key: 'stretch', label: 'With stretch', note: 'Commit and Stretch' },
   { key: 'all', label: 'Everything', note: `All but next ${period}, called or not` },
 ];
 
@@ -31,7 +30,7 @@ function periodEnd(start: string, period: CompPlan['period']): string {
 /**
  * Closing out the period, under the rep's open quotes: their own call on
  * each decision (an account that decides as one is one decision), then what
- * the period comes to if the commits close, if the likely ones do too, and
+ * the period comes to if the commits close, if the stretch ones do too, and
  * if everything not pushed out does. Which decisions the period can't do
  * without, and what reaching quota is worth. In the last week of the period
  * it reads "Close out"; before that, "Forecast".

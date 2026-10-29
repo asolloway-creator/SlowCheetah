@@ -119,6 +119,13 @@
 --   alter table public.quotes add column if not exists lost_reason text check (lost_reason in ('price', 'competitor', 'no_decision', 'timing', 'other'));
 --   create index if not exists quotes_user_status_idx on public.quotes (user_id, status);
 --
+-- v19 (2026-10-30) drops 'likely' from quotes.forecast (the rep's call):
+-- 'commit' | 'stretch' | 'next' now. Any 'likely' became 'stretch'.
+-- Applied 2026-10-30:
+--   update public.quotes set forecast = 'stretch' where forecast = 'likely';
+--   alter table public.quotes drop constraint if exists quotes_forecast_check;
+--   alter table public.quotes add constraint quotes_forecast_check check (forecast in ('commit', 'stretch', 'next'));
+--
 -- v17 (2026-10-29) adds accounts and the rep's forecast call. Accounts are
 -- buyers with several deals (a restaurant group's locations, a firm's
 -- offices): public.deal_accounts, owner-only RLS like deal_labels, with the

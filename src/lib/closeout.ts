@@ -16,7 +16,7 @@ import { rateLift } from '@/components/discounts';
  * Closing out a period: the rep's open quotes as the decisions they really
  * are (an account that decides as one is a single decision), the rep's own
  * call on each, and what the period comes to if the commits close, if the
- * likely ones do too, and if everything not pushed to next period does.
+ * stretch ones do too, and if everything not pushed to next period does.
  * Every figure comes from the engine, in the order the rail lists them.
  */
 
@@ -33,7 +33,7 @@ export type CloseUnit = {
 };
 
 /** How cautious a call is: an account's call is its most cautious quote's. */
-const CAUTION: Record<Forecast, number> = { commit: 0, likely: 1, stretch: 2, next: 3 };
+const CAUTION: Record<Forecast, number> = { commit: 0, stretch: 1, next: 2 };
 
 export function closeUnits(quotes: Quote[], accounts: DealAccount[]): CloseUnit[] {
   const byId = new Map(accounts.map((a) => [a.id, a]));
@@ -63,7 +63,7 @@ export function closeUnits(quotes: Quote[], accounts: DealAccount[]): CloseUnit[
   return units;
 }
 
-export type LineKey = 'commit' | 'best' | 'all';
+export type LineKey = 'commit' | 'stretch' | 'all';
 
 export type CloseLine = {
   key: LineKey;
@@ -87,7 +87,7 @@ export type CloseLine = {
 
 const LINE_CALLS: Record<LineKey, (f: Forecast | null) => boolean> = {
   commit: (f) => f === 'commit',
-  best: (f) => f === 'commit' || f === 'likely',
+  stretch: (f) => f === 'commit' || f === 'stretch',
   // Everything not pushed to next period, called or not.
   all: (f) => f !== 'next',
 };
