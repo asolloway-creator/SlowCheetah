@@ -9,6 +9,7 @@ import {
   type CompPlan,
   type DealAccount,
   type DealInput,
+  type LostReason,
   type PeriodToDate,
   type QuarterToDate,
   type Quote,
@@ -142,6 +143,7 @@ export default function DealStage({
   accounts = [],
   onUpdateAccount,
   onAssignAccount,
+  onLoseQuotes,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -189,6 +191,8 @@ export default function DealStage({
   accounts?: DealAccount[];
   /** Renames an account, or changes whether its deals close as one. */
   onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<{ error?: string }>;
+  /** Closed lost: kept off the open list, with the reason if given. */
+  onLoseQuotes?: (ids: string[], reason: LostReason | null) => Promise<{ error?: string }>;
   /** Puts a saved quote or booked deal in an account, or takes it out. */
   onAssignAccount?: (
     target: { kind: 'quote' | 'deal'; id: string },
@@ -508,22 +512,31 @@ export default function DealStage({
     }
     setMsg(error ? { error } : { booked: true });
   }
-  async function accountLost(qs: Quote[]) {
-    for (const q of qs) await quoteLost(q);
-  }
-  async function quoteLost(q: Quote) {
-    if (!onDeleteQuote) return;
+  // Off the open list. Lost keeps the quotes as closed lost (with the
+  // reason, if given); removing deletes ones that were never real.
+  async function closeQuotes(qs: Quote[], how: { lost: LostReason | null } | 'remove') {
     setQuoteBusy(true);
-    let res: { error?: string };
+    let res: { error?: string } = {};
     try {
-      res = await onDeleteQuote(q.id);
+      if (how === 'remove') {
+        for (const q of qs) {
+          res = onDeleteQuote ? await onDeleteQuote(q.id) : {};
+          if (res.error) break;
+        }
+      } else if (onLoseQuotes) {
+        res = await onLoseQuotes(
+          qs.map((q) => q.id),
+          how.lost,
+        );
+      }
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
     setQuoteBusy(false);
     if (res.error) return setQuoteError(res.error);
-    if (activeQuote === q.id) {
+    if (activeQuote && qs.some((q) => q.id === activeQuote)) {
       setActiveQuote(null);
+      setAcctDraft(undefined);
       setDeal(EMPTY);
       setDirty(false);
       setBookName('');
@@ -758,10 +771,12 @@ export default function DealStage({
       onNew={newDeal}
       compact={app}
       onWon={app ? (q) => void quoteWon(q) : undefined}
-      onLost={app ? (q) => void quoteLost(q) : undefined}
+      onLost={app && onLoseQuotes ? (q, r) => void closeQuotes([q], { lost: r }) : undefined}
+      onRemove={app ? (q) => void closeQuotes([q], 'remove') : undefined}
       accounts={accounts}
       onAccountWon={app ? (qs) => void accountWon(qs) : undefined}
-      onAccountLost={app ? (qs) => void accountLost(qs) : undefined}
+      onAccountLost={app && onLoseQuotes ? (qs, r) => void closeQuotes(qs, { lost: r }) : undefined}
+      onAccountRemove={app ? (qs) => void closeQuotes(qs, 'remove') : undefined}
       busy={quoteBusy}
     />
   ) : null;

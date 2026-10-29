@@ -108,6 +108,17 @@
 -- v12 database:
 --   alter table public.comp_plans add column if not exists accelerator_steps jsonb;
 --
+-- v18 (2026-10-29) keeps lost quotes. Closing a quote as lost no longer
+-- deletes it: quotes.status ('open' | 'lost'), closed_at and lost_reason
+-- ('price', 'competitor', 'no_decision', 'timing', 'other'; null when the rep
+-- skips it), so a win rate can be worked out later. The open list reads
+-- status = 'open'. Removing a quote (a duplicate, a mistake) still deletes
+-- it and counts nowhere. Additive, applied 2026-10-29:
+--   alter table public.quotes add column if not exists status text not null default 'open' check (status in ('open', 'lost'));
+--   alter table public.quotes add column if not exists closed_at timestamptz;
+--   alter table public.quotes add column if not exists lost_reason text check (lost_reason in ('price', 'competitor', 'no_decision', 'timing', 'other'));
+--   create index if not exists quotes_user_status_idx on public.quotes (user_id, status);
+--
 -- v17 (2026-10-29) adds accounts and the rep's forecast call. Accounts are
 -- buyers with several deals (a restaurant group's locations, a firm's
 -- offices): public.deal_accounts, owner-only RLS like deal_labels, with the

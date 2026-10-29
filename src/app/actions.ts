@@ -14,7 +14,9 @@ import {
   type CompPlan,
   type DealInput,
   FORECASTS,
+  LOST_REASONS,
   type Forecast,
+  type LostReason,
   type Opening,
   type OpeningInput,
   type AcceleratorStep,
@@ -632,6 +634,27 @@ export async function updateAccountAction(id: string, patch: { name?: string; on
   if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to change accounts.' };
   const res = await resolveAccount(supabase, user.id, { id, ...patch });
   if (!res) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/**
+ * Closed lost: the quotes leave the open list but are kept, with the day
+ * and (if the rep gave one) the reason, so a win rate can be worked out
+ * later. Removing a quote (deleteQuoteAction) is for ones that were never
+ * real and counts nowhere.
+ */
+export async function loseQuotesAction(ids: string[], reason: LostReason | null): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  const clean = (Array.isArray(ids) ? ids : []).filter((id) => QUOTE_ID.test(String(id))).slice(0, 50);
+  if (!user || !clean.length) return { error: 'Sign in to change quotes.' };
+  const why = reason && LOST_REASONS.some((r) => r.key === reason) ? reason : null;
+  const { error } = await supabase
+    .from('quotes')
+    .update({ status: 'lost', closed_at: new Date().toISOString(), lost_reason: why, forecast: null })
+    .in('id', clean)
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t go through. Try again in a moment.' };
   revalidatePath('/', 'layout');
   return {};
 }

@@ -7,6 +7,7 @@ import {
   type DealAccount,
   type DealInput,
   type Forecast,
+  type LostReason,
   type Opening,
   type OpeningInput,
   type PeriodToDate,
@@ -53,6 +54,7 @@ export default function PipelineHome({
   onForecast,
   onUpdateAccount,
   onAssignAccount,
+  onLoseQuotes,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -78,6 +80,7 @@ export default function PipelineHome({
   /** The rep's call on open quotes. */
   onForecast?: (ids: string[], forecast: Forecast | null) => Promise<Result>;
   onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<Result>;
+  onLoseQuotes?: (ids: string[], reason: LostReason | null) => Promise<Result>;
   onAssignAccount?: (target: { kind: 'quote' | 'deal'; id: string }, account: AccountMeta) => Promise<Result & { accountId?: string | null }>;
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
@@ -100,6 +103,7 @@ export default function PipelineHome({
       accounts={accounts}
       onUpdateAccount={onUpdateAccount}
       onAssignAccount={onAssignAccount}
+      onLoseQuotes={onLoseQuotes}
       top={({ onNew }) => (
         <Overview
           plan={paying}

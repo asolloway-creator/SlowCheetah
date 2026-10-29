@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { calc, pipeline, type CompPlan, type DealAccount, type DealInput, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
+import { calc, LOST_REASONS, pipeline, type CompPlan, type DealAccount, type DealInput, type LostReason, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, periodNoun } from '@/lib/format';
 import { tierName } from '@/components/opening';
 
@@ -40,9 +40,11 @@ export default function QuotesRail({
   compact = false,
   onWon,
   onLost,
+  onRemove,
   accounts = [],
   onAccountWon,
   onAccountLost,
+  onAccountRemove,
   busy = false,
 }: {
   plan: CompPlan;
@@ -54,14 +56,18 @@ export default function QuotesRail({
   onNew: () => void;
   /** In the product: a quiet list label, with "New deal" up in the page head. */
   compact?: boolean;
-  /** Close a quote straight from the list: book it today, or drop it. */
+  /** Close a quote straight from the list: book it today, or mark it lost
+   *  (kept, with a reason, for a win rate later). */
   onWon?: (q: Quote) => void;
-  onLost?: (q: Quote) => void;
+  onLost?: (q: Quote, reason: LostReason | null) => void;
+  /** Take out a quote that was never real (a duplicate, a mistake). Counts nowhere. */
+  onRemove?: (q: Quote) => void;
   /** Accounts with more than one open quote show as one group. */
   accounts?: DealAccount[];
   /** An account that decides as one closes from its group: all won, or all lost. */
   onAccountWon?: (qs: Quote[]) => void;
-  onAccountLost?: (qs: Quote[]) => void;
+  onAccountLost?: (qs: Quote[], reason: LostReason | null) => void;
+  onAccountRemove?: (qs: Quote[]) => void;
   busy?: boolean;
 }) {
   const noun = periodNoun(plan);
@@ -139,8 +145,10 @@ export default function QuotesRail({
               onOpen={onOpen}
               onWon={onWon}
               onLost={onLost}
+              onRemove={onRemove}
               onAccountWon={onAccountWon}
               onAccountLost={onAccountLost}
+              onAccountRemove={onAccountRemove}
               busy={busy}
             />
           ) : (
@@ -152,6 +160,7 @@ export default function QuotesRail({
               onOpen={onOpen}
               onWon={onWon}
               onLost={onLost}
+              onRemove={onRemove}
               busy={busy}
             />
           ),
@@ -198,8 +207,10 @@ function AccountGroup({
   onOpen,
   onWon,
   onLost,
+  onRemove,
   onAccountWon,
   onAccountLost,
+  onAccountRemove,
   busy,
 }: {
   account: DealAccount;
@@ -209,12 +220,13 @@ function AccountGroup({
   activeId: string | null;
   onOpen: (q: Quote) => void;
   onWon?: (q: Quote) => void;
-  onLost?: (q: Quote) => void;
+  onLost?: (q: Quote, reason: LostReason | null) => void;
+  onRemove?: (q: Quote) => void;
   onAccountWon?: (qs: Quote[]) => void;
-  onAccountLost?: (qs: Quote[]) => void;
+  onAccountLost?: (qs: Quote[], reason: LostReason | null) => void;
+  onAccountRemove?: (qs: Quote[]) => void;
   busy: boolean;
 }) {
-  const [confirming, setConfirming] = useState(false);
   const one = account.oneDecision;
   const total = quotes.reduce((n, q) => n + calc(plan, q.deal, ptd).commissionEffective, 0);
   return (
@@ -238,38 +250,21 @@ function AccountGroup({
             onOpen={onOpen}
             onWon={one ? undefined : onWon}
             onLost={one ? undefined : onLost}
+            onRemove={one ? undefined : onRemove}
             busy={busy}
           />
         ))}
       </ul>
       {one && (onAccountWon || onAccountLost) && (
-        <div className="pipe-row-foot pipe-group-foot">
-          <span className="pipe-age">All {quotes.length} close together</span>
-          {confirming ? (
-            <span className="pipe-acts">
-              Remove all {quotes.length}?
-              <button type="button" className="pipe-act" disabled={busy} onClick={() => onAccountLost?.(quotes)}>
-                Yes, lost
-              </button>
-              <button type="button" className="pipe-act" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
-            </span>
-          ) : (
-            <span className="pipe-acts">
-              {onAccountWon && (
-                <button type="button" className="pipe-act is-won" disabled={busy} onClick={() => onAccountWon(quotes)}>
-                  Won all
-                </button>
-              )}
-              {onAccountLost && (
-                <button type="button" className="pipe-act" disabled={busy} onClick={() => setConfirming(true)}>
-                  Lost
-                </button>
-              )}
-            </span>
-          )}
-        </div>
+        <CloseActs
+          note="Closes together"
+          count={quotes.length}
+          wonLabel="Won all"
+          onWon={onAccountWon ? () => onAccountWon(quotes) : undefined}
+          onLost={onAccountLost ? (r) => onAccountLost(quotes, r) : undefined}
+          onRemove={onAccountRemove ? () => onAccountRemove(quotes) : undefined}
+          busy={busy}
+        />
       )}
     </li>
   );
@@ -289,6 +284,7 @@ function QuoteRow({
   onOpen,
   onWon,
   onLost,
+  onRemove,
   busy,
 }: {
   q: Quote;
@@ -296,10 +292,10 @@ function QuoteRow({
   active: boolean;
   onOpen: (q: Quote) => void;
   onWon?: (q: Quote) => void;
-  onLost?: (q: Quote) => void;
+  onLost?: (q: Quote, reason: LostReason | null) => void;
+  onRemove?: (q: Quote) => void;
   busy: boolean;
 }) {
-  const [confirming, setConfirming] = useState(false);
   return (
     <li className={`pipe-item${active ? ' is-active' : ''}`}>
       <button type="button" className="pipe-row" aria-pressed={active} onClick={() => onOpen(q)}>
@@ -314,34 +310,102 @@ function QuoteRow({
         <span className="pipe-row-pay">{fmtMoney(pay.commissionEffective)}</span>
       </button>
       {(onWon || onLost) && (
-        <div className="pipe-row-foot">
-          <span className="pipe-age">{openFor(q.createdAt)}</span>
-          {confirming ? (
-            <span className="pipe-acts">
-              Remove it?
-              <button type="button" className="pipe-act" disabled={busy} onClick={() => onLost?.(q)}>
-                Yes, lost
-              </button>
-              <button type="button" className="pipe-act" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
-            </span>
-          ) : (
-            <span className="pipe-acts">
-              {onWon && (
-                <button type="button" className="pipe-act is-won" disabled={busy} onClick={() => onWon(q)}>
-                  Won
-                </button>
-              )}
-              {onLost && (
-                <button type="button" className="pipe-act" disabled={busy} onClick={() => setConfirming(true)}>
-                  Lost
-                </button>
-              )}
-            </span>
-          )}
-        </div>
+        <CloseActs
+          note={openFor(q.createdAt)}
+          count={1}
+          wonLabel="Won"
+          onWon={onWon ? () => onWon(q) : undefined}
+          onLost={onLost ? (r) => onLost(q, r) : undefined}
+          onRemove={onRemove ? () => onRemove(q) : undefined}
+          busy={busy}
+        />
       )}
     </li>
+  );
+}
+
+/**
+ * Closing a quote (or an account's quotes) from the list. Won books it.
+ * Lost keeps it, off the open list, and asks why in one tap (or not).
+ * Remove, behind "More", is for ones that were never real, and counts
+ * nowhere, so a win rate is never skewed by cleanup.
+ */
+function CloseActs({
+  note,
+  count,
+  wonLabel,
+  onWon,
+  onLost,
+  onRemove,
+  busy,
+}: {
+  note: string;
+  count: number;
+  wonLabel: string;
+  onWon?: () => void;
+  onLost?: (reason: LostReason | null) => void;
+  onRemove?: () => void;
+  busy: boolean;
+}) {
+  const [mode, setMode] = useState<'idle' | 'lost' | 'remove'>('idle');
+  const it = count === 1 ? 'it' : `all ${count}`;
+  if (mode === 'lost' && onLost) {
+    return (
+      <div className="pipe-close">
+        <p className="pipe-close-q">Lost. Why?</p>
+        <div className="pipe-close-acts">
+          {LOST_REASONS.map((r) => (
+            <button key={r.key} type="button" className="pipe-act" disabled={busy} onClick={() => onLost(r.key)}>
+              {r.label}
+            </button>
+          ))}
+          <button type="button" className="pipe-act is-quiet" disabled={busy} onClick={() => onLost(null)}>
+            Skip
+          </button>
+          <button type="button" className="btn-text pipe-close-cancel" onClick={() => setMode('idle')}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (mode === 'remove' && onRemove) {
+    return (
+      <div className="pipe-close">
+        <p className="pipe-close-q">
+          Remove {it}? Only for a duplicate or a deal that was never real. A deal that didn&rsquo;t close is Lost.
+        </p>
+        <div className="pipe-close-acts">
+          <button type="button" className="pipe-act" disabled={busy} onClick={onRemove}>
+            Remove {it}
+          </button>
+          <button type="button" className="btn-text pipe-close-cancel" onClick={() => setMode('idle')}>
+            Keep
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="pipe-row-foot">
+      <span className="pipe-age">{note}</span>
+      <span className="pipe-acts">
+        {onWon && (
+          <button type="button" className="pipe-act is-won" disabled={busy} onClick={onWon}>
+            {wonLabel}
+          </button>
+        )}
+        {onLost && (
+          <button type="button" className="pipe-act" disabled={busy} onClick={() => setMode('lost')}>
+            Lost
+          </button>
+        )}
+        {onRemove && (
+          <button type="button" className="pipe-more" aria-label={count === 1 ? 'More: remove this quote' : 'More: remove these quotes'} onClick={() => setMode('remove')}>
+            &hellip;
+          </button>
+        )}
+      </span>
+    </div>
   );
 }

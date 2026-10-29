@@ -621,6 +621,16 @@ export type Quote = {
 export type Forecast = 'commit' | 'likely' | 'stretch' | 'next';
 export const FORECASTS: Forecast[] = ['commit', 'likely', 'stretch', 'next'];
 
+/** Why a quote was lost (v18), when the rep says. */
+export type LostReason = 'price' | 'competitor' | 'no_decision' | 'timing' | 'other';
+export const LOST_REASONS: { key: LostReason; label: string }[] = [
+  { key: 'price', label: 'Price' },
+  { key: 'competitor', label: 'Competitor' },
+  { key: 'no_decision', label: 'No decision' },
+  { key: 'timing', label: 'Timing' },
+  { key: 'other', label: 'Other' },
+];
+
 /**
  * One buyer with several deals (v17 deal_accounts): the locations of a
  * restaurant group, the offices of a firm. `oneDecision` means they all

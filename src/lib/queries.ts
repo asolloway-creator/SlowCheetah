@@ -215,6 +215,8 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
       .from('quotes')
       .select('*')
       .eq('user_id', userId)
+      // Lost quotes are kept (v18) for the record, off the open list.
+      .eq('status', 'open')
       .order('updated_at', { ascending: false })
       .limit(50);
     if (error || !data) return [];
