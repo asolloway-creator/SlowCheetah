@@ -90,6 +90,9 @@ export function lostNow(plan: CompPlan, d: DealRow, lift: number | null): Record
  *  in the same dollars the plan counts: a year of subscription, one-time
  *  products and services (hardware too, unless it has its own rate). */
 export function offByLine(plan: CompPlan, d: DealRow): Record<Line, { list: number; off: number }> {
+  // Booked ARR entered without a quote has no discount to measure; counting
+  // it at 0% off would pull every average down.
+  if (d.kind === 'upsell') return { software: { list: 0, off: 0 }, services: { list: 0, off: 0 }, hardware: { list: 0, off: 0 } };
   const split = paysHardware(plan);
   const subList = d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12;
   const hw = d.hardware_amount ?? 0;

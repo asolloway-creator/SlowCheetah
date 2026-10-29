@@ -119,6 +119,12 @@
 --   alter table public.quotes add column if not exists lost_reason text check (lost_reason in ('price', 'competitor', 'no_decision', 'timing', 'other'));
 --   create index if not exists quotes_user_status_idx on public.quotes (user_id, status);
 --
+-- v20 (2026-10-30) adds deals.kind: 'deal' (the default) or 'upsell', for ARR
+-- booked without a quote ("Add booked ARR" under the closed deals). Counts
+-- toward quota and commission like any booked deal; left out of the
+-- discount numbers (components/discounts.ts offByLine). Additive:
+--   alter table public.deals add column if not exists kind text not null default 'deal' check (kind in ('deal', 'upsell'));
+--
 -- v19 (2026-10-30) drops 'likely' from quotes.forecast (the rep's call):
 -- 'commit' | 'stretch' | 'next' now. Any 'likely' became 'stretch'.
 -- Applied 2026-10-30:

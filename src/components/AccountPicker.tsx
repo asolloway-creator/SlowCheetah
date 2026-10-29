@@ -16,11 +16,15 @@ export default function AccountPicker({
   openCount,
   onPick,
   busy = false,
+  id = 'acctName',
 }: {
   accounts: DealAccount[];
-  openCount: Record<string, number>;
+  /** Open deals per account, shown beside each; left out where it doesn't apply. */
+  openCount?: Record<string, number>;
   onPick: (c: AccountChoice) => void;
   busy?: boolean;
+  /** The input's id, so two pickers on one page don't share it. */
+  id?: string;
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -41,7 +45,7 @@ export default function AccountPicker({
   return (
     <div className="acct-pick">
       <input
-        id="acctName"
+        id={id}
         className="acct-line-name"
         role="combobox"
         aria-expanded={open}
@@ -74,9 +78,11 @@ export default function AccountPicker({
             <li key={a.id} role="option" aria-selected={false}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick({ account: a })}>
                 <span>{a.name}</span>
-                <span className="acct-pick-n">
-                  {openCount[a.id] ? `${openCount[a.id]} open ${openCount[a.id] === 1 ? 'deal' : 'deals'}` : 'no open deals'}
-                </span>
+                {openCount && (
+                  <span className="acct-pick-n">
+                    {openCount[a.id] ? `${openCount[a.id]} open ${openCount[a.id] === 1 ? 'deal' : 'deals'}` : 'no open deals'}
+                  </span>
+                )}
               </button>
             </li>
           ))}

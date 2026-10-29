@@ -23,7 +23,7 @@ import { rateLift, type Line, type Targets } from '@/components/discounts';
 
 type Result = { error?: string };
 type AccountMeta = { id?: string | null; name?: string; oneDecision?: boolean; from?: { kind: 'quote' | 'deal'; id: string } | null } | null;
-type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta };
+type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta; kind?: 'deal' | 'upsell' };
 
 /**
  * The signed-in rep's one page: where they stand across the top, their
@@ -132,6 +132,14 @@ export default function PipelineHome({
           targets={targets}
           onTarget={onTarget}
           lift={rateLift(paying, ptd)}
+          accounts={accounts}
+          calendar={calendar}
+          onAddBooked={(i) =>
+            onSave(
+              { oneTime: 0, subscription: i.arr, subMode: 'acv', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 },
+              { name: i.name, bookedOn: i.bookedOn, account: i.account, kind: i.kind },
+            )
+          }
         />
         </>
       )}

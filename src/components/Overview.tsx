@@ -318,21 +318,10 @@ function StartingPoint({
       </p>
     );
   }
-  if (!open && compact) {
-    return (
-      <p className="quota-start">
-        Booked anything in {label} before IOI?{' '}
-        <button type="button" className="btn-text" onClick={() => setOpen(true)}>
-          Add it
-        </button>{' '}
-        ·{' '}
-        <button type="button" className="btn-text" disabled={busy} onClick={() => void nothing()}>
-          Nothing to add
-        </button>
-        {error && <span className="is-red"> {error}</span>}
-      </p>
-    );
-  }
+  // Once deals are in for the period, the way to add booked ARR is "Add
+  // booked ARR" under the closed deals; this question is only for the first
+  // look, when nothing is in yet.
+  if (!open && compact) return null;
   if (!open) {
     return (
       <section className="start-card" aria-labelledby="start-card-h">

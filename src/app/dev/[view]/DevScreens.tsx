@@ -142,6 +142,16 @@ export default function DevScreens({ view }: { view: string }) {
       oneTime: ot, subscription: sub, subMode: 'mrr', units: 1, oneTimeDiscountPct: otOff, subscriptionDiscountPct: off,
     });
     const at = (n: number) => `${today}T1${n}:00:00Z`;
+    // ARR booked without a quote (an upsell): in the period, no discount data.
+    const upD: DealInput = { oneTime: 0, subscription: 6000, subMode: 'acv', units: 1, oneTimeDiscountPct: 0, subscriptionDiscountPct: 0 };
+    const upR = calc(plan, upD, periodToDateFrom(rr));
+    const upsell: DealRow = {
+      id: 'dev-up', one_time_amount: 0, subscription_amount: 6000, subscription_mode: 'acv', units: 1, one_time_discount_pct: 0,
+      subscription_discount_pct: 0, quota_credit: upR.credit, arr: upR.subAnnual, commission_base: upR.commissionBase,
+      commission_earned: upR.commissionEffective, money_left_on_table: 0, saas_commission: upR.saasCommissionEffective,
+      hardware_amount: 0, hardware_discount_pct: 0, hardware_commission: 0, created_at: `${today}T15:00:00Z`, name: 'Harbor Table', kind: 'upsell',
+    };
+    const booked = [...rr, upsell];
     const quotes: Quote[] = [
       { id: 'k1', name: 'Copper Pot', deal: mrr(1050, 10, 3900, 50), createdAt: at(6), updatedAt: at(6), accountId: null, forecast: 'commit' },
       { id: 'k2', name: 'Blue Fern', deal: mrr(200, 0), createdAt: at(5), updatedAt: at(5), accountId: null, forecast: 'stretch' },
@@ -159,11 +169,11 @@ export default function DevScreens({ view }: { view: string }) {
       <Shell current="/" email={EMAIL} width="full">
         <PipelineHome
           plan={plan}
-          ptd={periodToDateFrom(rr)}
-          qtd={quarterToDateFrom(rr)}
+          ptd={periodToDateFrom(booked)}
+          qtd={quarterToDateFrom(booked)}
           opening={null}
           quotes={quotes}
-          deals={rr}
+          deals={booked}
           onSave={ok}
           onSaveQuote={async () => ({ id: 'q1' })}
           onDeleteQuote={ok}

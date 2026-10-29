@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { paysHardware, periodLabel, periodOf, periodToDateFrom, type CompPlan } from '@/lib/calc';
+import { paysHardware, periodLabel, periodOf, periodToDateFrom, type CompPlan, type DealAccount } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { earnedNow, lostNow, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
+import AddBooked, { type BookedInput } from '@/components/AddBooked';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 
 /** "Oct 26": inside a period the year is the page's own. */
@@ -37,9 +38,16 @@ export default function BookedList({
   targets = {},
   onTarget,
   lift = 1,
+  accounts = [],
+  calendar,
+  onAddBooked,
 }: {
   plan: CompPlan;
   deals: DealRow[];
+  /** ARR booked without a quote (an upsell, say): entered right here. */
+  accounts?: DealAccount[];
+  calendar?: { today: string; periodStart: string };
+  onAddBooked?: (i: BookedInput) => Promise<{ error?: string }>;
   onDelete: (id: string) => Promise<{ error?: string }>;
   /** Opens a booked deal in the card to change it. */
   onEdit?: (d: DealRow) => void;
@@ -130,6 +138,7 @@ export default function BookedList({
             <tr key={d.id} className={d.id === editingId ? 'is-editing' : undefined}>
               <td className={`t-left t-name${d.name ? '' : ' is-dim'}`} title={d.name || undefined}>
                 {d.name || 'Unnamed'}
+                {d.kind === 'upsell' && <span className="t-kind">Upsell</span>}
               </td>
               <td className="t-date">{fmtDay(d.created_at)}</td>
               <td className="t-arr" data-label={size.label}>
@@ -138,6 +147,14 @@ export default function BookedList({
               {lines.map((l) => {
                 const p = Math.round(l.pct(d) * 10) / 10;
                 const cost = lost[l.key];
+                // Booked without a quote: no discount to show.
+                if (d.kind === 'upsell') {
+                  return (
+                    <td key={l.key} className="t-disc" data-label={l.label}>
+                      <span className="t-pct is-dim">n/a</span>
+                    </td>
+                  );
+                }
                 return (
                   <td key={l.key} className="t-disc" data-label={l.label}>
                     <span className={`t-pct${p > 0 ? '' : ' is-dim'}`}>{fmtPctShort(p)}</span>
@@ -211,6 +228,7 @@ export default function BookedList({
           {error}
         </p>
       )}
+      {onAddBooked && calendar && <AddBooked accounts={accounts} calendar={calendar} onAdd={onAddBooked} />}
 
       {now.length === 0 ? (
         <p className="cd-empty">Nothing closed in {current} yet. Book a deal when it closes and it lands here.</p>

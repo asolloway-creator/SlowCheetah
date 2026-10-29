@@ -80,7 +80,7 @@ export type AccountMeta = {
 
 /** What the rep adds when booking: the deal's name, the day it was booked,
  *  and its account. */
-export type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta };
+export type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta; kind?: 'deal' | 'upsell' };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const dealName = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -241,6 +241,7 @@ export async function saveDealAction(input: DealInput, meta?: BookMeta): Promise
       ...dealColumns(deal, r),
       ...(createdAt ? { created_at: createdAt } : {}),
       ...(accountId !== undefined ? { account_id: accountId } : {}),
+      ...(meta?.kind === 'upsell' ? { kind: 'upsell' } : {}),
     })
     .select('id')
     .single();

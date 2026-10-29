@@ -57,6 +57,8 @@ export type DealRow = {
   name: string;
   /** v17: the account it belongs to, if any. */
   account_id?: string | null;
+  /** v20: 'upsell' for booked ARR entered without a quote (no discount data). */
+  kind?: 'deal' | 'upsell';
 };
 
 /** The rep's discount targets (comp_plans.targets). Never throws: where they
@@ -180,6 +182,7 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     created_at: String(d.created_at),
     name: labelOf(d.deal_labels),
     account_id: d.account_id ? String(d.account_id) : null,
+    kind: d.kind === 'upsell' ? 'upsell' : 'deal',
   };
 }
 
