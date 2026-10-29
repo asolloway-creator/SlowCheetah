@@ -24,6 +24,7 @@ import TweenedMoney from '@/components/TweenedMoney';
 import KickerOutcome from '@/components/KickerOutcome';
 import DealResult from '@/components/DealResult';
 import QuotesRail, { quoteLabel } from '@/components/QuotesRail';
+import AccountPicker, { type AccountChoice } from '@/components/AccountPicker';
 import { track, trackOnce, type TrackContext } from '@/lib/track';
 import type { DealRow } from '@/lib/queries';
 import type { Targets } from '@/components/discounts';
@@ -140,6 +141,7 @@ export default function DealStage({
   initialQuoteId = null,
   accounts = [],
   onUpdateAccount,
+  onAssignAccount,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -187,6 +189,11 @@ export default function DealStage({
   accounts?: DealAccount[];
   /** Renames an account, or changes whether its deals close as one. */
   onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<{ error?: string }>;
+  /** Puts a saved quote or booked deal in an account, or takes it out. */
+  onAssignAccount?: (
+    target: { kind: 'quote' | 'deal'; id: string },
+    account: AccountDraft | null,
+  ) => Promise<{ error?: string; accountId?: string | null }>;
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
   // The open quote on the card, if the deal on it is one. Quotes are deals the
@@ -641,7 +648,8 @@ export default function DealStage({
     setActiveQuote(null);
     setEditing(null);
     setAcctDraft(draft);
-    setBookName(src.name);
+    // Blank, so the new deal is never saved as a second copy of this one.
+    setBookName('');
     setBookedOn(calendar?.today ?? '');
     setDeal(src.deal);
     setDirty(true);
@@ -702,10 +710,39 @@ export default function DealStage({
       }
     }
   }
-  function removeFromAccount() {
-    setAcctDraft(null);
-    setDirty(true);
+  // A saved quote or deal joins (or leaves) an account at once; a new deal
+  // takes it with it when it's saved.
+  const [acctBusy, setAcctBusy] = useState(false);
+  async function assign(draft: AccountDraft | null) {
+    setAcctDraft(draft);
+    if (!cardSource || !onAssignAccount) {
+      setDirty(true);
+      return;
+    }
+    setAcctBusy(true);
+    let res: { error?: string; accountId?: string | null };
+    try {
+      res = await onAssignAccount(cardSource, draft);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setAcctBusy(false);
+    if (res.error) {
+      setAcctDraft(undefined);
+      return setQuoteError(res.error);
+    }
+    if (draft && res.accountId) setAcctDraft({ ...draft, id: res.accountId, from: null });
   }
+  function pickAccount(c: AccountChoice) {
+    void assign('account' in c ? { id: c.account.id, name: c.account.name, oneDecision: c.account.oneDecision } : { id: null, name: c.name, oneDecision: true });
+  }
+  function removeFromAccount() {
+    void assign(null);
+  }
+  const openCount = quotes.reduce<Record<string, number>>((m, q) => {
+    if (q.accountId) m[q.accountId] = (m[q.accountId] ?? 0) + 1;
+    return m;
+  }, {});
   function newFromHead() {
     newDeal();
     requestAnimationFrame(startEntering);
@@ -747,6 +784,7 @@ export default function DealStage({
           maxLength={80}
           placeholder="Name the account"
           value={acct.name}
+          disabled={acctBusy}
           onChange={(e) => setAcctDraft({ ...acct, name: e.target.value })}
           onBlur={(e) => void changeAccount({ name: e.target.value }, true)}
         />
@@ -763,22 +801,25 @@ export default function DealStage({
         {acct.oneDecision ? 'Its deals close together or not at all.' : 'Each of its deals is decided on its own.'}
         {cardSource && (
           <button type="button" className="btn-text" onClick={addFromCard}>
-            Add deal to account
+            New deal for this account
           </button>
         )}
-        <button type="button" className="btn-text" onClick={removeFromAccount}>
+        <button type="button" className="btn-text" disabled={acctBusy} onClick={removeFromAccount}>
           Remove from account
         </button>
       </p>
     </div>
-  ) : cardSource ? (
-    <p className="acct-line is-none">
-      <button type="button" className="btn-text" onClick={addFromCard}>
-        Add deal to account
-      </button>
-      <span>Another deal for the same buyer, with these numbers to start from.</span>
-    </p>
-  ) : null;
+  ) : (
+    <div className="acct-line">
+      <div className="acct-line-top">
+        <label className="acct-line-k" htmlFor="acctName">
+          Account
+        </label>
+        <AccountPicker accounts={accounts} openCount={openCount} onPick={pickAccount} busy={acctBusy} />
+      </div>
+      <p className="acct-line-foot">Optional. Deals for the same buyer go in one account.</p>
+    </div>
+  );
 
   const slider = (
     <DiscountSlider

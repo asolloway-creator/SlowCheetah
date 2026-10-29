@@ -9,6 +9,7 @@ import {
   saveQuoteAction,
   saveRateAction,
   saveTargetAction,
+  assignAccountAction,
   setForecastAction,
   unbookDealAction,
   updateAccountAction,
@@ -60,6 +61,7 @@ export default async function Home() {
         accounts={accounts}
         onForecast={setForecastAction}
         onUpdateAccount={updateAccountAction}
+        onAssignAccount={assignAccountAction}
       />
     </Shell>
   );

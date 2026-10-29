@@ -177,6 +177,7 @@ export default function DevScreens({ view }: { view: string }) {
           accounts={accounts}
           onForecast={ok}
           onUpdateAccount={ok}
+          onAssignAccount={async () => ({ accountId: 'acc-1' })}
         />
       </Shell>
     );

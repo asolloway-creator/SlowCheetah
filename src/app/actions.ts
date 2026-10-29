@@ -192,13 +192,23 @@ async function resolveAccount(supabase: Db, userId: string, acct: AccountMeta | 
     const { data } = await q;
     return data ? String(data.id) : null;
   }
-  const { data, error } = await supabase
-    .from('deal_accounts')
-    .insert({ user_id: userId, name, one_decision: acct.oneDecision !== false })
-    .select('id')
-    .single();
-  if (error || !data) return null;
-  const id = String(data.id);
+  // One name, one account: a name the rep already has joins that account
+  // instead of making a second one.
+  let id: string | null = null;
+  if (name) {
+    const { data: mine } = await supabase.from('deal_accounts').select('id, name').eq('user_id', userId);
+    const same = (mine ?? []).find((a: { name: string }) => a.name.trim().toLowerCase() === name.toLowerCase());
+    if (same) id = String(same.id);
+  }
+  if (!id) {
+    const { data, error } = await supabase
+      .from('deal_accounts')
+      .insert({ user_id: userId, name, one_decision: acct.oneDecision !== false })
+      .select('id')
+      .single();
+    if (error || !data) return null;
+    id = String(data.id);
+  }
   const from = acct.from;
   if (from && QUOTE_ID.test(from.id)) {
     await supabase
@@ -590,6 +600,30 @@ export async function setForecastAction(ids: string[], forecast: Forecast | null
   if (error) return { error: 'That didn’t save. Try again in a moment.' };
   revalidatePath('/', 'layout');
   return {};
+}
+
+/**
+ * Puts a saved quote or booked deal in an account (an existing one, or one
+ * made now; a name the rep already has joins that account), or takes it out
+ * with `null`. Saves at once: an account is a fact about the buyer, not an
+ * edit to the deal's numbers.
+ */
+export async function assignAccountAction(
+  target: { kind: 'quote' | 'deal'; id: string },
+  account: AccountMeta,
+): Promise<Result & { accountId?: string | null }> {
+  const { supabase, user } = await currentUser();
+  if (!user || !target || !QUOTE_ID.test(String(target.id))) return { error: 'Sign in to change accounts.' };
+  const accountId = await resolveAccount(supabase, user.id, account === null ? null : { ...account, from: null });
+  if (account !== null && !accountId) return { error: 'That didn’t save. Try again in a moment.' };
+  const { error } = await supabase
+    .from(target.kind === 'deal' ? 'deals' : 'quotes')
+    .update({ account_id: accountId ?? null })
+    .eq('id', target.id)
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return { accountId: accountId ?? null };
 }
 
 /** Renames an account, or changes whether its deals close as one. */

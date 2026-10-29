@@ -52,6 +52,7 @@ export default function PipelineHome({
   accounts = [],
   onForecast,
   onUpdateAccount,
+  onAssignAccount,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -77,6 +78,7 @@ export default function PipelineHome({
   /** The rep's call on open quotes. */
   onForecast?: (ids: string[], forecast: Forecast | null) => Promise<Result>;
   onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<Result>;
+  onAssignAccount?: (target: { kind: 'quote' | 'deal'; id: string }, account: AccountMeta) => Promise<Result & { accountId?: string | null }>;
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
   const paying = planForPeriod(plan, opening);
@@ -97,6 +99,7 @@ export default function PipelineHome({
       onUnbookDeal={onUnbookDeal}
       accounts={accounts}
       onUpdateAccount={onUpdateAccount}
+      onAssignAccount={onAssignAccount}
       top={({ onNew }) => (
         <Overview
           plan={paying}
@@ -112,7 +115,7 @@ export default function PipelineHome({
           targets={targets}
         />
       )}
-      after={({ editDeal, addDealToAccount, unbookDeal, editingId }) => (
+      after={({ editDeal, unbookDeal, editingId }) => (
         <>
           <CloseOut plan={paying} ptd={ptd} qtd={qtd} quotes={quotes} accounts={accounts} calendar={calendar} onForecast={onForecast} />
           <BookedList
@@ -121,7 +124,6 @@ export default function PipelineHome({
           onDelete={onDeleteDeal}
           onEdit={editDeal}
           editingId={editingId}
-          onAddToAccount={addDealToAccount}
           onUnbook={unbookDeal}
           targets={targets}
           onTarget={onTarget}
