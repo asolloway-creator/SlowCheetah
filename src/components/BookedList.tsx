@@ -32,7 +32,7 @@ export default function BookedList({
   deals,
   onDelete,
   onEdit,
-  onCopy,
+  onAddToAccount,
   onUnbook,
   editingId = null,
   targets = {},
@@ -44,8 +44,8 @@ export default function BookedList({
   onDelete: (id: string) => Promise<{ error?: string }>;
   /** Opens a booked deal in the card to change it. */
   onEdit?: (d: DealRow) => void;
-  /** Starts a new deal from this one's numbers. */
-  onCopy?: (d: DealRow) => void;
+  /** Another deal for the same buyer, starting from this one's numbers. */
+  onAddToAccount?: (d: DealRow) => void;
   /** Back to the pipeline as an open quote. */
   onUnbook?: (d: DealRow) => Promise<{ error?: string }>;
   editingId?: string | null;
@@ -166,14 +166,14 @@ export default function BookedList({
                       Edit
                     </button>
                   )}
-                  {onCopy && (
+                  {onAddToAccount && (
                     <button
                       type="button"
                       className="cd-act"
-                      aria-label={`Start a new deal from ${d.name || `the deal from ${fmtDate(d.created_at)}`}`}
-                      onClick={() => onCopy(d)}
+                      aria-label={`Add another deal to the account of ${d.name || `the deal from ${fmtDate(d.created_at)}`}`}
+                      onClick={() => onAddToAccount(d)}
                     >
-                      Copy
+                      Add deal to account
                     </button>
                   )}
                   {onUnbook && (

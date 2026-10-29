@@ -7,6 +7,7 @@ import {
   calc,
   periodLabel,
   type CompPlan,
+  type DealAccount,
   type DealInput,
   type PeriodToDate,
   type QuarterToDate,
@@ -92,7 +93,11 @@ const customerSide = (s: ShowcaseScript) =>
  * showcase instead: the hero and the card alone, the card playing its story
  * (useShowcase). The builder comes with their own plan.
  */
-type BookMeta = { name?: string; bookedOn?: string };
+/** The account a deal belongs to, as the card holds it until it's saved:
+ *  `id` null for one being made now, `from` the deal or quote it started
+ *  from (which joins it when this one is saved). */
+type AccountDraft = { id: string | null; name: string; oneDecision: boolean; from?: { kind: 'quote' | 'deal'; id: string } | null };
+type BookMeta = { name?: string; bookedOn?: string; account?: AccountDraft | { id: string } | null };
 
 /** A booked deal's lines, as the card holds them. */
 function dealFromRow(row: DealRow): DealInput {
@@ -133,6 +138,8 @@ export default function DealStage({
   onDeleteQuote,
   onUnbookDeal,
   initialQuoteId = null,
+  accounts = [],
+  onUpdateAccount,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -164,18 +171,22 @@ export default function DealStage({
     | ReactNode
     | ((api: {
         editDeal: (row: DealRow) => void;
-        copyDeal: (row: DealRow) => void;
+        addDealToAccount: (row: DealRow) => void;
         unbookDeal: (row: DealRow) => Promise<{ error?: string }>;
         editingId: string | null;
       }) => ReactNode);
   /** The rep's open quotes, most recently worked first. */
   quotes?: Quote[];
-  onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<{ error?: string; id?: string }>;
+  onSaveQuote?: (q: { id?: string | null; name: string; deal: DealInput; account?: AccountDraft | null }) => Promise<{ error?: string; id?: string }>;
   onDeleteQuote?: (id: string) => Promise<{ error?: string }>;
   /** A booked deal back in the pipeline as an open quote. */
   onUnbookDeal?: (id: string) => Promise<{ error?: string; id?: string }>;
   /** The quote the page opens on (signed in: the most recent one). */
   initialQuoteId?: string | null;
+  /** The rep's accounts: buyers with several deals. */
+  accounts?: DealAccount[];
+  /** Renames an account, or changes whether its deals close as one. */
+  onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<{ error?: string }>;
 }) {
   const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
   // The open quote on the card, if the deal on it is one. Quotes are deals the
@@ -242,6 +253,14 @@ export default function DealStage({
 
   const quotesOn = !showcase && Boolean(onSaveQuote);
   const active = quotes.find((q) => q.id === activeQuote) ?? null;
+
+  // The account of the deal on the card: as saved, unless the rep has
+  // changed it here (undefined: as saved; null: taken out of its account).
+  const [acctDraft, setAcctDraft] = useState<AccountDraft | null | undefined>(undefined);
+  const savedAccountId = active?.accountId ?? editing?.row.account_id ?? null;
+  const savedAccount = savedAccountId ? (accounts.find((a) => a.id === savedAccountId) ?? null) : null;
+  const acct: AccountDraft | null =
+    acctDraft !== undefined ? acctDraft : savedAccount ? { id: savedAccount.id, name: savedAccount.name, oneDecision: savedAccount.oneDecision } : null;
 
   // Old "?plan=1" links (the plan dialog this page used to open) now go to
   // creating an account, where a plan is put in.
@@ -315,7 +334,12 @@ export default function DealStage({
     // onSave is a server action call — a network failure or timeout rejects
     // rather than resolving to {error}, which would leave pending stuck.
     let res: { error?: string };
-    const meta = app ? { name: bookName.trim() || active?.name || '', bookedOn: bookedOn || undefined } : undefined;
+    // A new booking carries the card's account (an open quote's included);
+    // a change to a booked deal sends it only if it was changed here.
+    const account = editing ? acctDraft : (acct ?? undefined);
+    const meta = app
+      ? { name: bookName.trim() || active?.name || '', bookedOn: bookedOn || undefined, ...(account !== undefined ? { account } : {}) }
+      : undefined;
     try {
       res = editing && onUpdateDeal ? await onUpdateDeal(editing.id, deal, meta) : await onSave(deal, meta);
     } catch {
@@ -328,6 +352,7 @@ export default function DealStage({
       setMsg({ error: res.error });
     } else if (editing) {
       setEditing(null);
+      setAcctDraft(undefined);
       setMsg({ updated: true });
       setDeal(EMPTY);
       setDirty(false);
@@ -342,6 +367,7 @@ export default function DealStage({
         } catch {}
       }
       setActiveQuote(null);
+      setAcctDraft(undefined);
       setMsg({ booked: true });
       setDeal(EMPTY);
       setDirty(false);
@@ -353,6 +379,7 @@ export default function DealStage({
   function openQuote(q: Quote) {
     setActiveQuote(q.id);
     setEditing(null);
+    setAcctDraft(undefined);
     setBookName(q.name);
     setDeal(q.deal);
     setDirty(false);
@@ -375,6 +402,7 @@ export default function DealStage({
   function newDeal() {
     setActiveQuote(null);
     setEditing(null);
+    setAcctDraft(undefined);
     setBookName('');
     setBookedOn(calendar?.today ?? '');
     setDeal(EMPTY);
@@ -393,7 +421,10 @@ export default function DealStage({
     try {
       // In the workspace the Deal name field names the quote too.
       const name = app ? bookName.trim() : asNew ? quoteName : (active?.name ?? '');
-      res = await onSaveQuote({ id: asNew ? null : activeQuote, name, deal });
+      // A new quote takes the card's account; a saved one sends it only if
+      // it was changed here.
+      const account = asNew ? (acct ?? undefined) : acctDraft;
+      res = await onSaveQuote({ id: asNew ? null : activeQuote, name, deal, ...(account !== undefined ? { account } : {}) });
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -401,6 +432,7 @@ export default function DealStage({
     if (res.error) return setQuoteError(res.error);
     if (asNew) track('quote_saved', ctx);
     if (res.id) setActiveQuote(res.id);
+    setAcctDraft(undefined);
     setDirty(false);
     setNaming(false);
     setQuoteName('');
@@ -415,7 +447,7 @@ export default function DealStage({
     setMsg({});
     let res: { error?: string };
     try {
-      res = await onSave(q.deal, { name: q.name, bookedOn: calendar?.today });
+      res = await onSave(q.deal, { name: q.name, bookedOn: calendar?.today, ...(q.accountId ? { account: { id: q.accountId } } : {}) });
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -434,6 +466,43 @@ export default function DealStage({
       setBookName('');
     }
     setMsg({ booked: true });
+  }
+  // An account that decides as one: Won books every one of its quotes,
+  // Lost drops them all.
+  async function accountWon(qs: Quote[]) {
+    setQuoteBusy(true);
+    setMsg({});
+    let error: string | undefined;
+    for (const q of qs) {
+      let res: { error?: string };
+      try {
+        res = await onSave(q.deal, { name: q.name, bookedOn: calendar?.today, ...(q.accountId ? { account: { id: q.accountId } } : {}) });
+      } catch {
+        res = { error: 'Could not reach the server. Check your connection and try again.' };
+      }
+      if (res.error) {
+        error = res.error;
+        break;
+      }
+      track('deal_booked', ctx);
+      if (onDeleteQuote) {
+        try {
+          await onDeleteQuote(q.id);
+        } catch {}
+      }
+    }
+    setQuoteBusy(false);
+    if (activeQuote && qs.some((q) => q.id === activeQuote)) {
+      setActiveQuote(null);
+      setAcctDraft(undefined);
+      setDeal(EMPTY);
+      setDirty(false);
+      setBookName('');
+    }
+    setMsg(error ? { error } : { booked: true });
+  }
+  async function accountLost(qs: Quote[]) {
+    for (const q of qs) await quoteLost(q);
   }
   async function quoteLost(q: Quote) {
     if (!onDeleteQuote) return;
@@ -475,6 +544,7 @@ export default function DealStage({
   // goes back to how it was saved, anything else to an empty deal. Your plan
   // and booked deals stay.
   function startOver() {
+    setAcctDraft(undefined);
     if (editing) setDeal(editing.deal);
     else if (active) setDeal(active.deal);
     else setDeal(showcase ? SAMPLE : EMPTY);
@@ -542,6 +612,7 @@ export default function DealStage({
   function editDeal(row: DealRow) {
     const d = dealFromRow(row);
     setActiveQuote(null);
+    setAcctDraft(undefined);
     setEditing({ id: row.id, deal: d, row });
     setBookName(row.name);
     setBookedOn(localDay(row.created_at));
@@ -558,12 +629,21 @@ export default function DealStage({
   }
   // A closed deal's numbers as a new deal: the next location of the same
   // group, the same package to a new account. Name selected to retype.
-  function copyDeal(row: DealRow) {
+  // Another deal for the same buyer: a new deal with these numbers, in the
+  // same account (made now, named after this deal, if there isn't one).
+  // The name is selected to type the new one over it.
+  function addDealToAccount(src: { kind: 'quote' | 'deal'; id: string; name: string; deal: DealInput; account: AccountDraft | null }) {
+    const draft: AccountDraft = src.account
+      ? src.account.id
+        ? src.account
+        : { ...src.account, from: { kind: src.kind, id: src.id } }
+      : { id: null, name: src.name.trim(), oneDecision: true, from: { kind: src.kind, id: src.id } };
     setActiveQuote(null);
     setEditing(null);
-    setBookName(row.name);
+    setAcctDraft(draft);
+    setBookName(src.name);
     setBookedOn(calendar?.today ?? '');
-    setDeal(dealFromRow(row));
+    setDeal(src.deal);
     setDirty(true);
     setMsg({});
     setNaming(false);
@@ -591,6 +671,41 @@ export default function DealStage({
     }
     return {};
   }
+  function addFromRow(row: DealRow) {
+    const a = row.account_id ? accounts.find((x) => x.id === row.account_id) : null;
+    addDealToAccount({ kind: 'deal', id: row.id, name: row.name, deal: dealFromRow(row), account: a ? { id: a.id, name: a.name, oneDecision: a.oneDecision } : null });
+  }
+  // The deal or quote on the card, when it's a saved one.
+  const cardSource = active
+    ? { kind: 'quote' as const, id: active.id }
+    : editing
+      ? { kind: 'deal' as const, id: editing.id }
+      : null;
+  function addFromCard() {
+    if (!cardSource) return;
+    addDealToAccount({ ...cardSource, name: bookName, deal, account: acct });
+  }
+  // Changes to an account that exists save at once; a new one waits for the deal.
+  async function changeAccount(patch: { name?: string; oneDecision?: boolean }, save: boolean) {
+    if (!acct) return;
+    setAcctDraft({ ...acct, ...patch });
+    if (!acct.id) {
+      setDirty(true);
+      return;
+    }
+    if (save && onUpdateAccount) {
+      try {
+        const res = await onUpdateAccount(acct.id, patch);
+        if (res.error) setQuoteError(res.error);
+      } catch {
+        setQuoteError('Could not reach the server. Check your connection and try again.');
+      }
+    }
+  }
+  function removeFromAccount() {
+    setAcctDraft(null);
+    setDirty(true);
+  }
   function newFromHead() {
     newDeal();
     requestAnimationFrame(startEntering);
@@ -607,14 +722,63 @@ export default function DealStage({
       compact={app}
       onWon={app ? (q) => void quoteWon(q) : undefined}
       onLost={app ? (q) => void quoteLost(q) : undefined}
+      accounts={accounts}
+      onAccountWon={app ? (qs) => void accountWon(qs) : undefined}
+      onAccountLost={app ? (qs) => void accountLost(qs) : undefined}
       busy={quoteBusy}
     />
   ) : null;
 
   const introBlock = intro ?? <div className="ds-title">{rail}</div>;
-  const afterNode = typeof after === 'function' ? after({ editDeal, copyDeal, unbookDeal, editingId: editing?.id ?? null }) : after;
+  const afterNode = typeof after === 'function' ? after({ editDeal, addDealToAccount: addFromRow, unbookDeal, editingId: editing?.id ?? null }) : after;
   // Nothing in the pipeline yet: the workspace drops its empty first column.
   const noRail = app && quotes.length === 0;
+
+  // Under the deal name: the account it's part of, or a way to start one.
+  const accountLine = acct ? (
+    <div className="acct-line">
+      <div className="acct-line-top">
+        <label className="acct-line-k" htmlFor="acctName">
+          Account
+        </label>
+        <input
+          id="acctName"
+          className="acct-line-name"
+          maxLength={80}
+          placeholder="Name the account"
+          value={acct.name}
+          onChange={(e) => setAcctDraft({ ...acct, name: e.target.value })}
+          onBlur={(e) => void changeAccount({ name: e.target.value }, true)}
+        />
+        <span className="seg acct-line-mode" role="group" aria-label="How this account decides">
+          <button type="button" aria-pressed={acct.oneDecision} onClick={() => void changeAccount({ oneDecision: true }, true)}>
+            One decision
+          </button>
+          <button type="button" aria-pressed={!acct.oneDecision} onClick={() => void changeAccount({ oneDecision: false }, true)}>
+            Separate decisions
+          </button>
+        </span>
+      </div>
+      <p className="acct-line-foot">
+        {acct.oneDecision ? 'Its deals close together or not at all.' : 'Each of its deals is decided on its own.'}
+        {cardSource && (
+          <button type="button" className="btn-text" onClick={addFromCard}>
+            Add deal to account
+          </button>
+        )}
+        <button type="button" className="btn-text" onClick={removeFromAccount}>
+          Remove from account
+        </button>
+      </p>
+    </div>
+  ) : cardSource ? (
+    <p className="acct-line is-none">
+      <button type="button" className="btn-text" onClick={addFromCard}>
+        Add deal to account
+      </button>
+      <span>Another deal for the same buyer, with these numbers to start from.</span>
+    </p>
+  ) : null;
 
   const slider = (
     <DiscountSlider
@@ -980,6 +1144,7 @@ export default function DealStage({
                 compact={app}
                 targets={targets}
                 name={app ? bookName : undefined}
+                nameFoot={app ? accountLine : undefined}
                 onName={
                   app
                     ? (v) => {

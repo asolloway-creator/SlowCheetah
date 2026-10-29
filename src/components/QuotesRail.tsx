@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { calc, pipeline, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
+import { calc, pipeline, type CompPlan, type DealAccount, type DealInput, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, periodNoun } from '@/lib/format';
 import { tierName } from '@/components/opening';
 
@@ -40,6 +40,9 @@ export default function QuotesRail({
   compact = false,
   onWon,
   onLost,
+  accounts = [],
+  onAccountWon,
+  onAccountLost,
   busy = false,
 }: {
   plan: CompPlan;
@@ -54,6 +57,11 @@ export default function QuotesRail({
   /** Close a quote straight from the list: book it today, or drop it. */
   onWon?: (q: Quote) => void;
   onLost?: (q: Quote) => void;
+  /** Accounts with more than one open quote show as one group. */
+  accounts?: DealAccount[];
+  /** An account that decides as one closes from its group: all won, or all lost. */
+  onAccountWon?: (qs: Quote[]) => void;
+  onAccountLost?: (qs: Quote[]) => void;
   busy?: boolean;
 }) {
   const noun = periodNoun(plan);
@@ -119,6 +127,108 @@ export default function QuotesRail({
     <section className="pipe" aria-labelledby="pipe-h">
       {head}
       <ul className="pipe-list">
+        {groupByAccount(quotes, accounts).map((g) =>
+          g.account ? (
+            <AccountGroup
+              key={g.account.id}
+              account={g.account}
+              quotes={g.quotes}
+              plan={plan}
+              ptd={ptd}
+              activeId={activeId}
+              onOpen={onOpen}
+              onWon={onWon}
+              onLost={onLost}
+              onAccountWon={onAccountWon}
+              onAccountLost={onAccountLost}
+              busy={busy}
+            />
+          ) : (
+            <QuoteRow
+              key={g.quotes[0].id}
+              q={g.quotes[0]}
+              pay={calc(plan, g.quotes[0].deal, ptd)}
+              active={g.quotes[0].id === activeId}
+              onOpen={onOpen}
+              onWon={onWon}
+              onLost={onLost}
+              busy={busy}
+            />
+          ),
+        )}
+      </ul>
+      <p className="pipe-sum">{sum}</p>
+    </section>
+  );
+}
+
+/** The list in its own order, with an account's open quotes (two or more)
+ *  gathered where its first one falls. */
+function groupByAccount(quotes: Quote[], accounts: DealAccount[]): { account: DealAccount | null; quotes: Quote[] }[] {
+  const byId = new Map(accounts.map((a) => [a.id, a]));
+  const counts = new Map<string, number>();
+  for (const q of quotes) if (q.accountId) counts.set(q.accountId, (counts.get(q.accountId) ?? 0) + 1);
+  const out: { account: DealAccount | null; quotes: Quote[] }[] = [];
+  const seen = new Map<string, { account: DealAccount | null; quotes: Quote[] }>();
+  for (const q of quotes) {
+    const a = q.accountId && (counts.get(q.accountId) ?? 0) > 1 ? byId.get(q.accountId) : undefined;
+    if (!a) {
+      out.push({ account: null, quotes: [q] });
+      continue;
+    }
+    const g = seen.get(a.id);
+    if (g) g.quotes.push(q);
+    else {
+      const ng = { account: a, quotes: [q] };
+      seen.set(a.id, ng);
+      out.push(ng);
+    }
+  }
+  return out;
+}
+
+/** An account's open quotes. Deciding as one, it closes from here, all at
+ *  once; deciding separately, each quote keeps its own Won and Lost. */
+function AccountGroup({
+  account,
+  quotes,
+  plan,
+  ptd,
+  activeId,
+  onOpen,
+  onWon,
+  onLost,
+  onAccountWon,
+  onAccountLost,
+  busy,
+}: {
+  account: DealAccount;
+  quotes: Quote[];
+  plan: CompPlan;
+  ptd: PeriodToDate;
+  activeId: string | null;
+  onOpen: (q: Quote) => void;
+  onWon?: (q: Quote) => void;
+  onLost?: (q: Quote) => void;
+  onAccountWon?: (qs: Quote[]) => void;
+  onAccountLost?: (qs: Quote[]) => void;
+  busy: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const one = account.oneDecision;
+  const total = quotes.reduce((n, q) => n + calc(plan, q.deal, ptd).commissionEffective, 0);
+  return (
+    <li className={`pipe-group${one ? ' is-one' : ''}`}>
+      <div className="pipe-group-head">
+        <span className="pipe-row-main">
+          <span className="pipe-row-name">{account.name || 'Unnamed account'}</span>
+          <span className="pipe-row-size">
+            {quotes.length} deals · {one ? 'one decision' : 'separate decisions'}
+          </span>
+        </span>
+        <span className="pipe-row-pay">{fmtMoney(total)}</span>
+      </div>
+      <ul className="pipe-group-list">
         {quotes.map((q) => (
           <QuoteRow
             key={q.id}
@@ -126,14 +236,42 @@ export default function QuotesRail({
             pay={calc(plan, q.deal, ptd)}
             active={q.id === activeId}
             onOpen={onOpen}
-            onWon={onWon}
-            onLost={onLost}
+            onWon={one ? undefined : onWon}
+            onLost={one ? undefined : onLost}
             busy={busy}
           />
         ))}
       </ul>
-      <p className="pipe-sum">{sum}</p>
-    </section>
+      {one && (onAccountWon || onAccountLost) && (
+        <div className="pipe-row-foot pipe-group-foot">
+          <span className="pipe-age">All {quotes.length} close together</span>
+          {confirming ? (
+            <span className="pipe-acts">
+              Remove all {quotes.length}?
+              <button type="button" className="pipe-act" disabled={busy} onClick={() => onAccountLost?.(quotes)}>
+                Yes, lost
+              </button>
+              <button type="button" className="pipe-act" onClick={() => setConfirming(false)}>
+                Keep
+              </button>
+            </span>
+          ) : (
+            <span className="pipe-acts">
+              {onAccountWon && (
+                <button type="button" className="pipe-act is-won" disabled={busy} onClick={() => onAccountWon(quotes)}>
+                  Won all
+                </button>
+              )}
+              {onAccountLost && (
+                <button type="button" className="pipe-act" disabled={busy} onClick={() => setConfirming(true)}>
+                  Lost
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

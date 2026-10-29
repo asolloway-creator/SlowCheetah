@@ -26,6 +26,7 @@ export default function DealForm({
   targets,
   name,
   onName,
+  nameFoot,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -40,6 +41,8 @@ export default function DealForm({
   /** The deal's name, typed first (the workspace). */
   name?: string;
   onName?: (v: string) => void;
+  /** Under the name: the account it belongs to. */
+  nameFoot?: ReactNode;
 }) {
   // How each line's discount is typed: a percent, or the price quoted.
   const [modes, setModes] = useState<Record<Line, DiscountMode>>({ software: 'pct', services: 'pct', hardware: 'pct' });
@@ -161,6 +164,7 @@ export default function DealForm({
                   onChange={(e) => onName(e.target.value)}
                 />
               </div>
+              {nameFoot}
             </div>
           )}
           <div className={`deal-row${subOver ? ' is-over' : ''}`}>

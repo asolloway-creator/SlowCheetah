@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { parseTargets, type Targets } from '@/components/discounts';
 import {
+  FORECASTS,
   currentOpening,
   periodKeyInZone,
   periodToDateFrom,
@@ -17,6 +18,8 @@ import {
   type AcceleratorStep,
   type QuarterlyKicker,
   type QuarterlyKickerTier,
+  type DealAccount,
+  type Forecast,
   type Quote,
   type SubscriptionMode,
 } from '@/lib/calc';
@@ -52,6 +55,8 @@ export type DealRow = {
   created_at: string;
   /** v15: the rep's own name for the deal (deal_labels), or ''. */
   name: string;
+  /** v17: the account it belongs to, if any. */
+  account_id?: string | null;
 };
 
 /** The rep's discount targets (comp_plans.targets). Never throws: where they
@@ -174,6 +179,7 @@ function toDealRow(d: Record<string, unknown>): DealRow {
     hardware_commission: num(d.hardware_commission ?? 0),
     created_at: String(d.created_at),
     name: labelOf(d.deal_labels),
+    account_id: d.account_id ? String(d.account_id) : null,
   };
 }
 
@@ -228,7 +234,21 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
       },
       createdAt: String(d.created_at),
       updatedAt: String(d.updated_at),
+      accountId: d.account_id ? String(d.account_id) : null,
+      forecast: FORECASTS.includes(d.forecast as Forecast) ? (d.forecast as Forecast) : null,
     }));
+  } catch {
+    return [];
+  }
+}
+
+/** The rep's accounts (v17): buyers with several deals. Never throws. */
+export async function listAccounts(userId: string): Promise<DealAccount[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from('deal_accounts').select('id, name, one_decision').eq('user_id', userId);
+    if (error || !data) return [];
+    return data.map((a: Record<string, unknown>) => ({ id: String(a.id), name: String(a.name ?? ''), oneDecision: a.one_decision !== false }));
   } catch {
     return [];
   }

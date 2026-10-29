@@ -1867,13 +1867,13 @@ main.app { padding-bottom: 56px; }
 .cd-table .c-num { width: 112px; }
 .cd-table .c-disc { width: 118px; }
 .cd-table .c-disc-wide { width: 150px; }
-.cd-table .c-act { width: 214px; }
+.cd-table .c-act { width: 286px; }
 .cd-earlier { margin-top: 18px; }
 .cd-period { font: 650 13px/1.3 var(--ui); color: var(--ink-2); }
 
 /* Too narrow for the table (a phone, a laptop with the card beside it):
    each deal as a short stack. Keyed to the section's own width. */
-@container closed (max-width: 999px) {
+@container closed (max-width: 1079px) {
   .cd-table, .cd-table tbody { display: block; width: 100%; }
   .cd-table colgroup, .cd-table thead { display: none; }
   .cd-table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
@@ -1930,3 +1930,60 @@ main.app { padding-bottom: 56px; }
 /* Earlier months: a one-line summary over each period's deals. */
 .cd-period { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .cd-period-sum { font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); }
+
+/* Closing out the period: three lines across, then each decision with the
+   rep's call on it. Built like the closed-deals section below it. */
+.co { margin-bottom: 16px; padding: 16px 18px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.co-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.co-sub { font: 500 13px/1.35 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.co-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.co-tile { padding: 14px 16px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); min-width: 0; }
+.co-tile.is-hit { box-shadow: inset 3px 0 0 var(--green); }
+.co-tile-k { font: 650 13px/1.3 var(--ui); color: var(--ink); }
+.co-tile-note { display: block; margin-top: 2px; font: 500 12px/1.3 var(--ui); color: var(--ink-3); }
+.co-tile-v { margin-top: 10px; font: 750 26px/1.05 var(--display); letter-spacing: -0.02em; color: var(--green); font-variant-numeric: tabular-nums; }
+.co-tile-c { margin-top: 2px; font: 500 12px/1.3 var(--ui); color: var(--ink-3); }
+.co-bar { height: 6px; margin-top: 12px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.co-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--ink-3); }
+.co-tile.is-hit .co-bar > span { background: var(--green); }
+.co-tile-q { margin-top: 6px; font: 600 13px/1.3 var(--ui); font-variant-numeric: tabular-nums; }
+.co-tile-q.is-green { color: var(--green); }
+.co-tile-q.is-short { color: var(--ink-2); }
+.co-tile-f { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.co-read { margin-top: 12px; font: 500 14px/1.5 var(--ui); color: var(--ink-2); }
+.co-read b { color: var(--ink); font-weight: 650; }
+.co-hint { color: var(--ink-3); }
+.co-list { display: grid; margin-top: 10px; list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.co-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.co-row:last-child { border-bottom: 0; }
+.co-row-main { min-width: 0; }
+.co-row-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font: 650 14.5px/1.3 var(--ui); color: var(--ink); }
+.co-must { padding: 2px 7px; border-radius: 999px; background: var(--sun-wash); box-shadow: inset 0 0 0 1px #EBCB6B; font: 600 11.5px/1.3 var(--ui); color: var(--ink); }
+.co-row-meta { margin-top: 2px; font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.co-calls { display: inline-flex; flex: none; padding: 3px; border-radius: 10px; background: var(--cream); box-shadow: inset 0 0 0 1px var(--line); }
+.co-call { height: 28px; padding: 0 10px; border-radius: 7px; font: 550 12.5px/1 var(--ui); color: var(--ink-3); white-space: nowrap; }
+.co-call:hover { color: var(--ink); }
+.co-call[aria-pressed="true"] { background: var(--white); color: var(--ink); box-shadow: 0 1px 2px rgba(28, 24, 18, 0.14), 0 0 0 1px rgba(28, 24, 18, 0.06); }
+.co-call.is-commit[aria-pressed="true"] { color: var(--green); }
+@media (max-width: 760px) {
+  .co-row { flex-direction: column; align-items: stretch; }
+  .co-calls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .co-call { padding: 0 4px; }
+}
+
+/* An account's open quotes, together in the rail. */
+.pipe-group { border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); background: var(--paper); }
+.pipe-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 6px; }
+.pipe-group-list { display: grid; gap: 4px; padding: 0 6px 6px; list-style: none; margin: 0; }
+.pipe-group-list .pipe-row-pay { font-size: 16px; }
+.pipe-group-foot { padding: 2px 12px 10px; }
+
+/* Under the deal name: the account the deal belongs to. */
+.acct-line { margin-top: 10px; }
+.acct-line-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.acct-line-k { font: 600 12.5px/1.2 var(--ui); color: var(--ink-2); }
+.acct-line-name { flex: 1 1 160px; min-width: 0; height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line-2); font: 600 14px/1 var(--ui); color: var(--ink); }
+.acct-line-name:focus-visible { box-shadow: inset 0 0 0 2px var(--ink); }
+.acct-line-mode > button { height: 26px; padding: 0 9px; font-size: 12.5px; }
+.acct-line-foot { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); }
+.acct-line.is-none { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); }

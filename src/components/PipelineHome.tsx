@@ -1,14 +1,28 @@
 'use client';
 
-import { planForPeriod, type Calendar, type CompPlan, type DealInput, type Opening, type OpeningInput, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
+import {
+  planForPeriod,
+  type Calendar,
+  type CompPlan,
+  type DealAccount,
+  type DealInput,
+  type Forecast,
+  type Opening,
+  type OpeningInput,
+  type PeriodToDate,
+  type QuarterToDate,
+  type Quote,
+} from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
+import CloseOut from '@/components/CloseOut';
 import { rateLift, type Line, type Targets } from '@/components/discounts';
 
 type Result = { error?: string };
-type BookMeta = { name?: string; bookedOn?: string };
+type AccountMeta = { id?: string | null; name?: string; oneDecision?: boolean; from?: { kind: 'quote' | 'deal'; id: string } | null } | null;
+type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta };
 
 /**
  * The signed-in rep's one page: where they stand across the top, their
@@ -35,6 +49,9 @@ export default function PipelineHome({
   calendar,
   targets = {},
   onTarget,
+  accounts = [],
+  onForecast,
+  onUpdateAccount,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -49,12 +66,17 @@ export default function PipelineHome({
   /** The rep's own discount targets, per line. */
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<Result>;
-  onSaveQuote: (q: { id?: string | null; name: string; deal: DealInput }) => Promise<Result & { id?: string }>;
+  onSaveQuote: (q: { id?: string | null; name: string; deal: DealInput; account?: AccountMeta }) => Promise<Result & { id?: string }>;
   onDeleteQuote: (id: string) => Promise<Result>;
   onDeleteDeal: (id: string) => Promise<Result>;
   /** A booked deal back to an open quote. */
   onUnbookDeal: (id: string) => Promise<Result & { id?: string }>;
   onOpening: (o: OpeningInput) => Promise<Result>;
+  /** The rep's accounts: buyers with several deals. */
+  accounts?: DealAccount[];
+  /** The rep's call on open quotes. */
+  onForecast?: (ids: string[], forecast: Forecast | null) => Promise<Result>;
+  onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<Result>;
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
   const paying = planForPeriod(plan, opening);
@@ -73,6 +95,8 @@ export default function PipelineHome({
       onSaveQuote={onSaveQuote}
       onDeleteQuote={onDeleteQuote}
       onUnbookDeal={onUnbookDeal}
+      accounts={accounts}
+      onUpdateAccount={onUpdateAccount}
       top={({ onNew }) => (
         <Overview
           plan={paying}
@@ -88,19 +112,22 @@ export default function PipelineHome({
           targets={targets}
         />
       )}
-      after={({ editDeal, copyDeal, unbookDeal, editingId }) => (
-        <BookedList
+      after={({ editDeal, addDealToAccount, unbookDeal, editingId }) => (
+        <>
+          <CloseOut plan={paying} ptd={ptd} qtd={qtd} quotes={quotes} accounts={accounts} calendar={calendar} onForecast={onForecast} />
+          <BookedList
           plan={paying}
           deals={deals}
           onDelete={onDeleteDeal}
           onEdit={editDeal}
           editingId={editingId}
-          onCopy={copyDeal}
+          onAddToAccount={addDealToAccount}
           onUnbook={unbookDeal}
           targets={targets}
           onTarget={onTarget}
           lift={rateLift(paying, ptd)}
         />
+        </>
       )}
     />
   );

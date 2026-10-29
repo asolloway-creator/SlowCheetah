@@ -13,6 +13,8 @@ import {
   periodKeyInZone,
   type CompPlan,
   type DealInput,
+  FORECASTS,
+  type Forecast,
   type Opening,
   type OpeningInput,
   type AcceleratorStep,
@@ -61,8 +63,22 @@ const dealColumns = (deal: DealInput, r: ReturnType<typeof calc>) => ({
   hardware_commission: Number(r.hardwareCommission.toFixed(2)),
 });
 
-/** What the rep adds when booking: the deal's name and the day it was booked. */
-export type BookMeta = { name?: string; bookedOn?: string };
+/**
+ * The account a deal belongs to, as the card sends it. `id` for one that
+ * exists; otherwise a new one is made with `name`, and `from` (the deal or
+ * quote it was started from) joins it too. `null` takes the deal out of any
+ * account; leaving the field out leaves its account as it is.
+ */
+export type AccountMeta = {
+  id?: string | null;
+  name?: string;
+  oneDecision?: boolean;
+  from?: { kind: 'quote' | 'deal'; id: string } | null;
+} | null;
+
+/** What the rep adds when booking: the deal's name, the day it was booked,
+ *  and its account. */
+export type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const dealName = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -154,6 +170,46 @@ async function saveDealName(supabase: Awaited<ReturnType<typeof currentUser>>['s
   else await supabase.from('deal_labels').delete().eq('deal_id', dealId).eq('user_id', userId);
 }
 
+type Db = Awaited<ReturnType<typeof currentUser>>['supabase'];
+
+/**
+ * The account id to store with a deal or quote: undefined to leave it as it
+ * is, null for none, or the account's id (made here when it's new, with the
+ * deal or quote it started from joined to it). Only the rep's own accounts
+ * are used; anything else counts as none.
+ */
+async function resolveAccount(supabase: Db, userId: string, acct: AccountMeta | undefined): Promise<string | null | undefined> {
+  if (acct === undefined) return undefined;
+  if (acct === null) return null;
+  const name = dealName(acct.name);
+  if (acct.id && QUOTE_ID.test(acct.id)) {
+    const patch: Record<string, unknown> = {};
+    if (acct.name !== undefined) patch.name = name;
+    if (acct.oneDecision !== undefined) patch.one_decision = acct.oneDecision;
+    const q = Object.keys(patch).length
+      ? supabase.from('deal_accounts').update(patch).eq('id', acct.id).eq('user_id', userId).select('id').maybeSingle()
+      : supabase.from('deal_accounts').select('id').eq('id', acct.id).eq('user_id', userId).maybeSingle();
+    const { data } = await q;
+    return data ? String(data.id) : null;
+  }
+  const { data, error } = await supabase
+    .from('deal_accounts')
+    .insert({ user_id: userId, name, one_decision: acct.oneDecision !== false })
+    .select('id')
+    .single();
+  if (error || !data) return null;
+  const id = String(data.id);
+  const from = acct.from;
+  if (from && QUOTE_ID.test(from.id)) {
+    await supabase
+      .from(from.kind === 'deal' ? 'deals' : 'quotes')
+      .update({ account_id: id })
+      .eq('id', from.id)
+      .eq('user_id', userId);
+  }
+  return id;
+}
+
 export async function saveDealAction(input: DealInput, meta?: BookMeta): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to save deals.' };
@@ -164,10 +220,16 @@ export async function saveDealAction(input: DealInput, meta?: BookMeta): Promise
   const priced = await priceForBooking(user.id, input, meta);
   if ('error' in priced) return { error: priced.error };
   const { deal, r, createdAt, name } = priced;
+  const accountId = await resolveAccount(supabase, user.id, meta?.account);
 
   const { data, error } = await supabase
     .from('deals')
-    .insert({ user_id: user.id, ...dealColumns(deal, r), ...(createdAt ? { created_at: createdAt } : {}) })
+    .insert({
+      user_id: user.id,
+      ...dealColumns(deal, r),
+      ...(createdAt ? { created_at: createdAt } : {}),
+      ...(accountId !== undefined ? { account_id: accountId } : {}),
+    })
     .select('id')
     .single();
   if (error) return { error: error.message };
@@ -189,9 +251,14 @@ export async function updateDealAction(id: string, input: DealInput, meta?: Book
   const priced = await priceForBooking(user.id, input, meta, id);
   if ('error' in priced) return { error: priced.error };
   const { deal, r, createdAt, name } = priced;
+  const accountId = await resolveAccount(supabase, user.id, meta?.account);
   const { error } = await supabase
     .from('deals')
-    .update({ ...dealColumns(deal, r), ...(createdAt ? { created_at: createdAt } : {}) })
+    .update({
+      ...dealColumns(deal, r),
+      ...(createdAt ? { created_at: createdAt } : {}),
+      ...(accountId !== undefined ? { account_id: accountId } : {}),
+    })
     .eq('id', id)
     .eq('user_id', user.id);
   if (error) return { error: 'That didn’t save. Try again in a moment.' };
@@ -440,12 +507,14 @@ export async function saveQuoteAction(input: {
   id?: string | null;
   name: string;
   deal: DealInput;
+  account?: AccountMeta;
 }): Promise<Result & { id?: string }> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to save quotes.' };
   const deal = cleanDeal(input.deal);
   if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' };
-  const row = quoteRow(input.name, deal);
+  const accountId = await resolveAccount(supabase, user.id, input.account);
+  const row = { ...quoteRow(input.name, deal), ...(accountId !== undefined ? { account_id: accountId } : {}) };
   if (input.id && QUOTE_ID.test(input.id)) {
     const { data, error } = await supabase
       .from('quotes')
@@ -478,7 +547,7 @@ export async function unbookDealAction(id: string): Promise<Result & { id?: stri
   const [{ data: row, error: readError }, { data: label }] = await Promise.all([
     supabase
       .from('deals')
-      .select('one_time_amount, subscription_amount, subscription_mode, units, one_time_discount_pct, subscription_discount_pct, hardware_amount, hardware_discount_pct')
+      .select('one_time_amount, subscription_amount, subscription_mode, units, one_time_discount_pct, subscription_discount_pct, hardware_amount, hardware_discount_pct, account_id')
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -497,7 +566,7 @@ export async function unbookDealAction(id: string): Promise<Result & { id?: stri
   });
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
-    .insert({ user_id: user.id, ...quoteRow(label?.name ?? '', deal) })
+    .insert({ user_id: user.id, ...quoteRow(label?.name ?? '', deal), account_id: row.account_id ?? null })
     .select('id')
     .single();
   if (quoteError || !quote) return { error: 'That didn’t go through. Try again in a moment.' };
@@ -508,6 +577,29 @@ export async function unbookDealAction(id: string): Promise<Result & { id?: stri
   }
   revalidatePath('/', 'layout');
   return { id: String(quote.id) };
+}
+
+/** The rep's call on open quotes (all of an account's at once, when it
+ *  decides as one), or null to clear it. */
+export async function setForecastAction(ids: string[], forecast: Forecast | null): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  const clean = (Array.isArray(ids) ? ids : []).filter((id) => QUOTE_ID.test(String(id))).slice(0, 50);
+  if (!user || !clean.length) return { error: 'Sign in to change quotes.' };
+  if (forecast !== null && !FORECASTS.includes(forecast)) return { error: 'That isn’t a call IOI knows.' };
+  const { error } = await supabase.from('quotes').update({ forecast }).in('id', clean).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/** Renames an account, or changes whether its deals close as one. */
+export async function updateAccountAction(id: string, patch: { name?: string; oneDecision?: boolean }): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to change accounts.' };
+  const res = await resolveAccount(supabase, user.id, { id, ...patch });
+  if (!res) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
 }
 
 export async function deleteQuoteAction(id: string): Promise<Result> {

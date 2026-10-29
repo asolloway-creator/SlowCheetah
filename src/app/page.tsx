@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, getTargets, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
 import { calendarInZone } from '@/lib/calc';
 import {
   deleteDealAction,
@@ -9,7 +9,9 @@ import {
   saveQuoteAction,
   saveRateAction,
   saveTargetAction,
+  setForecastAction,
   unbookDealAction,
+  updateAccountAction,
   updateDealAction,
 } from './actions';
 import { Shell } from './AccountViews';
@@ -24,12 +26,13 @@ export default async function Home() {
   if (!plan) redirect('/plan');
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
-  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets] = await Promise.all([
+  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts] = await Promise.all([
     getPeriodToDate(user.id, plan),
     plan.quarterly_kicker ? getQuarterToDate(user.id, plan) : Promise.resolve(null),
     listQuotes(user.id),
     listDeals(user.id),
     getTargets(user.id),
+    listAccounts(user.id),
   ]);
   void _period;
   const calendar = calendarInZone(plan.period, await repTimeZone());
@@ -54,6 +57,9 @@ export default async function Home() {
         targets={targets}
         onTarget={saveTargetAction}
         calendar={calendar}
+        accounts={accounts}
+        onForecast={setForecastAction}
+        onUpdateAccount={updateAccountAction}
       />
     </Shell>
   );

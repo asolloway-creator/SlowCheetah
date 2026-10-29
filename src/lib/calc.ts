@@ -610,7 +610,23 @@ export type Quote = {
   deal: DealInput;
   createdAt: string;
   updatedAt: string;
+  /** v17: the account it belongs to (one buyer, several deals), if any. */
+  accountId?: string | null;
+  /** v17: the rep's own call on it this period. */
+  forecast?: Forecast | null;
 };
+
+/** The rep's call on an open quote: closes this period for sure, probably,
+ *  only if things break right, or not this period. */
+export type Forecast = 'commit' | 'likely' | 'stretch' | 'next';
+export const FORECASTS: Forecast[] = ['commit', 'likely', 'stretch', 'next'];
+
+/**
+ * One buyer with several deals (v17 deal_accounts): the locations of a
+ * restaurant group, the offices of a firm. `oneDecision` means they all
+ * close or none do; otherwise each deal is decided on its own.
+ */
+export type DealAccount = { id: string; name: string; oneDecision: boolean };
 
 export type Pipeline = {
   count: number;

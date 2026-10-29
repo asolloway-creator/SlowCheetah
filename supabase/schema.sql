@@ -108,6 +108,30 @@
 -- v12 database:
 --   alter table public.comp_plans add column if not exists accelerator_steps jsonb;
 --
+-- v17 (2026-10-29) adds accounts and the rep's forecast call. Accounts are
+-- buyers with several deals (a restaurant group's locations, a firm's
+-- offices): public.deal_accounts, owner-only RLS like deal_labels, with the
+-- name kept there (deals has an admin read policy; a name can hold anything)
+-- and one_decision (true: all its deals close or none do). quotes and deals
+-- gain a nullable account_id (on delete set null); quotes gain forecast, the
+-- rep's call this period ('commit', 'likely', 'stretch', 'next'), read by the
+-- close-out panel (lib/closeout.ts). Additive, applied 2026-10-29:
+--   create table if not exists public.deal_accounts (
+--     id uuid primary key default gen_random_uuid(),
+--     user_id uuid not null references public.users (id) on delete cascade,
+--     name text not null default '' check (char_length(name) <= 80),
+--     one_decision boolean not null default true,
+--     created_at timestamptz not null default now());
+--   alter table public.deal_accounts enable row level security;
+--   create policy "deal_accounts own" on public.deal_accounts for all
+--     using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+--   create index if not exists deal_accounts_user_idx on public.deal_accounts (user_id);
+--   alter table public.quotes add column if not exists account_id uuid references public.deal_accounts (id) on delete set null;
+--   alter table public.quotes add column if not exists forecast text check (forecast in ('commit', 'likely', 'stretch', 'next'));
+--   alter table public.deals add column if not exists account_id uuid references public.deal_accounts (id) on delete set null;
+--   create index if not exists quotes_account_idx on public.quotes (account_id);
+--   create index if not exists deals_account_idx on public.deals (account_id);
+--
 -- v16 (2026-10-27) adds comp_plans.targets: the rep's own discount targets
 -- per line ({ software, services, hardware }: percent, 0 to 100), set from
 -- "Where your discounts went" and shown on each Discount field. Nullable
