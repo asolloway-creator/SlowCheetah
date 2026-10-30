@@ -19,6 +19,7 @@ import {
   type QuarterlyKicker,
   type QuarterlyKickerTier,
   type DealAccount,
+  type DealInput,
   type Forecast,
   type Quote,
   type SubscriptionMode,
@@ -241,10 +242,25 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
       updatedAt: String(d.updated_at),
       accountId: d.account_id ? String(d.account_id) : null,
       forecast: FORECASTS.includes(d.forecast as Forecast) ? (d.forecast as Forecast) : null,
+      offer: d.offer_expires && d.offer_revert ? { expires: String(d.offer_expires), original: dealFromJson(d.offer_revert) } : null,
     }));
   } catch {
     return [];
   }
+}
+
+/** A deal saved as jsonb (a sign-by offer's original numbers), checked. */
+function dealFromJson(v: unknown): DealInput {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  return {
+    oneTime: num(o.oneTime ?? 0),
+    subscription: num(o.subscription ?? 0),
+    subMode: o.subMode === 'acv' ? 'acv' : 'mrr',
+    units: Math.max(1, num(o.units ?? 1)),
+    oneTimeDiscountPct: num(o.oneTimeDiscountPct ?? 0),
+    subscriptionDiscountPct: num(o.subscriptionDiscountPct ?? 0),
+    ...(num(o.hardware ?? 0) > 0 ? { hardware: num(o.hardware), hardwareDiscountPct: num(o.hardwareDiscountPct ?? 0) } : {}),
+  };
 }
 
 /** The rep's accounts (v17): buyers with several deals. Never throws. */

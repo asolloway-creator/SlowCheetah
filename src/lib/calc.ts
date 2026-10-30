@@ -614,6 +614,9 @@ export type Quote = {
   accountId?: string | null;
   /** v17: the rep's own call on it this period. */
   forecast?: Forecast | null;
+  /** v21: a sign-by offer on it: good until `expires` ('YYYY-MM-DD'), then
+   *  the quote goes back to `original`. */
+  offer?: { expires: string; original: DealInput } | null;
 };
 
 /** The rep's call on an open quote: closes this period for sure, only if

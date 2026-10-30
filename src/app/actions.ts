@@ -528,10 +528,12 @@ export async function saveQuoteAction(input: {
   if (isBlank(deal)) return { error: 'Enter at least one line item before saving.' };
   const accountId = await resolveAccount(supabase, user.id, input.account);
   const row = { ...quoteRow(input.name, deal), ...(accountId !== undefined ? { account_id: accountId } : {}) };
+  // Numbers changed by hand become the quote; any sign-by offer on it ends.
+  const offerOff = { offer_expires: null, offer_revert: null };
   if (input.id && QUOTE_ID.test(input.id)) {
     const { data, error } = await supabase
       .from('quotes')
-      .update({ ...row, updated_at: new Date().toISOString() })
+      .update({ ...row, ...offerOff, updated_at: new Date().toISOString() })
       .eq('id', input.id)
       .eq('user_id', user.id)
       .select('id')
@@ -658,6 +660,84 @@ export async function loseQuotesAction(ids: string[], reason: LostReason | null)
   if (error) return { error: 'That didn’t go through. Try again in a moment.' };
   revalidatePath('/', 'layout');
   return {};
+}
+
+const quoteDeal = (q: Record<string, unknown>): DealInput =>
+  cleanDeal({
+    oneTime: Number(q.one_time_amount),
+    subscription: Number(q.subscription_amount),
+    subMode: q.subscription_mode === 'acv' ? 'acv' : 'mrr',
+    units: Math.max(1, Number(q.units)),
+    oneTimeDiscountPct: Number(q.one_time_discount_pct),
+    subscriptionDiscountPct: Number(q.subscription_discount_pct),
+    hardware: Number(q.hardware_amount ?? 0),
+    hardwareDiscountPct: Number(q.hardware_discount_pct ?? 0),
+  });
+
+/**
+ * A sign-by offer: the quote takes the offer's numbers until `expires`
+ * ('YYYY-MM-DD', the last day it holds), and keeps the numbers it had so it
+ * can go back. A second offer on the same quote keeps the first original.
+ */
+export async function makeOfferAction(id: string, offered: DealInput, expires: string): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id)) || !DAY.test(String(expires))) return { error: 'Sign in to change quotes.' };
+  const { data: q } = await supabase.from('quotes').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+  if (!q) return { error: 'That quote is already gone. Refresh the page.' };
+  const original = q.offer_revert ?? quoteDeal(q);
+  const deal = cleanDeal(offered);
+  const { error } = await supabase
+    .from('quotes')
+    .update({ ...quoteRow(q.name, deal), offer_expires: expires, offer_revert: original, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/** Takes a sign-by offer back: the quote returns to its own numbers. */
+export async function withdrawOfferAction(id: string): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user || !QUOTE_ID.test(String(id))) return { error: 'Sign in to change quotes.' };
+  const { data: q } = await supabase.from('quotes').select('name, offer_revert').eq('id', id).eq('user_id', user.id).maybeSingle();
+  if (!q) return { error: 'That quote is already gone. Refresh the page.' };
+  if (!q.offer_revert) return {};
+  const { error } = await supabase
+    .from('quotes')
+    .update({ ...quoteRow(q.name, cleanDeal(q.offer_revert as DealInput)), offer_expires: null, offer_revert: null })
+    .eq('id', id)
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/**
+ * Open quotes whose sign-by offer ran out (its last day is before `today`,
+ * the rep's own 'YYYY-MM-DD') go back to their own numbers. Run as the home
+ * page loads, so an offer never outlives its date.
+ */
+export async function revertExpiredOffers(today: string): Promise<void> {
+  if (!DAY.test(String(today))) return;
+  try {
+    const { supabase, user } = await currentUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('quotes')
+      .select('id, name, offer_revert')
+      .eq('user_id', user.id)
+      .eq('status', 'open')
+      .lt('offer_expires', today);
+    for (const q of data ?? []) {
+      if (!q.offer_revert) continue;
+      await supabase
+        .from('quotes')
+        .update({ ...quoteRow(q.name, cleanDeal(q.offer_revert as DealInput)), offer_expires: null, offer_revert: null })
+        .eq('id', q.id)
+        .eq('user_id', user.id);
+    }
+  } catch {}
 }
 
 export async function deleteQuoteAction(id: string): Promise<Result> {

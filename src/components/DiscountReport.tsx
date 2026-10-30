@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { paysHardware, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmt, fmtMoney } from '@/lib/format';
-import { costPerDollar, lostNow, offByLine, type Line, type PeriodTotals, type Targets } from '@/components/discounts';
+import { costPerDollar, LINES, lostNow, offByLine, type Line, type PeriodTotals, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
@@ -58,11 +58,62 @@ export default function DiscountReport({
     .filter((t) => t.list > 0);
   if (!tiles.length) return null;
 
+  // The period in one line: everything its discounts cost, what holding to
+  // the rep's own targets would have kept, the deal that cost the most, and
+  // the period before, so the number reads as something to move.
+  const total = tiles.reduce((n, t) => n + t.cost, 0);
+  const withTarget = tiles.filter((t) => targets[t.line] !== undefined);
+  const keep = withTarget.reduce((n, t) => n + Math.max(0, t.cost - t.perDollar * (((targets[t.line] as number) / 100) * t.list)), 0);
+  const perDeal = deals
+    .map((d) => ({ d, cost: LINES.reduce((n, l) => n + lostNow(plan, d, lift)[l], 0) }))
+    .sort((a, b) => b.cost - a.cost);
+  // Only worth naming when there's more than one deal it could be.
+  const top = perDeal.filter((x) => x.cost >= 1).length >= 2 ? perDeal[0] : null;
+  const lastLost = last?.totals.lost;
+
   return (
     <section className="dt" aria-labelledby="dt-h">
       <h3 id="dt-h" className="app-label">
         Where your discounts went
       </h3>
+      <div className="dt-sum">
+        <div>
+          <span className="dt-k">Left on the table this {noun}</span>
+          <span className={`dt-v ${total >= 0.005 ? 'is-lost' : 'is-zero'}`}>{fmtMoney(total)}</span>
+          <span className="dt-sum-c">{tiles.map((t) => `${LABEL[t.line]} ${fmtMoney(t.cost)}`).join(' · ')}</span>
+        </div>
+        {withTarget.length > 0 && (
+          <div>
+            <span className="dt-k">Held to your targets</span>
+            <span className={`dt-v ${keep >= 0.5 ? 'is-green' : 'is-zero'}`}>{keep >= 0.5 ? `+${fmtMoney(keep)}` : '$0'}</span>
+            <span className="dt-sum-c">{keep >= 0.5 ? 'more you would have kept' : 'You were within every target'}</span>
+          </div>
+        )}
+        {top && (
+          <div>
+            <span className="dt-k">Cost the most</span>
+            <span className="dt-v dt-v-name" title={top.d.name || undefined}>
+              {top.d.name || 'Unnamed deal'}
+            </span>
+            <span className="dt-sum-c">
+              {fmtMoney(top.cost)}, {Math.round((top.cost / Math.max(total, 0.01)) * 100)}% of the {noun}&rsquo;s total
+            </span>
+          </div>
+        )}
+        {lastLost !== undefined && last && (
+          <div>
+            <span className="dt-k">{last.label}</span>
+            <span className="dt-v">{fmtMoney(lastLost)}</span>
+            <span className={`dt-sum-c ${total < lastLost - 0.5 ? 'is-green' : total > lastLost + 0.5 ? 'is-red' : ''}`}>
+              {Math.abs(total - lastLost) < 0.5
+                ? 'The same so far'
+                : total < lastLost
+                  ? `${fmtMoney(lastLost - total)} less so far this ${noun}`
+                  : `${fmtMoney(total - lastLost)} more so far this ${noun}`}
+            </span>
+          </div>
+        )}
+      </div>
       <div className="dt-grid">
         {tiles.map((t) => (
           <Tile

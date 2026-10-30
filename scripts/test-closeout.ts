@@ -4,6 +4,7 @@
 // Run: npx tsx scripts/test-closeout.ts
 import { periodToDateFrom, type CompPlan, type DealInput, type Quote } from '@/lib/calc';
 import { closeLine, closeUnits, mustClose } from '@/lib/closeout';
+import { suggestOffer } from '@/lib/offers';
 
 let pass = 0;
 let fail = 0;
@@ -52,6 +53,21 @@ const separate = closeUnits(quotes, [{ id: 'g', name: 'Group', oneDecision: fals
 check('separate decisions stay separate', separate.length === 5);
 const nextMonth = closeUnits(quotes.map((x) => (x.accountId ? { ...x, forecast: 'next' as const } : x)), accounts);
 check('next month leaves every line', closeLine(plan, ptd, null, nextMonth, 'all').units.every((u) => u.label !== 'Group'));
+
+// Sign-by offers: the cheapest line inside the rep's targets, never one
+// that costs quota credit when the period is near the line.
+const near = mrr(1000, 0); // 12,000 ARR, one-time 1,000 at 50% off
+const nearOthers = [mrr(1500), mrr(250)]; // with booked 30,000: 30,000 + 12,000 + 18,000 + 3,000 = 63,000, 5% over
+const o1 = suggestOffer(plan, ptd, null, near, nearOthers, { services: 75, software: 10 });
+check('offer spends one-time first, up to the target', o1.kind === 'offer' && o1.offer.line === 'services' && o1.offer.toPct === 75 && o1.offer.creditChange === 0, JSON.stringify(o1));
+const pastOt = { ...near, oneTimeDiscountPct: 80 };
+const o2 = suggestOffer(plan, ptd, null, pastOt, nearOthers, { services: 75, software: 10 });
+check('near the line, no offer that costs quota credit', o2.kind === 'none' && o2.reason === 'breaks-quota', JSON.stringify(o2));
+const o3 = suggestOffer(plan, ptd, null, { ...pastOt, subscriptionDiscountPct: 20 }, nearOthers, { services: 75, software: 10 });
+check('past every target, no offer', o3.kind === 'none' && o3.reason === 'past-targets');
+const roomy = suggestOffer(plan, ptd, null, pastOt, [mrr(1500), mrr(1500)], { services: 75, software: 10 });
+check('with room to spare, a subscription offer inside the target', roomy.kind === 'offer' && roomy.offer.line === 'software' && roomy.offer.toPct === 10, JSON.stringify(roomy));
+check('an offer is worth less to the rep than the deal', o1.kind === 'offer' && o1.offer.cost < o1.worth);
 
 console.log(`\n${pass} passed${fail ? `, ${fail} FAILED` : ''}`);
 if (fail) process.exit(1);

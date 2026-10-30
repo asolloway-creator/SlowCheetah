@@ -2023,3 +2023,36 @@ main.app { padding-bottom: 56px; }
 .ab-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .ab-acts { display: inline-flex; align-items: center; gap: 12px; }
 .t-kind { margin-left: 8px; padding: 1px 6px; border-radius: 999px; background: var(--cream); box-shadow: inset 0 0 0 1px var(--line); font: 600 11px/1.4 var(--ui); color: var(--ink-2); vertical-align: 1px; }
+
+/* Where your discounts went, in one row: the total, what targets would
+   have kept, the costliest deal, and the period before. */
+.dt-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 20px; margin-top: 8px; padding: 14px 16px; border-radius: 10px; background: var(--white); border: 1px solid var(--line); }
+.dt-sum > div { display: grid; gap: 3px; align-content: start; min-width: 0; }
+.dt-v.is-green { color: var(--green); }
+.dt-v-name { font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-sum-c { font: 500 12.5px/1.4 var(--ui); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.dt-sum-c.is-green { color: var(--green); }
+.dt-sum-c.is-red { color: var(--red); }
+.dt-sum + .dt-grid { margin-top: 12px; }
+
+/* The deal sheet added up. */
+.cd-table tfoot tr.t-total th, .cd-table tfoot tr.t-total td { border-top: 2px solid var(--line-2); font-weight: 650; color: var(--ink); }
+.cd-table tfoot tr.t-total th { font: 650 14px/1.3 var(--ui); }
+@container closed (max-width: 999px) {
+  .cd-table tfoot { display: none; }
+}
+.cd-table tfoot tr.t-total th, .cd-table tfoot tr.t-total td { vertical-align: middle; }
+
+/* A sign-by offer under a decision in the close-out. */
+.co-row { flex-wrap: wrap; }
+.co-offer { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-top: 4px; padding: 10px 12px; border-radius: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); font: 500 13px/1.45 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.co-offer p { flex: 1 1 320px; min-width: 0; }
+.co-offer b { color: var(--ink); font-weight: 650; }
+.co-offer.is-out { background: var(--sun-wash); box-shadow: inset 0 0 0 1px #EBCB6B; }
+.co-offer.is-none { color: var(--ink-3); }
+.co-offer-btn { height: 34px; padding: 0 14px; font-size: 13px; flex: none; }
+@media (max-width: 760px) {
+  .co-row { flex-wrap: nowrap; }
+  .co-offer { flex: none; }
+  .co-offer p { flex: 1 1 auto; }
+}

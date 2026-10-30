@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { calc, periodLabel, type CompPlan, type DealAccount, type Forecast, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
+import { calc, periodLabel, type CompPlan, type DealAccount, type DealInput, type Forecast, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
+import { LINE_WORDS, suggestOffer, type OfferSuggestion } from '@/lib/offers';
+import type { Line, Targets } from '@/components/discounts';
 import { closeLine, closeUnits, closeWith, mustClose, type CloseLine, type CloseUnit, type LineKey } from '@/lib/closeout';
 import { fmtCredit, fmtMoney } from '@/lib/format';
 
@@ -43,6 +45,9 @@ export default function CloseOut({
   accounts,
   calendar,
   onForecast,
+  targets = {},
+  onMakeOffer,
+  onWithdrawOffer,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -51,10 +56,15 @@ export default function CloseOut({
   accounts: DealAccount[];
   calendar: { today: string; periodStart: string };
   onForecast?: (ids: string[], forecast: Forecast | null) => Promise<{ error?: string }>;
+  /** The rep's own discount targets: an offer never goes past them. */
+  targets?: Targets;
+  onMakeOffer?: (id: string, deal: DealInput, expires: string) => Promise<{ error?: string }>;
+  onWithdrawOffer?: (id: string) => Promise<{ error?: string }>;
 }) {
   // A call shows at once; the saved one replaces it when the page refreshes.
   const [picked, setPicked] = useState<Record<string, Forecast | null>>({});
   const [error, setError] = useState<string | null>(null);
+  const [offerBusy, setOfferBusy] = useState<string | null>(null);
   if (!quotes.length) return null;
 
   const withCalls = quotes.map((q) => (q.id in picked ? { ...q, forecast: picked[q.id] } : q));
@@ -64,7 +74,32 @@ export default function CloseOut({
   const mc = mustClose(plan, ptd, qtd, all);
   const mustKeys = new Set(mc.must.map((u) => u.key));
 
-  const left = daysBetween(calendar.today, periodEnd(calendar.periodStart, plan.period));
+  const end = periodEnd(calendar.periodStart, plan.period);
+  const left = daysBetween(calendar.today, end);
+  // An offer holds through the period's last day.
+  const lastDay = new Date(Date.parse(end) - 86400000).toISOString().slice(0, 10);
+  // What a sign-by offer on this decision could be, closing alongside the
+  // rest of what's called (Commit and Stretch). Single quotes only for now.
+  const expected = lines[1].line.units;
+  const offerFor = (u: CloseUnit): OfferSuggestion | null => {
+    if (u.quotes.length !== 1 || (u.forecast !== 'commit' && u.forecast !== 'stretch')) return null;
+    const others = expected.filter((x) => x.key !== u.key).flatMap((x) => x.quotes.map((q) => q.deal));
+    return suggestOffer(plan, ptd, qtd, u.quotes[0].deal, others, targets);
+  };
+  async function offer(q: Quote, deal: DealInput | null) {
+    const act = deal ? onMakeOffer && (() => onMakeOffer(q.id, deal, lastDay)) : onWithdrawOffer && (() => onWithdrawOffer(q.id));
+    if (!act) return;
+    setOfferBusy(q.id);
+    setError(null);
+    let res: { error?: string };
+    try {
+      res = await act();
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    setOfferBusy(null);
+    if (res.error) setError(res.error);
+  }
   const name = periodLabel(plan.period).split(' ')[0];
   const closing = left <= 7;
   const uncalled = units.filter((u) => u.forecast === null).length;
@@ -130,7 +165,20 @@ export default function CloseOut({
 
       <ul className="co-list">
         {units.map((u) => (
-          <UnitRow key={u.key} u={u} plan={plan} ptd={ptd} qtd={qtd} must={mustKeys.has(u.key)} onCall={(f) => void call(u, f)} />
+          <UnitRow
+            key={u.key}
+            u={u}
+            plan={plan}
+            ptd={ptd}
+            qtd={qtd}
+            must={mustKeys.has(u.key)}
+            onCall={(f) => void call(u, f)}
+            suggestion={onMakeOffer ? offerFor(u) : null}
+            lastDay={lastDay}
+            today={calendar.today}
+            busy={offerBusy !== null && u.quotes.some((q) => q.id === offerBusy)}
+            onOffer={(q, d) => void offer(q, d)}
+          />
         ))}
       </ul>
       {error && (
@@ -180,6 +228,11 @@ function UnitRow({
   qtd,
   must,
   onCall,
+  suggestion,
+  lastDay,
+  today,
+  busy,
+  onOffer,
 }: {
   u: CloseUnit;
   plan: CompPlan;
@@ -187,6 +240,11 @@ function UnitRow({
   qtd: QuarterToDate | null;
   must: boolean;
   onCall: (f: Forecast) => void;
+  suggestion: OfferSuggestion | null;
+  lastDay: string;
+  today: string;
+  busy: boolean;
+  onOffer: (q: Quote, deal: DealInput | null) => void;
 }) {
   // This decision on its own, against where the period stands now.
   const own = closeWith(plan, ptd, qtd, u.quotes.map((q) => q.deal));
@@ -219,6 +277,88 @@ function UnitRow({
           </button>
         ))}
       </div>
+      <OfferLine plan={plan} q={u.quotes.length === 1 ? u.quotes[0] : null} suggestion={suggestion} lastDay={lastDay} today={today} busy={busy} onOffer={onOffer} />
     </li>
+  );
+}
+
+/** 'YYYY-MM-DD' as "Sat, Oct 31". */
+function dayName(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+const PCT: Record<Line, 'subscriptionDiscountPct' | 'oneTimeDiscountPct' | 'hardwareDiscountPct'> = {
+  software: 'subscriptionDiscountPct',
+  services: 'oneTimeDiscountPct',
+  hardware: 'hardwareDiscountPct',
+};
+const pct0 = (n: number) => `${Math.round(n * 10) / 10}%`;
+
+/**
+ * A sign-by offer on a decision: the one IOI suggests (the cheapest line for
+ * what the buyer saves, inside the rep's targets, never costing quota), or
+ * the one already out with its date. When there's no price room, it says so:
+ * the hold-up is probably attention, not price.
+ */
+function OfferLine({
+  plan,
+  q,
+  suggestion,
+  lastDay,
+  today,
+  busy,
+  onOffer,
+}: {
+  plan: CompPlan;
+  q: Quote | null;
+  suggestion: OfferSuggestion | null;
+  lastDay: string;
+  today: string;
+  busy: boolean;
+  onOffer: (q: Quote, deal: DealInput | null) => void;
+}) {
+  if (!q) return null;
+  if (q.offer && q.offer.expires >= today) {
+    const orig = q.offer.original;
+    const changed = (Object.keys(PCT) as Line[]).filter((l) => Math.abs(Number(q.deal[PCT[l]] ?? 0) - Number(orig[PCT[l]] ?? 0)) > 0.01);
+    return (
+      <div className="co-offer is-out">
+        <p>
+          <b>Sign-by offer out</b>
+          {changed.map((l) => ` · ${LINE_WORDS[l]} at ${pct0(Number(q.deal[PCT[l]] ?? 0))} off (was ${pct0(Number(orig[PCT[l]] ?? 0))})`).join('')} until{' '}
+          {dayName(q.offer.expires)}. After that it goes back on its own.
+        </p>
+        <button type="button" className="btn-text" disabled={busy} onClick={() => onOffer(q, null)}>
+          Withdraw it
+        </button>
+      </div>
+    );
+  }
+  if (!suggestion) return null;
+  if (suggestion.kind === 'none') {
+    return (
+      <div className="co-offer is-none">
+        <p>
+          {suggestion.reason === 'breaks-quota'
+            ? 'The only room inside your targets is on what counts toward quota, and you are too close to the line to give it. Hold the price: if it has gone quiet, the hold-up is likely attention.'
+            : 'No price room inside your targets. If it has gone quiet, the hold-up is likely attention, not price: a short call to sign it together may do more.'}
+        </p>
+      </div>
+    );
+  }
+  const o = suggestion.offer;
+  return (
+    <div className="co-offer">
+      <p>
+        <b>Sign-by offer:</b> {LINE_WORDS[o.line]} from {pct0(o.fromPct)} to {pct0(o.toPct)} off if signed by {dayName(lastDay)}. They save{' '}
+        {fmtMoney(o.buyerSaves)}. It costs you {fmtMoney(o.cost)}
+        {o.creditChange < -0.5 ? ` and ${fmtCredit(plan, -o.creditChange)} of quota credit` : ', and your quota credit doesn’t move'}.
+        {o.byTarget && ` Still inside your ${pct0(o.toPct)} target.`}
+      </p>
+      <button type="button" className="btn btn-secondary co-offer-btn" disabled={busy} onClick={() => onOffer(q, o.deal)}>
+        {busy ? 'Saving…' : 'Make the offer'}
+      </button>
+    </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { paysHardware, periodLabel, periodOf, periodToDateFrom, type CompPlan, type DealAccount } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { earnedNow, lostNow, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
+import { earnedNow, lostNow, offByLine, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
 import AddBooked, { type BookedInput } from '@/components/AddBooked';
 import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
@@ -207,6 +207,7 @@ export default function BookedList({
           );
         })}
       </tbody>
+      {rows.length > 1 && <TotalRow plan={plan} rows={rows} rowLift={rowLift} lines={lines} sizeOf={size.of} />}
     </table>
   );
 
@@ -271,5 +272,57 @@ export default function BookedList({
           );
         })}
     </section>
+  );
+}
+
+/** The sheet added up: booked size, each line's discount by dollars and
+ *  what it cost, and earned against left on the table. */
+function TotalRow({
+  plan,
+  rows,
+  rowLift,
+  lines,
+  sizeOf,
+}: {
+  plan: CompPlan;
+  rows: DealRow[];
+  rowLift: number | null;
+  lines: LineCol[];
+  sizeOf: (d: DealRow) => number;
+}) {
+  const size = rows.reduce((n, d) => n + sizeOf(d), 0);
+  const earned = rows.reduce((n, d) => n + earnedNow(plan, d, rowLift), 0);
+  const per = lines.map((l) => {
+    let list = 0;
+    let off = 0;
+    let cost = 0;
+    for (const d of rows) {
+      const o = offByLine(plan, d)[l.key];
+      list += o.list;
+      off += o.off;
+      cost += lostNow(plan, d, rowLift)[l.key];
+    }
+    return { key: l.key, label: l.label, pct: list > 0 ? (off / list) * 100 : null, cost };
+  });
+  const lost = per.reduce((n, p) => n + p.cost, 0);
+  return (
+    <tfoot>
+      <tr className="t-total">
+        <th scope="row" className="t-left t-name">
+          Total
+        </th>
+        <td className="t-date" />
+        <td className="t-arr">{fmtMoney(size)}</td>
+        {per.map((p) => (
+          <td key={p.key} className="t-disc">
+            <span className="t-pct">{p.pct === null ? 'n/a' : `${Math.round(p.pct)}%`}</span>
+            <span className={`t-cost${p.cost >= 0.005 ? '' : ' is-dim'}`}>{p.cost >= 0.005 ? `−${fmtMoney(p.cost)}` : '$0'}</span>
+          </td>
+        ))}
+        <td className="t-earned">{fmtMoney(earned)}</td>
+        <td className={`t-lost${lost >= 0.005 ? '' : ' is-dim'}`}>{lost >= 0.005 ? `−${fmtMoney(lost)}` : '$0'}</td>
+        <td className="t-act" />
+      </tr>
+    </tfoot>
   );
 }

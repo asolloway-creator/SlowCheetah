@@ -55,6 +55,8 @@ export default function PipelineHome({
   onUpdateAccount,
   onAssignAccount,
   onLoseQuotes,
+  onMakeOffer,
+  onWithdrawOffer,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -81,6 +83,9 @@ export default function PipelineHome({
   onForecast?: (ids: string[], forecast: Forecast | null) => Promise<Result>;
   onUpdateAccount?: (id: string, patch: { name?: string; oneDecision?: boolean }) => Promise<Result>;
   onLoseQuotes?: (ids: string[], reason: LostReason | null) => Promise<Result>;
+  /** A sign-by offer on an open quote, and taking it back. */
+  onMakeOffer?: (id: string, deal: DealInput, expires: string) => Promise<Result>;
+  onWithdrawOffer?: (id: string) => Promise<Result>;
   onAssignAccount?: (target: { kind: 'quote' | 'deal'; id: string }, account: AccountMeta) => Promise<Result & { accountId?: string | null }>;
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
@@ -121,7 +126,18 @@ export default function PipelineHome({
       )}
       after={({ editDeal, unbookDeal, editingId }) => (
         <>
-          <CloseOut plan={paying} ptd={ptd} qtd={qtd} quotes={quotes} accounts={accounts} calendar={calendar} onForecast={onForecast} />
+          <CloseOut
+            plan={paying}
+            ptd={ptd}
+            qtd={qtd}
+            quotes={quotes}
+            accounts={accounts}
+            calendar={calendar}
+            onForecast={onForecast}
+            targets={targets}
+            onMakeOffer={onMakeOffer}
+            onWithdrawOffer={onWithdrawOffer}
+          />
           <BookedList
           plan={paying}
           deals={deals}

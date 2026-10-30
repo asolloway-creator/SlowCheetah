@@ -119,6 +119,15 @@
 --   alter table public.quotes add column if not exists lost_reason text check (lost_reason in ('price', 'competitor', 'no_decision', 'timing', 'other'));
 --   create index if not exists quotes_user_status_idx on public.quotes (user_id, status);
 --
+-- v21 (2026-10-30) adds sign-by offers on open quotes: offer_expires (the
+-- last day the offer holds) and offer_revert (the quote's own numbers, as a
+-- calc.ts DealInput). While an offer is out the quote carries the offer's
+-- numbers; past its date the home page puts the original back
+-- (revertExpiredOffers). Saving a quote by hand ends any offer on it.
+-- Additive, applied 2026-10-30:
+--   alter table public.quotes add column if not exists offer_expires date;
+--   alter table public.quotes add column if not exists offer_revert jsonb;
+--
 -- v20 (2026-10-30) adds deals.kind: 'deal' (the default) or 'upsell', for ARR
 -- booked without a quote ("Add booked ARR" under the closed deals). Counts
 -- toward quota and commission like any booked deal; left out of the

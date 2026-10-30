@@ -190,6 +190,8 @@ export default function DevScreens({ view }: { view: string }) {
           onForecast={ok}
           onUpdateAccount={ok}
           onAssignAccount={async () => ({ accountId: 'acc-1' })}
+          onMakeOffer={ok}
+          onWithdrawOffer={ok}
         />
       </Shell>
     );

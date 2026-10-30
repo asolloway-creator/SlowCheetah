@@ -11,6 +11,9 @@ import {
   saveTargetAction,
   assignAccountAction,
   loseQuotesAction,
+  makeOfferAction,
+  revertExpiredOffers,
+  withdrawOfferAction,
   setForecastAction,
   unbookDealAction,
   updateAccountAction,
@@ -26,6 +29,9 @@ export default async function Home() {
 
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
+  const calendar = calendarInZone(plan.period, await repTimeZone());
+  // A sign-by offer that ran out goes back to its own numbers before anything reads it.
+  await revertExpiredOffers(calendar.today);
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
   const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts] = await Promise.all([
@@ -37,7 +43,6 @@ export default async function Home() {
     listAccounts(user.id),
   ]);
   void _period;
-  const calendar = calendarInZone(plan.period, await repTimeZone());
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">
@@ -64,6 +69,8 @@ export default async function Home() {
         onUpdateAccount={updateAccountAction}
         onAssignAccount={assignAccountAction}
         onLoseQuotes={loseQuotesAction}
+        onMakeOffer={makeOfferAction}
+        onWithdrawOffer={withdrawOfferAction}
       />
     </Shell>
   );
