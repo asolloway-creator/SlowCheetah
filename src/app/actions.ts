@@ -484,6 +484,28 @@ export async function saveRateAction(rate: number | null): Promise<Result> {
 }
 
 /** Sets (or, with null, clears) the rep's own discount target for one line. */
+/**
+ * What the rep sells and the company's discount limits (v22), set with the
+ * plan: whether Equipment is its own one-time line, and the most off each
+ * line allows (absent: no limit; 0: no discount at all).
+ */
+export async function savePlanSetupAction(input: { sellsEquipment: boolean; limits: Record<string, unknown> }): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to change your plan.' };
+  const limits: Record<string, number> = {};
+  for (const line of LINES) {
+    const n = input?.limits?.[line];
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100) limits[line] = Math.round(n * 10) / 10;
+  }
+  const { error } = await supabase
+    .from('comp_plans')
+    .update({ sells_equipment: input?.sellsEquipment === true, limits })
+    .eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
 export async function saveTargetAction(line: Line, pct: number | null): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to set a target.' };

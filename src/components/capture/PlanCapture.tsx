@@ -21,6 +21,7 @@ import DescribeStep, { type DescribeMessage } from './DescribeStep';
 import CheckStep from './CheckStep';
 import SavedStep from './SavedStep';
 import PlanSummary from './PlanSummary';
+import SellsAndLimits, { type PlanSetup } from './SellsAndLimits';
 
 /**
  * Putting a plan in: describe it (typed or spoken), check it, confirm it.
@@ -53,6 +54,7 @@ export default function PlanCapture({
   compact = false,
   onDone,
   doneLabel = 'See what your deals pay',
+  onSetup,
 }: {
   /** The working plan, if the person already has one of their own. */
   current: CompPlan | null;
@@ -64,6 +66,8 @@ export default function PlanCapture({
   compact?: boolean;
   onDone?: () => void;
   doneLabel?: string;
+  /** What the rep sells and the company's discount limits (signed in only). */
+  onSetup?: (s: PlanSetup) => Promise<{ error?: string }>;
 }) {
   const ctx = account ? 'account' : 'own';
   const router = useRouter();
@@ -205,6 +209,7 @@ export default function PlanCapture({
           setStep('describe');
         }}
         onForm={() => setStep('form')}
+        setup={onSetup ? <SellsAndLimits plan={current} onSave={onSetup} /> : undefined}
         onForget={async () => {
           const n = await forgetPlans();
           if (n !== null) markContributed(false);
@@ -260,6 +265,7 @@ export default function PlanCapture({
         onContext={filedId ? context : null}
         onDone={finish}
         doneLabel={onDone || calculable ? doneLabel : 'Done'}
+        setup={onSetup && calculable && savedPlan ? <SellsAndLimits plan={savedPlan} onSave={onSetup} /> : undefined}
       />
     );
   }

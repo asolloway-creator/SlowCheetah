@@ -8,8 +8,8 @@ import { periodTotals, type Line, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
-  services: 'One-time products & services',
-  hardware: 'Hardware',
+  services: 'Services (one-time)',
+  hardware: 'Equipment (one-time)',
 };
 const pct0 = (n: number) => `${Math.round(n)}%`;
 

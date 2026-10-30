@@ -342,7 +342,7 @@ function OfferLine({
         <p>
           {suggestion.reason === 'breaks-quota'
             ? 'The only room inside your targets is on what counts toward quota, and you are too close to the line to give it. Hold the price: if it has gone quiet, the hold-up is likely attention.'
-            : 'No price room inside your targets. If it has gone quiet, the hold-up is likely attention, not price: a short call to sign it together may do more.'}
+            : 'No price room inside your targets and your company’s limits. If it has gone quiet, the hold-up is likely attention, not price: a short call to sign it together may do more.'}
         </p>
       </div>
     );

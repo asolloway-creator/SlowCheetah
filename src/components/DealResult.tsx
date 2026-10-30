@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { CompPlan, DealInput, PeriodToDate } from '@/lib/calc';
-import { paysHardware } from '@/lib/calc';
+import { sellsEquipment } from '@/lib/calc';
 import { fmt, fmtMoney, fmtRatePct } from '@/lib/format';
 import TweenedMoney from '@/components/TweenedMoney';
 import Ledger, { type LedgerRow } from '@/components/Ledger';
@@ -43,8 +43,8 @@ export default function DealResult({
   // figure. Measured the same way as the field notes in the form.
   const parts = [
     { label: 'Subscription', cost: costOf(plan, deal, ptd, 'subscriptionDiscountPct') },
-    { label: 'One-time', cost: costOf(plan, deal, ptd, 'oneTimeDiscountPct') },
-    ...(paysHardware(plan) ? [{ label: 'Hardware', cost: costOf(plan, deal, ptd, 'hardwareDiscountPct') }] : []),
+    { label: 'Services', cost: costOf(plan, deal, ptd, 'oneTimeDiscountPct') },
+    ...(sellsEquipment(plan) ? [{ label: 'Equipment', cost: costOf(plan, deal, ptd, 'hardwareDiscountPct') }] : []),
   ].filter((p) => p.cost >= 0.005);
   // Two discounts on one deal interact a little (together they can cost
   // more than each alone); scaled so the parts add up to the figure above.

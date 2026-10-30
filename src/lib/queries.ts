@@ -20,6 +20,7 @@ import {
   type QuarterlyKickerTier,
   type DealAccount,
   type DealInput,
+  type LineLimits,
   type Forecast,
   type Quote,
   type SubscriptionMode,
@@ -137,6 +138,17 @@ export async function getCompPlan(userId: string): Promise<CompPlan | null> {
   return toCompPlan(data);
 }
 
+/** Company discount limits per line, checked: 0 to 100, anything else dropped. */
+function parseLimits(v: unknown): LineLimits {
+  const out: LineLimits = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const line of ['software', 'services', 'hardware'] as const) {
+    const n = (v as Record<string, unknown>)[line];
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 100) out[line] = Math.round(n * 10) / 10;
+  }
+  return out;
+}
+
 /** A comp_plans row (or its jsonb twin) as a CompPlan. */
 export function toCompPlan(data: Record<string, unknown>): CompPlan {
   const steps = data.accelerator_style === 'none' ? null : parseSteps(data.accelerator_steps, num(data.accelerator_threshold));
@@ -157,6 +169,8 @@ export function toCompPlan(data: Record<string, unknown>): CompPlan {
       ? { hardware_rate: num(data.hardware_rate) }
       : {}),
     quarterly_kicker: parseKicker(data.quarterly_kicker),
+    sells_equipment: data.sells_equipment === true,
+    limits: parseLimits(data.limits),
     industry: data.industry ? String(data.industry) : null,
     company_size_band: data.company_size_band ? String(data.company_size_band) : null,
   };

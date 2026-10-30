@@ -67,6 +67,10 @@ const o3 = suggestOffer(plan, ptd, null, { ...pastOt, subscriptionDiscountPct: 2
 check('past every target, no offer', o3.kind === 'none' && o3.reason === 'past-targets');
 const roomy = suggestOffer(plan, ptd, null, pastOt, [mrr(1500), mrr(1500)], { services: 75, software: 10 });
 check('with room to spare, a subscription offer inside the target', roomy.kind === 'offer' && roomy.offer.line === 'software' && roomy.offer.toPct === 10, JSON.stringify(roomy));
+const capped = suggestOffer({ ...plan, limits: { services: 60 } }, ptd, null, near, nearOthers, { services: 75, software: 10 });
+check('the company limit caps an offer below the target', capped.kind === 'offer' && capped.offer.line === 'services' && capped.offer.toPct === 60, JSON.stringify(capped));
+const banned = suggestOffer({ ...plan, limits: { services: 0, software: 0 } }, ptd, null, near, nearOthers, { services: 75, software: 10 });
+check('no discount allowed on any line: no offer', banned.kind === 'none' && banned.reason === 'past-targets');
 check('an offer is worth less to the rep than the deal', o1.kind === 'offer' && o1.offer.cost < o1.worth);
 
 console.log(`\n${pass} passed${fail ? `, ${fail} FAILED` : ''}`);

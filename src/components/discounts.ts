@@ -1,4 +1,4 @@
-import { paysHardware, periodSummary, periodToDateFrom, type CompPlan, type PeriodToDate } from '@/lib/calc';
+import { paysHardware, periodSummary, periodToDateFrom, sellsEquipment, type CompPlan, type PeriodToDate } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 
 /** The lines a deal's discounts fall on. */
@@ -30,20 +30,25 @@ export function parseTargets(v: unknown): Targets {
  * exactly. A plan paid in months of MRR pays on the subscription only.
  */
 export function lostByLine(plan: CompPlan, d: DealRow): Record<Line, number> {
-  const split = paysHardware(plan);
-  const hwRate = split ? (plan.hardware_rate as number) / 100 : 0;
+  // Equipment on a rate of its own is its own slice; sold without one, it's
+  // one-time dollars like services, in the same pool.
+  const own = paysHardware(plan);
+  const hwRate = own ? (plan.hardware_rate as number) / 100 : 0;
   const hwOff = (d.hardware_amount ?? 0) * ((d.hardware_discount_pct ?? 0) / 100);
-  const hardware = split ? Math.min(d.money_left_on_table, hwOff * hwRate) : 0;
-  const rest = Math.max(0, d.money_left_on_table - hardware);
-  if (plan.commission_style !== 'percent') return { software: rest, services: 0, hardware };
+  const hwOwn = own ? Math.min(d.money_left_on_table, hwOff * hwRate) : 0;
+  const rest = Math.max(0, d.money_left_on_table - hwOwn);
+  if (plan.commission_style !== 'percent') return { software: rest, services: 0, hardware: hwOwn };
   const off = offByLine(plan, d);
+  const w = plan.one_time_weight / 100;
   const subOff = off.software.off;
-  const otOff = off.services.off * (plan.one_time_weight / 100);
-  const total = subOff + otOff;
-  if (!(total > 0)) return { software: rest, services: 0, hardware };
+  const svcOff = off.services.off * w;
+  const hwPool = own ? 0 : off.hardware.off * w;
+  const total = subOff + svcOff + hwPool;
+  if (!(total > 0)) return { software: rest, services: 0, hardware: hwOwn };
   // Cents that add back up to the deal's own total.
   const software = Math.round(((rest * subOff) / total) * 100) / 100;
-  return { software, services: Math.max(0, Math.round((rest - software) * 100) / 100), hardware };
+  const hardware = Math.round(((rest * hwPool) / total) * 100) / 100;
+  return { software, services: Math.max(0, Math.round((rest - software - hardware) * 100) / 100), hardware: hwOwn + hardware };
 }
 
 /**
@@ -83,7 +88,8 @@ export function lostNow(plan: CompPlan, d: DealRow, lift: number | null): Record
   const l = lostByLine(plan, d);
   if (lift === null || plan.accelerator_style !== 'retro_bump') return l;
   const f = lift / savedLift(d);
-  return { software: l.software * f, services: l.services * f, hardware: l.hardware };
+  // Equipment on its own flat rate never moves with the accelerator.
+  return { software: l.software * f, services: l.services * f, hardware: paysHardware(plan) ? l.hardware : l.hardware * f };
 }
 
 /** What a booked deal listed at and what its discount took off, per line,
@@ -93,7 +99,7 @@ export function offByLine(plan: CompPlan, d: DealRow): Record<Line, { list: numb
   // Booked ARR entered without a quote has no discount to measure; counting
   // it at 0% off would pull every average down.
   if (d.kind === 'upsell') return { software: { list: 0, off: 0 }, services: { list: 0, off: 0 }, hardware: { list: 0, off: 0 } };
-  const split = paysHardware(plan);
+  const split = sellsEquipment(plan);
   const subList = d.subscription_mode === 'acv' ? d.subscription_amount : d.subscription_amount * 12;
   const hw = d.hardware_amount ?? 0;
   const hwOff = hw * ((d.hardware_discount_pct ?? 0) / 100);
@@ -110,9 +116,9 @@ export function offByLine(plan: CompPlan, d: DealRow): Record<Line, { list: numb
 /** What a dollar off each line costs the rep, by the plan's own rules, for
  *  when there's nothing booked yet to measure it from. */
 export function costPerDollar(plan: CompPlan, line: Line): number {
-  if (line === 'hardware') return (plan.hardware_rate ?? 0) / 100;
+  if (line === 'hardware' && paysHardware(plan)) return (plan.hardware_rate as number) / 100;
   if (plan.commission_style !== 'percent') return 0;
-  return (plan.base_rate / 100) * (line === 'services' ? plan.one_time_weight / 100 : 1);
+  return (plan.base_rate / 100) * (line === 'software' ? 1 : plan.one_time_weight / 100);
 }
 
 export type PeriodTotals = {

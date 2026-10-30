@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { paysHardware, periodLabel, periodOf, periodToDateFrom, type CompPlan, type DealAccount } from '@/lib/calc';
+import { periodLabel, sellsEquipment, periodOf, periodToDateFrom, type CompPlan, type DealAccount } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { earnedNow, lostNow, offByLine, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
@@ -63,8 +63,8 @@ export default function BookedList({
   const size = sizeColumn(plan);
   const lines: LineCol[] = [
     { key: 'software', label: 'Subscription', pct: (d) => d.subscription_discount_pct },
-    { key: 'services', label: 'One-time products & services', pct: (d) => d.one_time_discount_pct },
-    ...(paysHardware(plan) ? [{ key: 'hardware' as const, label: 'Hardware', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
+    { key: 'services', label: 'Services', pct: (d) => d.one_time_discount_pct },
+    ...(sellsEquipment(plan) ? [{ key: 'hardware' as const, label: 'Equipment', pct: (d: DealRow) => d.hardware_discount_pct ?? 0 }] : []),
   ];
   const [showEarlier, setShowEarlier] = useState(false);
   const [busy, setBusy] = useState<{ id: string; act: 'unbook' | 'delete' } | null>(null);

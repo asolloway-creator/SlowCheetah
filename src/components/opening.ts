@@ -17,6 +17,7 @@ import {
   isFixedTier,
   kickerTierAt,
   kickerTierValue,
+  paysHardware,
   periodSummary,
   quarterlyKickerSummary,
   stepIndexAt,
@@ -526,12 +527,12 @@ export function outcomeCopy(plan: CompPlan, deal: DealInput, o: Outcome, ptd: Pe
             // what it actually costs in commission only exists because this
             // plan weights revenue types differently — worth naming, not
             // just totaling.
-            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off one-time products and services only costs you ${fmtMoney(o.atStake)}. They count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
+            `The ${fmtPctShort(deal.oneTimeDiscountPct)} off services only costs you ${fmtMoney(o.atStake)}. One-time charges count at just ${fmtPctShort(plan.one_time_weight)} toward commission.`
           : bothDiscounted && weighted
             ? // Both levers active: the one-time-weighting insight is still
               // true and still worth naming, not just swallowed into one
               // generic total the moment a second discount joins it.
-              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal. The one-time products and services alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
+              `Your discounts cost you ${fmtMoney(o.atStake)} on this deal. The one-time charges alone are still just ${fmtMoney(costOf(plan, deal, ptd, 'oneTimeDiscountPct'))}, weighted at ${fmtPctShort(plan.one_time_weight)} toward commission.`
             : `Your discounts still cost you ${fmtMoney(o.atStake)} on this deal.`
       : null;
 
@@ -700,7 +701,7 @@ export function sliderCaption(deal: DealInput, r: CalcResult): string {
 
 /** One line under the services field. */
 export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number): string {
-  const what = 'One-time products & services';
+  const what = 'One-time charges';
   if (plan.commission_style !== 'percent' || plan.one_time_weight === 0) {
     return 'Discounts here cost you nothing on this plan.';
   }
@@ -708,12 +709,18 @@ export function oneTimeCopy(plan: CompPlan, deal: DealInput, otCost: number): st
   return `${what} count at ${fmtPctShort(plan.one_time_weight)} toward your commission.`;
 }
 
-/** One line under the hardware field, on a plan that pays hardware its own rate. */
+/** One line under the Equipment field: its own flat rate, or (without one)
+ *  counted like services at the one-time weight. */
 export function hardwareCopy(plan: CompPlan, deal: DealInput, hwCost: number): string {
+  const off = deal.hardwareDiscountPct ?? 0;
+  if (off > 0 && hwCost > 0) return `${fmtPctShort(off)} off equipment costs you ${fmtMoney(hwCost)}.`;
+  if (!paysHardware(plan)) {
+    if (plan.commission_style !== 'percent' || plan.one_time_weight === 0) return 'Equipment counts nothing on this plan, so discounts here cost you nothing.';
+    return `Equipment counts at ${fmtPctShort(plan.one_time_weight)} toward your commission, like services.`;
+  }
   const rate = plan.hardware_rate ?? 0;
-  if (rate === 0) return 'Hardware pays nothing on this plan, so discounts here cost you nothing.';
-  if ((deal.hardwareDiscountPct ?? 0) > 0) return `${fmtPctShort(deal.hardwareDiscountPct as number)} off hardware costs you ${fmtMoney(hwCost)}.`;
-  return `Hardware pays a flat ${fmtPctShort(rate)}, accelerator or not.`;
+  if (rate === 0) return 'Equipment pays nothing on this plan, so discounts here cost you nothing.';
+  return `Equipment pays a flat ${fmtPctShort(rate)}, accelerator or not.`;
 }
 
 /** "$3,000 one-time · $1,100 a month × 3 units · 5% off" for the mobile disclosure. */

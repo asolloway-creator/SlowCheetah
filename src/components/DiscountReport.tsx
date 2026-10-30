@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { paysHardware, type CompPlan } from '@/lib/calc';
+import { sellsEquipment, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { fmt, fmtMoney } from '@/lib/format';
 import { costPerDollar, LINES, lostNow, offByLine, type Line, type PeriodTotals, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
   software: 'Subscription',
-  services: 'One-time products & services',
-  hardware: 'Hardware',
+  services: 'Services (one-time)',
+  hardware: 'Equipment (one-time)',
 };
 
 const pct0 = (n: number) => `${Math.round(n)}%`;
@@ -40,7 +40,7 @@ export default function DiscountReport({
   /** The period before, to compare each line's average against. */
   last?: { label: string; totals: PeriodTotals } | null;
 }) {
-  const lines: Line[] = ['software', 'services', ...(paysHardware(plan) ? (['hardware'] as Line[]) : [])];
+  const lines: Line[] = ['software', 'services', ...(sellsEquipment(plan) ? (['hardware'] as Line[]) : [])];
   const tiles = lines
     .map((line) => {
       let list = 0;

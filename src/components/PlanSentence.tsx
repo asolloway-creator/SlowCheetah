@@ -440,7 +440,7 @@ export default function PlanSentence({
       {percent && (
         <NumField
           id="w1"
-          label="One-time products & services count at"
+          label="One-time services and equipment count at"
           value={p.one_time_weight}
           suffix="%"
           max={100}
@@ -449,12 +449,12 @@ export default function PlanSentence({
       )}
       <div className="field-grid">
         <div className="field">
-          <span className="field-label">Hardware</span>
+          <span className="field-label">Equipment</span>
           <Segmented
-            label="Hardware pays"
+            label="Equipment pays"
             value={hwOwn ? 'own' : 'with'}
             options={[
-              ['with', 'Same as one-time products'],
+              ['with', 'Same as services'],
               ['own', 'Its own flat rate'],
             ]}
             onChange={(v) => setHardware(v === 'own')}
@@ -463,7 +463,7 @@ export default function PlanSentence({
         {hwOwn && (
           <NumField
             id="hw-rate"
-            label="Hardware pays a flat"
+            label="Equipment pays a flat"
             value={p.hardware_rate ?? 0}
             suffix="%"
             max={100}

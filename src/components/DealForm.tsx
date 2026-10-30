@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { paysHardware, periodLabel, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
+import { periodLabel, sellsEquipment, type CompPlan, type DealInput, type PeriodToDate } from '@/lib/calc';
 import { fmtMoney, fmtPctShort, planSentence } from '@/lib/format';
 import NumField from '@/components/NumField';
 import DiscountField, { type DiscountMode } from '@/components/DiscountField';
@@ -60,29 +60,54 @@ export default function DealForm({
   const otCost = costOf(plan, deal, ptd, 'oneTimeDiscountPct');
   const costText = (pct: number, cost: number) =>
     `${fmtPctShort(pct)} off, ${cost > 0 ? `costs you ${fmtMoney(cost)}` : 'costs you nothing'}`;
-  const hw = paysHardware(plan);
+  const hw = sellsEquipment(plan);
   const hwAmount = deal.hardware ?? 0;
   const hwOff = deal.hardwareDiscountPct ?? 0;
   const hwCost = hw ? costOf(plan, deal, ptd, 'hardwareDiscountPct') : 0;
-  // One name for the one-time line everywhere: setup, onboarding,
-  // implementation and any other one-time charge (hardware too, unless the
-  // plan pays it a rate of its own).
-  const otName = 'One-time products & services';
+  // The one-time lines: Services (onboarding, setup, implementation,
+  // training) and, when the rep sells it, Equipment (hardware, devices).
+  // Without an Equipment line, every one-time charge goes in Services.
+  const otName = 'Services';
 
   // A discount past the rep's own target: by how much, and what those
   // extra points cost them on this deal.
   type Key = 'subscriptionDiscountPct' | 'oneTimeDiscountPct' | 'hardwareDiscountPct';
   const over = (key: Key, line: Line) => {
-    const t = targets?.[line];
     const v = deal[key] ?? 0;
+    // The company's limit comes first: past it, the deal needs approval.
+    const lim = plan.limits?.[line];
+    const t = lim !== undefined && v > lim + 1e-9 ? lim : targets?.[line];
+    const kind: 'limit' | 'target' = lim !== undefined && v > lim + 1e-9 ? 'limit' : 'target';
     if (t === undefined || !(v > t + 1e-9)) return null;
     const extra = Math.max(0, costOf(plan, deal, ptd, key) - costOf(plan, { ...deal, [key]: t }, ptd, key));
-    return { t, pts: Math.round((v - t) * 10) / 10, extra };
+    return { kind, t, pts: Math.round((v - t) * 10) / 10, extra };
   };
-  const targetHead = (line: Line) =>
-    targets?.[line] !== undefined ? <span className="field-target">Target {fmtPctShort(targets[line] as number)}</span> : undefined;
-  const overNote = (o: { t: number; pts: number; extra: number } | null) =>
-    o && (
+  const targetHead = (line: Line) => {
+    const t = targets?.[line];
+    const lim = plan.limits?.[line];
+    if (t === undefined && lim === undefined) return undefined;
+    // One label: whichever binds first. A limit at or under the target is
+    // the real ceiling; above it, the target is.
+    const showLimit = lim !== undefined && (t === undefined || lim <= t);
+    return (
+      <span className="field-target">
+        {showLimit ? (lim === 0 ? 'No discount allowed' : `Limit ${fmtPctShort(lim as number)}`) : `Target ${fmtPctShort(t as number)}`}
+      </span>
+    );
+  };
+  const overNote = (o: { kind: 'limit' | 'target'; t: number; pts: number; extra: number } | null) =>
+    o &&
+    (o.kind === 'limit' ? (
+      <span className="deal-over">
+        {o.t === 0 ? 'Your company doesn’t allow a discount here' : `Past your company’s ${fmtPctShort(o.t)} limit`}: this one needs approval
+        {o.extra >= 0.005 && (
+          <>
+            , and it costs you <span className="is-red">{fmtMoney(o.extra)}</span>
+          </>
+        )}
+        .
+      </span>
+    ) : (
       <span className="deal-over">
         {parseFloat(o.pts.toFixed(1))} {o.pts === 1 ? 'point' : 'points'} over your {fmtPctShort(o.t)} target
         {o.extra >= 0.005 && (
@@ -92,7 +117,7 @@ export default function DealForm({
         )}
         .
       </span>
-    );
+    ));
   const subOver = over('subscriptionDiscountPct', 'software');
   const otOver = over('oneTimeDiscountPct', 'services');
   const hwOver = over('hardwareDiscountPct', 'hardware');
@@ -212,7 +237,7 @@ export default function DealForm({
               blankZero
               placeholder="0"
               onChange={(n) => set('oneTime', n)}
-              head={<span aria-hidden="true" />}
+              head={<span className="field-hint">{hw ? 'One-time: onboarding, setup, implementation, training' : 'One-time charges: onboarding, setup, equipment'}</span>}
             />
             <DiscountField
               id="otPct"
@@ -228,7 +253,7 @@ export default function DealForm({
                 overNote(otOver)
               ) : otCost > 0 ? (
                 <>
-                  {fmtPctShort(deal.oneTimeDiscountPct)} off {otName.toLowerCase()} costs you{' '}
+                  {fmtPctShort(deal.oneTimeDiscountPct)} off services costs you{' '}
                   <span className="is-red">{fmtMoney(otCost)}</span>.
                 </>
               ) : (
@@ -240,13 +265,13 @@ export default function DealForm({
             <div className={`deal-row${hwOver ? ' is-over' : ''}`}>
               <NumField
                 id="hw"
-                label="Hardware"
+                label="Equipment"
                 prefix="$"
                 value={hwAmount}
                 blankZero
                 placeholder="0"
                 onChange={(n) => set('hardware', n)}
-                head={<span aria-hidden="true" />}
+                head={<span className="field-hint">One-time: hardware, devices</span>}
               />
               <DiscountField
                 id="hwPct"
@@ -304,7 +329,7 @@ export default function DealForm({
           <div className="deal-col">
             {units}
             <div className="deal-hw">
-              <NumField id="hw" label="Hardware" prefix="$" value={hwAmount} blankZero placeholder="0" onChange={(n) => set('hardware', n)} />
+              <NumField id="hw" label="Equipment" prefix="$" value={hwAmount} blankZero placeholder="0" onChange={(n) => set('hardware', n)} />
               <DiscountSlider
                 size="sm"
                 id="hwD"
@@ -335,7 +360,7 @@ export default function DealForm({
           <DiscountSlider
             size="sm"
             id="otD"
-            label={`Discount on ${otName.toLowerCase()}`}
+            label="Discount on services"
             value={deal.oneTimeDiscountPct}
             onChange={(v) => set('oneTimeDiscountPct', v)}
             costsYou={otCost}
@@ -345,7 +370,7 @@ export default function DealForm({
           <p className="field-note">
             {otCost > 0 ? (
               <>
-                {fmtPctShort(deal.oneTimeDiscountPct)} off {otName.toLowerCase()} costs you{' '}
+                {fmtPctShort(deal.oneTimeDiscountPct)} off services costs you{' '}
                 <span className="is-red">{fmtMoney(otCost)}</span>.
               </>
             ) : (

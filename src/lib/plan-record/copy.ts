@@ -59,8 +59,8 @@ const SCOPE_WORDS: Record<PlanRecord['pay_rules'][number]['applies_to'], string>
   expansion: 'Expansion deals pay',
   renewal: 'Renewals pay',
   one_time: 'One-time charges pay',
-  services: 'One-time products and services pay',
-  hardware: 'Hardware pays',
+  services: 'One-time services pay',
+  hardware: 'Equipment pays',
   other: 'Some deals pay',
 };
 const SPIFF_WORDS: Record<PlanRecord['bonuses'][number]['spiff_for'], string> = {
@@ -211,7 +211,7 @@ export function readback(r: PlanRecord, m: Mapping): ReadbackGroup[] {
   // With hardware on a rate of its own, this is about setup and services only.
   const ot = r.one_time.counts_pct;
   const payingOnOneTime = r.pay_rules.some((p) => p.applies_to === 'one_time' || p.applies_to === 'services');
-  const what = 'One-time products and services';
+  const what = 'One-time services and equipment';
   if (ot !== null && !payingOnOneTime) {
     pay.push(
       line(
@@ -518,7 +518,7 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
     case 'one_time_weight':
       return {
         topic, index, kind: 'number', current: r.one_time.counts_pct, max: 100, suffix: '%',
-        prompt: 'How much do one-time products and services, like setup fees, count? 0% if not at all, 100% if in full.',
+        prompt: 'How much do one-time charges, like setup fees or equipment, count? 0% if not at all, 100% if in full.',
       };
     case 'one_time_kind': {
       const rate = r.pay_rules[index]?.rate;
@@ -526,8 +526,8 @@ export function question(r: PlanRecord, topic: Topic, index: number): Question {
         topic, index, kind: 'choice', current: null,
         prompt: `Which one-time charges pay ${rate !== null && rate !== undefined ? fmtPctShort(rate) : 'that rate'}?`,
         choices: [
-          { value: 'hardware', label: 'Hardware, at a flat rate' },
-          { value: 'services', label: 'One-time products & services' },
+          { value: 'hardware', label: 'Equipment, at a flat rate' },
+          { value: 'services', label: 'Services (one-time)' },
           { value: 'one_time', label: 'All one-time charges' },
         ],
       };
@@ -700,8 +700,8 @@ export function assumedText(r: PlanRecord, a: Assumed, m: Mapping): string {
       return 'We read your base pay from context.';
     case 'one_time_weight':
       return a.why === 'default'
-        ? 'You didn’t mention one-time products or services, so we counted them at 0%.'
-        : `We counted one-time products and services at ${fmtPctShort(r.one_time.counts_pct ?? 0)}.`;
+        ? 'You didn’t mention one-time services or equipment, so we counted them at 0%.'
+        : `We counted one-time services and equipment at ${fmtPctShort(r.one_time.counts_pct ?? 0)}.`;
     case 'accelerator_kind':
       return 'We read how your accelerator applies from context.';
     case 'kicker_target': {

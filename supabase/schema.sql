@@ -119,6 +119,15 @@
 --   alter table public.quotes add column if not exists lost_reason text check (lost_reason in ('price', 'competitor', 'no_decision', 'timing', 'other'));
 --   create index if not exists quotes_user_status_idx on public.quotes (user_id, status);
 --
+-- v22 (2026-10-30) adds what the rep sells and the company's discount limits
+-- to comp_plans: sells_equipment (Equipment is its own one-time line; it pays
+-- hardware_rate when set, otherwise it counts like services at
+-- one_time_weight) and limits (jsonb { software, services, hardware }: the
+-- most off each line allows, 0 to 100; absent means no limit). Set on the
+-- plan page and after a new plan is confirmed. Additive, applied 2026-10-30:
+--   alter table public.comp_plans add column if not exists sells_equipment boolean not null default false;
+--   alter table public.comp_plans add column if not exists limits jsonb;
+--
 -- v21 (2026-10-30) adds sign-by offers on open quotes: offer_expires (the
 -- last day the offer holds) and offer_revert (the quote's own numbers, as a
 -- calc.ts DealInput). While an offer is out the quote carries the offer's

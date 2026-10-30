@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { COMPANY_SIZE_BANDS, needsQuarterArr, type CompPlan, type OpeningInput } from '@/lib/calc';
 import OpeningFields from '@/components/OpeningFields';
 import {
@@ -29,6 +29,7 @@ export default function SavedStep({
   onContext,
   onDone,
   doneLabel,
+  setup,
 }: {
   calculable: boolean;
   plan: CompPlan | null;
@@ -36,6 +37,8 @@ export default function SavedStep({
   onContext: ((c: PlanContext) => Promise<void>) | null;
   onDone: () => void;
   doneLabel: string;
+  /** What the rep sells and the company's discount limits (saves as it changes). */
+  setup?: ReactNode;
 }) {
   const [c, setC] = useState<PlanContext>(EMPTY_CONTEXT);
   const [credit, setCredit] = useState(0);
@@ -94,6 +97,8 @@ export default function SavedStep({
           />
         </section>
       )}
+
+      {setup}
 
       {onContext && (
         <section className="cap-context" aria-labelledby="cap-context-h">

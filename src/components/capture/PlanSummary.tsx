@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { CompPlan } from '@/lib/calc';
 import { mapRecord, recordFromPlan } from '@/lib/plan-record/map';
@@ -15,11 +15,14 @@ export default function PlanSummary({
   onDescribe,
   onForm,
   onForget,
+  setup,
 }: {
   plan: CompPlan;
   onDescribe: () => void;
   onForm: () => void;
   onForget: () => Promise<number | null>;
+  /** What the rep sells and the company's discount limits. */
+  setup?: ReactNode;
 }) {
   const filed = useSyncExternalStore(noop, hasContributed, () => false);
   const [forget, setForget] = useState<'idle' | 'confirm' | 'busy' | 'done' | 'failed'>('idle');
@@ -45,6 +48,8 @@ export default function PlanSummary({
           </div>
         ))}
       </section>
+
+      {setup}
 
       <div className="cap-actions">
         <button type="button" className="btn btn-primary btn-lg" onClick={onDescribe}>

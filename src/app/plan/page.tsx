@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan } from '@/lib/queries';
-import { saveOpeningAction, savePlanAction } from '../actions';
+import { saveOpeningAction, savePlanAction, savePlanSetupAction } from '../actions';
 import { Shell } from '../AccountViews';
 import PlanCapture from '@/components/capture/PlanCapture';
 
@@ -20,7 +20,7 @@ export default async function PlanPage() {
           </Link>
         </p>
       )}
-      <PlanCapture current={plan} onSave={savePlanAction} onOpening={saveOpeningAction} account />
+      <PlanCapture current={plan} onSave={savePlanAction} onOpening={saveOpeningAction} onSetup={savePlanSetupAction} account />
     </Shell>
   );
 }

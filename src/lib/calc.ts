@@ -82,6 +82,13 @@ export type CompPlan = {
    *  3%". Null or absent when the plan doesn't pay hardware separately, and
    *  hardware is then one-time revenue like any other. See paysHardware(). */
   hardware_rate?: number | null;
+  /** v22: the rep sells equipment (hardware, devices) as its own one-time
+   *  line. It pays hardware_rate when the plan has one; otherwise it counts
+   *  like services, at one_time_weight. See sellsEquipment(). */
+  sells_equipment?: boolean;
+  /** v22: the company's discount limits, per line (the most off it allows,
+   *  0 to 100). Policy, set with the plan; the rep's own targets are apart. */
+  limits?: LineLimits;
   /** Optional, independent of accelerator_style — most plans don't have
    *  one. See QuarterlyKicker. */
   quarterly_kicker: QuarterlyKicker | null;
@@ -144,8 +151,15 @@ export type DealInput = {
   hardwareDiscountPct?: number;
 };
 
-/** The plan pays hardware its own flat rate, so the deal gets a hardware line. */
+/** The plan pays hardware its own flat rate. */
 export const paysHardware = (plan: CompPlan) => typeof plan.hardware_rate === 'number';
+
+/** The deal has an Equipment line: the rep sells it, or the plan pays it a
+ *  rate of its own (which implies they do). */
+export const sellsEquipment = (plan: CompPlan) => plan.sells_equipment === true || paysHardware(plan);
+
+/** Per line, a percent: subscription ('software'), services, equipment ('hardware'). */
+export type LineLimits = Partial<Record<'software' | 'services' | 'hardware', number>>;
 
 /** Period-to-date position, rebuilt from saved deals. */
 export type PeriodToDate = {
@@ -848,7 +862,7 @@ export const PRESETS: Preset[] = [
     id: 'units-switch',
     name: 'Monthly units · rate accelerator',
     blurb:
-      'Commission is a % of commissionable deal value. Hit quota and every deal that month earns the accelerated rate. One-time products and services count at 40%.',
+      'Commission is a % of commissionable deal value. Hit quota and every deal that month earns the accelerated rate. One-time services and equipment count at 40%.',
     plan: {
       role_name: 'Senior AE',
       period: 'month',

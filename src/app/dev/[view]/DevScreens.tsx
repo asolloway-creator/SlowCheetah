@@ -131,8 +131,9 @@ export default function DevScreens({ view }: { view: string }) {
   if (view === 'home-close') {
     // The last days of a month: booked deals short of quota, open quotes
     // including one account that decides as one and one that doesn't, and
-    // calls on some of them. Invented names and numbers.
-    const plan = RETRO;
+    // calls on some of them. Sells equipment; services can't be discounted.
+    // Invented names and numbers.
+    const plan: CompPlan = { ...RETRO, sells_equipment: true, limits: { services: 0 } };
     const rr = rows(null, plan);
     const cal = calendarInZone('month', 'America/New_York');
     const [y, m] = cal.periodStart.split('-').map(Number);
@@ -254,7 +255,7 @@ export default function DevScreens({ view }: { view: string }) {
   if (view === 'plan' || view === 'plan-new') {
     return (
       <Shell current="/plan" email={EMAIL} width="plan">
-        <PlanCapture current={view === 'plan' ? PLAN : null} onSave={ok} onOpening={ok} account />
+        <PlanCapture current={view === 'plan' ? PLAN : null} onSave={ok} onOpening={ok} onSetup={ok} account />
       </Shell>
     );
   }

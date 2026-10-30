@@ -1,4 +1,4 @@
-import { paysHardware, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
+import { sellsEquipment, type CompPlan, type DealInput, type PeriodToDate, type QuarterToDate } from '@/lib/calc';
 import { closeWith } from '@/lib/closeout';
 import type { Line, Targets } from '@/components/discounts';
 
@@ -7,8 +7,8 @@ import type { Line, Targets } from '@/components/discounts';
  * signed by a date, then reverts. Not a price cut: a reason for the buyer to
  * sign now that has nothing to do with the rep's quota. The suggestion
  * spends from the line that costs the rep least for what the buyer saves,
- * never past the rep's own discount target, and never one that would cost
- * them quota or the accelerator the period is counting on.
+ * never past the rep's own discount target or the company's limit, and never
+ * one that would cost them quota or the accelerator the period is counting on.
  */
 
 const FIELD: Record<Line, { pct: 'subscriptionDiscountPct' | 'oneTimeDiscountPct' | 'hardwareDiscountPct'; year: (d: DealInput) => number }> = {
@@ -64,15 +64,18 @@ export function suggestOffer(
   const worth = base.commission - without.commission;
   const hitsNow = base.after.creditBooked >= plan.quota;
 
-  const lines: Line[] = ['services', 'software', ...(paysHardware(plan) ? (['hardware'] as Line[]) : [])];
+  const lines: Line[] = ['services', 'software', ...(sellsEquipment(plan) ? (['hardware'] as Line[]) : [])];
   const plans: OfferPlan[] = [];
   let anyRoom = false;
   for (const line of lines) {
     const year = FIELD[line].year(deal);
     if (!(year > 0)) continue;
     const from = pctOf(deal, line);
+    // Never past the rep's own target or the company's limit, whichever is lower.
     const target = targets[line];
-    const to = target !== undefined ? target : Math.min(100, from + STEP);
+    const limit = plan.limits?.[line];
+    const ceiling = Math.min(target ?? 100, limit ?? 100);
+    const to = target !== undefined ? ceiling : Math.min(ceiling, from + STEP);
     if (!(to > from + 0.5)) continue;
     anyRoom = true;
     const offered: DealInput = { ...deal, [FIELD[line].pct]: to };
@@ -85,7 +88,7 @@ export function suggestOffer(
       buyerSaves: year * ((to - from) / 100),
       cost: Math.max(0, base.commission - run.commission),
       creditChange: run.after.creditBooked - base.after.creditBooked,
-      byTarget: target !== undefined,
+      byTarget: target !== undefined && (limit === undefined || target <= limit),
     });
   }
   if (!anyRoom) return { kind: 'none', reason: 'past-targets', worth };
@@ -103,6 +106,6 @@ export function suggestOffer(
 /** How a line reads in a sentence. */
 export const LINE_WORDS: Record<Line, string> = {
   software: 'subscription',
-  services: 'one-time products and services',
-  hardware: 'hardware',
+  services: 'services (one-time)',
+  hardware: 'equipment (one-time)',
 };
