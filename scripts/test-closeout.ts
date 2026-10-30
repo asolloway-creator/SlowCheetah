@@ -4,7 +4,7 @@
 // Run: npx tsx scripts/test-closeout.ts
 import { periodToDateFrom, type CompPlan, type DealInput, type Quote } from '@/lib/calc';
 import { closeLine, closeUnits, mustClose } from '@/lib/closeout';
-import { suggestOffer } from '@/lib/offers';
+import { changedLines, longDay, offerLine, suggestOffer } from '@/lib/offers';
 
 let pass = 0;
 let fail = 0;
@@ -71,6 +71,16 @@ const capped = suggestOffer({ ...plan, limits: { services: 60 } }, ptd, null, ne
 check('the company limit caps an offer below the target', capped.kind === 'offer' && capped.offer.line === 'services' && capped.offer.toPct === 60, JSON.stringify(capped));
 const banned = suggestOffer({ ...plan, limits: { services: 0, software: 0 } }, ptd, null, near, nearOthers, { services: 75, software: 10 });
 check('no discount allowed on any line: no offer', banned.kind === 'none' && banned.reason === 'past-targets');
+// The offer as one sentence: only what changed, in dollars to the buyer.
+const hw = (pct: number): DealInput => ({ ...mrr(1000), hardware: 2000, hardwareDiscountPct: pct });
+const eq = changedLines(hw(70), hw(80));
+check('the offer names only the line that changed', eq.length === 1 && eq[0].line === 'hardware' && Math.round(eq[0].saves) === 200, JSON.stringify(eq));
+check('the offer line is one sentence with the dollars and the deadline', offerLine(eq, '2026-10-31') === '$200 off the equipment if the agreement is signed by end of day Saturday, Oct 31.', offerLine(eq, '2026-10-31'));
+const two = changedLines({ ...hw(70), oneTimeDiscountPct: 50 }, { ...hw(80), oneTimeDiscountPct: 60 });
+check('two lines read as one sentence', offerLine(two, '2026-10-31').startsWith('$100 off the services and $200 off the equipment if'), offerLine(two, '2026-10-31'));
+check('the offer line never mentions commission, quota or targets', !/commission|quota|target|limit|accelerator/i.test(offerLine(two, '2026-10-31')));
+check('no change, no lines', changedLines(hw(70), hw(70)).length === 0);
+check('a long day reads as a weekday and date', longDay('2026-10-31') === 'Saturday, Oct 31');
 check('an offer is worth less to the rep than the deal', o1.kind === 'offer' && o1.offer.cost < o1.worth);
 
 console.log(`\n${pass} passed${fail ? `, ${fail} FAILED` : ''}`);

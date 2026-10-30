@@ -109,3 +109,37 @@ export const LINE_WORDS: Record<Line, string> = {
   services: 'services (one-time)',
   hardware: 'equipment (one-time)',
 };
+
+/** 'YYYY-MM-DD' as "Saturday, Oct 31". */
+export function longDay(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+const dollars = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+const WHAT: Record<Line, string> = { software: 'the first year of your subscription', services: 'the services', hardware: 'the equipment' };
+
+/** What each line's discount went up by between `original` and `current`, in
+ *  first-year dollars to the buyer. */
+export function changedLines(original: DealInput, current: DealInput): { line: Line; saves: number }[] {
+  const out: { line: Line; saves: number }[] = [];
+  for (const line of ['software', 'services', 'hardware'] as Line[]) {
+    const f = FIELD[line];
+    const up = Number(current[f.pct] ?? 0) - Number(original[f.pct] ?? 0);
+    const year = f.year(current);
+    if (up > 0.01 && year > 0) out.push({ line, saves: year * (up / 100) });
+  }
+  return out;
+}
+
+/**
+ * The offer as one sentence to paste into the rep's own words: only what
+ * changed, in dollars to the buyer, and the condition. Nothing about any
+ * other line, the totals, or the rep.
+ */
+export function offerLine(parts: { line: Line; saves: number }[], deadline: string): string {
+  const what = parts.map((p) => `${dollars(p.saves)} off ${WHAT[p.line]}`);
+  const list = what.length <= 1 ? what.join('') : `${what.slice(0, -1).join(', ')} and ${what[what.length - 1]}`;
+  return `${list} if the agreement is signed by end of day ${longDay(deadline)}.`;
+}
+

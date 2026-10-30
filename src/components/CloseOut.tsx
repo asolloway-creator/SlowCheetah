@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { calc, periodLabel, type CompPlan, type DealAccount, type DealInput, type Forecast, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
-import { LINE_WORDS, suggestOffer, type OfferSuggestion } from '@/lib/offers';
+import { changedLines, LINE_WORDS, offerLine, suggestOffer, type OfferSuggestion } from '@/lib/offers';
 import type { Line, Targets } from '@/components/discounts';
 import { closeLine, closeUnits, closeWith, mustClose, type CloseLine, type CloseUnit, type LineKey } from '@/lib/closeout';
 import { fmtCredit, fmtMoney } from '@/lib/format';
@@ -329,9 +329,12 @@ function OfferLine({
           {changed.map((l) => ` · ${LINE_WORDS[l]} at ${pct0(Number(q.deal[PCT[l]] ?? 0))} off (was ${pct0(Number(orig[PCT[l]] ?? 0))})`).join('')} until{' '}
           {dayName(q.offer.expires)}. After that it goes back on its own.
         </p>
-        <button type="button" className="btn-text" disabled={busy} onClick={() => onOffer(q, null)}>
-          Withdraw it
-        </button>
+        <span className="co-offer-acts">
+          <CopyLine text={offerLine(changedLines(orig, q.deal), q.offer.expires)} />
+          <button type="button" className="btn-text" disabled={busy} onClick={() => onOffer(q, null)}>
+            Withdraw it
+          </button>
+        </span>
       </div>
     );
   }
@@ -356,9 +359,49 @@ function OfferLine({
         {o.creditChange < -0.5 ? ` and ${fmtCredit(plan, -o.creditChange)} of quota credit` : ', and your quota credit doesn’t move'}.
         {o.byTarget && ` Still inside your ${pct0(o.toPct)} target.`}
       </p>
-      <button type="button" className="btn btn-secondary co-offer-btn" disabled={busy} onClick={() => onOffer(q, o.deal)}>
-        {busy ? 'Saving…' : 'Make the offer'}
-      </button>
+      <span className="co-offer-acts">
+        <CopyLine text={offerLine([{ line: o.line, saves: o.buyerSaves }], lastDay)} />
+        <button type="button" className="btn btn-secondary co-offer-btn" disabled={busy} onClick={() => onOffer(q, o.deal)}>
+          {busy ? 'Saving…' : 'Make the offer'}
+        </button>
+      </span>
     </div>
+  );
+}
+
+/**
+ * Copies the offer as one sentence, to drop into the rep's own words (a
+ * call, a text, an email). If the browser won't let the page copy, the
+ * sentence is shown selected instead.
+ */
+function CopyLine({ text }: { text: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'manual'>('idle');
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setState('copied');
+      window.setTimeout(() => setState('idle'), 2500);
+    } catch {
+      setState('manual');
+    }
+  }
+  if (state === 'manual') {
+    return (
+      <input
+        className="co-offer-manual"
+        readOnly
+        value={text}
+        aria-label="The offer line. Select it and copy."
+        ref={(el) => {
+          el?.focus();
+          el?.select();
+        }}
+      />
+    );
+  }
+  return (
+    <button type="button" className="btn-text" onClick={() => void copy()}>
+      {state === 'copied' ? 'Copied' : 'Copy offer line'}
+    </button>
   );
 }
