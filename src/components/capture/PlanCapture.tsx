@@ -209,6 +209,7 @@ export default function PlanCapture({
           setStep('describe');
         }}
         onForm={() => setStep('form')}
+        onBack={calculable ? () => router.push('/') : undefined}
         setup={onSetup ? <SellsAndLimits plan={current} onSave={onSetup} /> : undefined}
         onForget={async () => {
           const n = await forgetPlans();
@@ -271,12 +272,14 @@ export default function PlanCapture({
   }
 
   return (
-    <DescribeStep
-      busy={busy}
-      message={message}
-      onRead={describe}
-      onForm={() => setStep('form')}
-    />
+    <>
+      {current && !compact && (
+        <button type="button" className="btn-text cap-back" onClick={() => setStep('summary')}>
+          &larr; Back to your plan. It stays as it is until you confirm a new one.
+        </button>
+      )}
+      <DescribeStep busy={busy} message={message} onRead={describe} onForm={() => setStep('form')} />
+    </>
   );
 }
 

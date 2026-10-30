@@ -16,6 +16,7 @@ export default function PlanSummary({
   onForm,
   onForget,
   setup,
+  onBack,
 }: {
   plan: CompPlan;
   onDescribe: () => void;
@@ -23,6 +24,8 @@ export default function PlanSummary({
   onForget: () => Promise<number | null>;
   /** What the rep sells and the company's discount limits. */
   setup?: ReactNode;
+  /** Back to the pipeline: what finishing here means. */
+  onBack?: () => void;
 }) {
   const filed = useSyncExternalStore(noop, hasContributed, () => false);
   const [forget, setForget] = useState<'idle' | 'confirm' | 'busy' | 'done' | 'failed'>('idle');
@@ -32,7 +35,7 @@ export default function PlanSummary({
   return (
     <div className="cap">
       <h1 className="page-title">Your plan</h1>
-      <p className="plan-intro">What IOI runs every deal on. If it’s changed, describe it again or adjust the numbers.</p>
+      <p className="plan-intro">What IOI runs every deal on. Changes to what you sell and your limits save as you make them.</p>
 
       <section className="cap-readback" aria-label="Your plan">
         {groups.map((g) => (
@@ -51,14 +54,28 @@ export default function PlanSummary({
 
       {setup}
 
-      <div className="cap-actions">
-        <button type="button" className="btn btn-primary btn-lg" onClick={onDescribe}>
-          Describe it again
-        </button>
-        <button type="button" className="btn-text" onClick={onForm}>
-          Adjust the numbers
-        </button>
-      </div>
+      {onBack && (
+        <div className="cap-actions">
+          <button type="button" className="btn btn-primary btn-lg" onClick={onBack}>
+            Done, back to your pipeline
+          </button>
+        </div>
+      )}
+
+      <section className="cap-change" aria-labelledby="cap-change-h">
+        <h2 id="cap-change-h" className="cap-change-h">
+          Has how you&rsquo;re paid changed?
+        </h2>
+        <p>Your plan above stays exactly as it is until you confirm a new one.</p>
+        <div className="cap-change-acts">
+          <button type="button" className="btn btn-secondary" onClick={onDescribe}>
+            Describe the new plan
+          </button>
+          <button type="button" className="btn-text" onClick={onForm}>
+            Adjust the numbers
+          </button>
+        </div>
+      </section>
 
       {(filed || forget === 'done') && (
         <div className="cap-forget">

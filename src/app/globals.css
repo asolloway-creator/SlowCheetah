@@ -2080,3 +2080,9 @@ main.app { padding-bottom: 56px; }
   .sl-name { grid-column: 1 / -1; }
   .field-hint { display: none; }
 }
+
+/* Your plan, below its readback: finishing comes first, changing the plan after. */
+.cap-change { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--line); }
+.cap-change-h { font: 650 15px/1.3 var(--ui); color: var(--ink); }
+.cap-change p { margin-top: 4px; font: 500 14px/1.5 var(--ui); color: var(--ink-3); }
+.cap-change-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; margin-top: 12px; }
