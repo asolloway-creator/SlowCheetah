@@ -37,6 +37,7 @@ export default function DiscountSlider({
   hint = '',
   zeroPrompt = true,
   lineKind = 'bonus',
+  resetKey = '',
 }: {
   id: string;
   label: string;
@@ -73,6 +74,8 @@ export default function DiscountSlider({
    *  stake) the accelerator this deal crosses, with the most it can be
    *  discounted and still cross. Only the words change. */
   lineKind?: 'bonus' | 'accelerator';
+  /** Which deal is on the slider: an Undo from one deal never shows on another. */
+  resetKey?: string;
 }) {
   const words =
     lineKind === 'accelerator'
@@ -82,6 +85,14 @@ export default function DiscountSlider({
   const [draft, setDraft] = useState('');
   const cancelled = useRef(false);
   const raf = useRef<number | null>(null);
+  // A jump the prompt made (Hold the line), so it can be undone: shown while
+  // the slider still sits where the jump left it, on the same deal.
+  const [jump, setJump] = useState<{ from: number; to: number; key: string } | null>(null);
+  const jumpTo = (target: number) => {
+    setJump({ from: value, to: target, key: resetKey });
+    animateTo(target);
+  };
+  const canUndo = jump !== null && jump.key === resetKey && Math.abs(value - jump.to) < 0.01 && Math.abs(jump.from - jump.to) >= 0.01;
   const editId = useId();
 
   useEffect(
@@ -301,11 +312,23 @@ export default function DiscountSlider({
       </div>
       <div className="slider-foot">
         {caption && <p className="slider-caption">{caption}</p>}
-        {holdAt !== null && value > holdAt && !disabled ? (
+        {canUndo && jump && !disabled ? (
+          <button
+            type="button"
+            className="btn-text slider-prompt"
+            onClick={() => {
+              const back = jump.from;
+              setJump(null);
+              animateTo(back);
+            }}
+          >
+            Undo: back to {fmtPctShort(jump.from)}
+          </button>
+        ) : holdAt !== null && value > holdAt && !disabled ? (
           <button
             type="button"
             className={`btn-text slider-prompt is-hold${hint ? ` is-${hint}` : ''}`}
-            onClick={() => animateTo(holdAt)}
+            onClick={() => jumpTo(holdAt)}
           >
             Hold the line at {fmtPctShort(holdAt)} &rarr;
           </button>
@@ -313,7 +336,7 @@ export default function DiscountSlider({
           zeroPrompt &&
           value > 0 &&
           !disabled && (
-            <button type="button" className="btn-text slider-prompt" onClick={() => animateTo(0)}>
+            <button type="button" className="btn-text slider-prompt" onClick={() => jumpTo(0)}>
               Hold the line. Try 0% &rarr;
             </button>
           )

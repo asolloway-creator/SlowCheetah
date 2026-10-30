@@ -16,6 +16,7 @@ import {
 } from '@/lib/calc';
 import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
+import { closeWith } from '@/lib/closeout';
 import DealForm from '@/components/DealForm';
 import Outcome from '@/components/Outcome';
 import DiscountSlider from '@/components/DiscountSlider';
@@ -215,7 +216,7 @@ export default function DealStage({
   const [editing, setEditing] = useState<{ id: string; deal: DealInput; row: DealRow } | null>(null);
   // A booked deal in the card is priced against the period without itself,
   // or it would count twice.
-  const ptd = useMemo<PeriodToDate>(() => {
+  const ptdBooked = useMemo<PeriodToDate>(() => {
     if (!editing) return ptdIn;
     const r = editing.row;
     return {
@@ -226,7 +227,7 @@ export default function DealStage({
       hardwareBooked: Math.max(0, (ptdIn.hardwareBooked ?? 0) - (r.hardware_commission ?? 0)),
     };
   }, [ptdIn, editing]);
-  const qtd = useMemo<QuarterToDate | null | undefined>(() => {
+  const qtdBooked = useMemo<QuarterToDate | null | undefined>(() => {
     if (!editing || !qtdIn) return qtdIn;
     return {
       saasArrBooked: Math.max(0, qtdIn.saasArrBooked - editing.row.arr),
@@ -247,7 +248,7 @@ export default function DealStage({
   // story by itself (useShowcase), then hands the slider over. The builder
   // arrives with their own plan, where its numbers mean something.
   const showcase = demo;
-  const script = useMemo(() => (showcase ? showcaseScript(plan, SAMPLE, ptd, qtd ?? null) : null), [showcase, plan, ptd, qtd]);
+  const script = useMemo(() => (showcase ? showcaseScript(plan, SAMPLE, ptdBooked, qtdBooked ?? null) : null), [showcase, plan, ptdBooked, qtdBooked]);
   // The story's own moves are never the visitor's input: never dirty, so
   // they can't count as a drag or a bonus-line crossing.
   const setDiscount = useCallback((pct: number) => {
@@ -273,6 +274,35 @@ export default function DealStage({
   const acct: AccountDraft | null =
     acctDraft !== undefined ? acctDraft : savedAccount ? { id: savedAccount.id, name: savedAccount.name, oneDecision: savedAccount.oneDecision } : null;
 
+  // What the card prices the deal against: the month the rep actually
+  // expects. What's booked, plus the quotes they've called Commit, plus the
+  // rest of this deal's account when it decides as one (they close
+  // together). A deal called for next period is priced as next period, from
+  // zero, with the rest of its account. "Booked only" is the narrow view.
+  const [basisMode, setBasisMode] = useState<'expected' | 'booked'>('expected');
+  const basis = useMemo(() => {
+    if (variant !== 'app' || demo) return null;
+    const ownAccount = savedAccount?.oneDecision ? savedAccount : null;
+    const siblings = ownAccount ? quotes.filter((q) => q.accountId === ownAccount.id && q.id !== activeQuote) : [];
+    const sibIds = new Set(siblings.map((q) => q.id));
+    const commits = quotes.filter((q) => q.forecast === 'commit' && q.id !== activeQuote && !sibIds.has(q.id));
+    const ids = new Set([...siblings, ...commits].map((q) => q.id));
+    if (active?.forecast === 'next') {
+      const zero: PeriodToDate = { creditBooked: 0, commissionBooked: 0, earnedBooked: 0, hardwareBooked: 0 };
+      // The quarter carries on: this period's booked deals and commits stay in it.
+      const quarter = closeWith(plan, ptdBooked, qtdBooked ?? null, commits.map((q) => q.deal)).quarter;
+      const run = closeWith(plan, zero, quarter, siblings.map((q) => q.deal));
+      return { kind: 'next' as const, ptd: run.after, qtd: run.quarter, commits: [], siblings, account: ownAccount, ids };
+    }
+    if (basisMode === 'booked' || (!commits.length && !siblings.length)) {
+      return { kind: 'booked' as const, ptd: ptdBooked, qtd: qtdBooked ?? null, commits, siblings, account: ownAccount, ids: new Set<string>() };
+    }
+    const run = closeWith(plan, ptdBooked, qtdBooked ?? null, [...commits, ...siblings].map((q) => q.deal));
+    return { kind: 'expected' as const, ptd: run.after, qtd: run.quarter, commits, siblings, account: ownAccount, ids };
+  }, [variant, demo, savedAccount, quotes, activeQuote, active, plan, ptdBooked, qtdBooked, basisMode]);
+  const ptd = basis?.ptd ?? ptdBooked;
+  const qtd = basis ? basis.qtd : qtdBooked;
+
   // Old "?plan=1" links (the plan dialog this page used to open) now go to
   // creating an account, where a plan is put in.
   const router = useRouter();
@@ -286,7 +316,9 @@ export default function DealStage({
   // The open quotes besides the one on the card, priced where the period
   // stands: what crossing the accelerator would add to them.
   const pipelineAtStake = useMemo(() => {
-    const others = quotes.filter((q) => q.id !== activeQuote);
+    // Open quotes not already in what the card counts, and not called for
+    // next period.
+    const others = quotes.filter((q) => q.id !== activeQuote && !basis?.ids.has(q.id) && q.forecast !== 'next');
     let base = 0;
     let commissionable = 0;
     for (const q of others) {
@@ -295,7 +327,7 @@ export default function DealStage({
       commissionable += rq.commissionable;
     }
     return { count: others.length, base, commissionable };
-  }, [quotes, activeQuote, plan, ptd]);
+  }, [quotes, activeQuote, plan, ptd, basis]);
   const copy = useMemo(() => outcomeCopy(plan, deal, o, ptd, pipelineAtStake), [plan, deal, o, ptd, pipelineAtStake]);
   // Independent of the accelerator's own outcome above — this deal can cross
   // the accelerator and cost a quarterly kicker tier at the same time. null
@@ -836,9 +868,47 @@ export default function DealStage({
     </div>
   );
 
+  // What the card counts, said on the card, every deal.
+  const listOf = (xs: string[]) => (xs.length <= 2 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const named = (qs: Quote[]) => listOf(qs.map((q) => q.name.trim() || 'an unnamed quote'));
+  const basisLine = basis ? (
+    <p className="dc-basis">
+      {basis.kind === 'next' ? (
+        <>
+          You called this for next {noun}, so it&rsquo;s priced as next {noun}, from zero
+          {basis.siblings.length > 0 && basis.account ? <>, with the rest of {basis.account.name}</> : null}. This {noun}&rsquo;s
+          accelerator doesn&rsquo;t ride on it.
+        </>
+      ) : basis.kind === 'expected' ? (
+        <>
+          Counting{' '}
+          {listOf([
+            'what you’ve booked',
+            ...(basis.commits.length ? [`your ${basis.commits.length === 1 ? 'commit' : 'commits'}, ${named(basis.commits)}`] : []),
+            ...(basis.siblings.length && basis.account ? [`the rest of ${basis.account.name}, which closes with it`] : []),
+          ])}
+          .{' '}
+          <button type="button" className="btn-text" onClick={() => setBasisMode('booked')}>
+            Booked only
+          </button>
+        </>
+      ) : basis.commits.length || basis.siblings.length ? (
+        <>
+          Counting only what you&rsquo;ve booked.{' '}
+          <button type="button" className="btn-text" onClick={() => setBasisMode('expected')}>
+            {basis.commits.length ? `Add ${basis.commits.length === 1 ? 'your commit' : 'your commits'}` : `Add the rest of ${basis.account?.name ?? 'the account'}`}
+          </button>
+        </>
+      ) : (
+        <>Counting what you&rsquo;ve booked. Quotes you call Commit count here too.</>
+      )}
+    </p>
+  ) : null;
+
   const slider = (
     <DiscountSlider
       size="lg"
+      resetKey={activeQuote ?? editing?.id ?? 'new'}
       id="subD"
       label={app ? 'Subscription discount' : 'Discount on the subscription'}
       value={deal.subscriptionDiscountPct}
@@ -993,6 +1063,7 @@ export default function DealStage({
                   </div>
                 ) : app ? (
                   <div className="dc-sec">
+                    {basisLine}
                     <DealResult plan={plan} deal={deal} ptd={ptd} o={o} copy={copy} kicker={xCopy} slider={slider} facts={rows} />
                   </div>
                 ) : (
