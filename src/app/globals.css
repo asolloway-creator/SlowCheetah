@@ -2183,3 +2183,108 @@ main.app { padding-bottom: 56px; }
   .ph-row { flex-direction: column; align-items: stretch; }
   .ph-row .co-date { justify-content: space-between; }
 }
+
+/* ── The app frame: a sidebar of views (icons, opening on hover; pinned
+   open by choice), a top bar, and the view. A drawer on a phone. ────────── */
+.as { --nav: 64px; --nav-open: 232px; min-height: 100vh; background: var(--paper); }
+.as-nav {
+  position: fixed; inset: 0 auto 0 0; z-index: 60; width: var(--nav); display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 10px; background: var(--ink); color: var(--on-ink); overflow: hidden;
+  transition: width var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.as-nav:hover, .as-nav:focus-within, .as.is-pinned .as-nav { width: var(--nav-open); }
+.as-nav:hover, .as-nav:focus-within { box-shadow: 0 0 0 1px rgba(28, 24, 18, 0.06), 12px 0 40px -12px rgba(28, 24, 18, 0.45); }
+.as.is-pinned .as-nav { box-shadow: none; }
+.as-brand { display: flex; align-items: center; justify-content: space-between; height: 40px; margin-bottom: 12px; padding-left: 4px; }
+.as-logo { display: inline-flex; align-items: center; height: 36px; color: var(--on-ink); text-decoration: none; }
+.as-logo-mark { display: inline-flex; align-items: center; gap: 1px; font: 800 19px/1 var(--display); letter-spacing: -0.02em; }
+.as-ring { width: 17px; height: 17px; }
+.as-ring circle { stroke: var(--on-ink); }
+.as-pin, .as-close { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: rgba(255, 248, 231, 0.6); flex: none; }
+.as-pin:hover, .as-close:hover { background: rgba(255, 248, 231, 0.1); color: var(--on-ink); }
+.as-pin { opacity: 0; transition: opacity var(--dur-1) var(--ease-out); }
+.as-nav:hover .as-pin, .as-nav:focus-within .as-pin, .as.is-pinned .as-pin { opacity: 1; }
+.as-close { display: none; }
+.as-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.as-item {
+  position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 10px;
+  color: rgba(255, 248, 231, 0.72); text-decoration: none; font: 550 14px/1 var(--ui); white-space: nowrap;
+  transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.as-item:hover { background: rgba(255, 248, 231, 0.08); color: var(--on-ink); }
+.as-item[aria-current="page"] { background: rgba(255, 248, 231, 0.12); color: var(--on-ink); }
+.as-item[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--sun); }
+.as-item:focus-visible, .as-pin:focus-visible, .as-logo:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--sun); }
+.as-icon { flex: none; }
+.as-label { opacity: 0; transition: opacity var(--dur-1) var(--ease-out); }
+.as-nav:hover .as-label, .as-nav:focus-within .as-label, .as.is-pinned .as-label { opacity: 1; }
+.as-foot { margin-top: auto; display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 248, 231, 0.1); }
+.as-legal { display: grid; gap: 4px; padding: 0 12px 4px; opacity: 0; transition: opacity var(--dur-1) var(--ease-out); white-space: nowrap; }
+.as-nav:hover .as-legal, .as-nav:focus-within .as-legal, .as.is-pinned .as-legal { opacity: 1; }
+.as-legal a { font: 500 12px/1.5 var(--ui); color: rgba(255, 248, 231, 0.5); text-decoration: none; }
+.as-legal a:hover { color: var(--on-ink); }
+.as-scrim { display: none; }
+
+.as-body { margin-left: var(--nav); min-width: 0; transition: margin-left var(--dur-2) var(--ease-out); }
+.as.is-pinned .as-body { margin-left: var(--nav-open); }
+.as-top {
+  position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 var(--gutter);
+  background: rgba(255, 253, 248, 0.92); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line);
+}
+.as-menu { display: none; place-items: center; width: 38px; height: 38px; margin-left: -8px; border-radius: 10px; color: var(--ink); }
+.as-menu:hover { background: var(--cream); }
+.as-title { font: 650 18px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--ink); }
+.as-top-acts { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.as-top .acct { margin-left: 0; }
+.as-main { padding-top: 4px; }
+.as-view { width: min(var(--container), 100% - 2 * var(--gutter)); margin: 20px auto 0; }
+.as-view > :first-child { margin-top: 0; }
+.as-empty { margin-top: 12px; font: 500 14px/1.5 var(--ui); color: var(--ink-3); }
+.as-plan { width: min(var(--container-plan), 100% - 2 * var(--gutter)); margin: 0 auto; }
+.as-main .ds.is-app { padding-top: 20px; }
+
+@media (max-width: 760px) {
+  .as-nav { width: min(280px, 84vw); transform: translateX(-100%); transition: transform var(--dur-2) var(--ease-out); }
+  .as-nav:hover, .as-nav:focus-within, .as.is-pinned .as-nav { width: min(280px, 84vw); }
+  .as.is-drawer .as-nav { transform: none; box-shadow: 12px 0 40px -12px rgba(28, 24, 18, 0.45); }
+  .as-label, .as-legal { opacity: 1; }
+  .as-pin { display: none; }
+  .as-close { display: grid; }
+  .as-scrim { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(28, 24, 18, 0.32); opacity: 0; pointer-events: none; transition: opacity var(--dur-2) var(--ease-out); }
+  .as.is-drawer .as-scrim { opacity: 1; pointer-events: auto; }
+  .as-body, .as.is-pinned .as-body { margin-left: 0; }
+  .as-top { padding: 0 16px; }
+  .as-menu { display: grid; }
+  .as-top .ov-unit > button { padding: 0 9px; }
+  .as-top .acct-label { display: none; }
+  .as-new { padding: 0 12px; }
+}
+@media (max-width: 420px) {
+  .as-title { font-size: 16px; }
+  .as-top-acts { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .as-nav, .as-body, .as-label, .as-legal, .as-scrim { transition: none; }
+}
+/* Inside the app frame the sidebar takes width the viewport queries can't
+   see, so the deal desk steps down by the room it actually has. */
+.as-main { container-type: inline-size; }
+@container (max-width: 1320px) {
+  .ds.is-app .ds-grid { grid-template-columns: 252px minmax(0, 1fr) 400px; }
+}
+@container (max-width: 1150px) {
+  .ds.is-app .ds-grid { grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: auto auto auto; grid-template-areas: "rail rail" "main aside" "after after"; row-gap: 16px; }
+  .ds.is-app.no-rail .ds-grid { grid-template-rows: auto auto; grid-template-areas: "main aside" "after after"; }
+}
+.as-deal-link { color: inherit; text-decoration: none; background-image: linear-gradient(var(--line-2), var(--line-2)); background-size: 100% 1px; background-position: 0 100%; background-repeat: no-repeat; }
+.as-deal-link:hover { background-image: linear-gradient(var(--ink), var(--ink)); }
+.as-deal-link:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 3px; }
+.as-unit-nav { display: none; }
+@media (max-width: 600px) {
+  .as-unit-top { display: none; }
+  .as-unit-nav { display: inline-flex; justify-self: start; margin: 0 12px 4px; background: rgba(255, 248, 231, 0.1); box-shadow: none; }
+  .as-unit-nav > button { color: rgba(255, 248, 231, 0.7); }
+  .as-unit-nav > button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
+  .as-new-label { display: none; }
+  .as-new { width: 38px; padding: 0; justify-content: center; }
+}

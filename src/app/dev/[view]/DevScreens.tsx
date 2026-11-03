@@ -18,6 +18,7 @@ import { Shell } from '@/app/AccountViews';
 import { withCloseDate } from '@/lib/closeout';
 import { nextPeriodStart } from '@/lib/rollover';
 import PipelineHome from '@/components/PipelineHome';
+import type { View } from '@/components/app/AppShell';
 import PlanCapture from '@/components/capture/PlanCapture';
 
 const ok = async () => ({});
@@ -66,7 +67,9 @@ function rows(opening: Opening | null, plan: CompPlan = PLAN): DealRow[] {
   return out;
 }
 
-export default function DevScreens({ view }: { view: string }) {
+export default function DevScreens({ view, tab = 'home', open = {} }: { view: string; tab?: View; open?: { quote?: string; deal?: string; fresh?: string } }) {
+  // The workspace in the app frame, its sidebar pointed back at this fixture.
+  const frame = { view: tab, email: EMAIL, linkBase: `/dev/${view}`, open };
   const opening: Opening | null =
     view === 'stand' ? null : { periodKey: periodKey(PLAN.period), credit: 98000, quarterKey: periodKey('quarter'), quarterArr: null };
   const deals = rows(opening);
@@ -111,31 +114,30 @@ export default function DevScreens({ view }: { view: string }) {
     const inQuarter = deals.filter((d) => Math.floor(new Date(d.created_at).getMonth() / 3) === Math.floor(now.getMonth() / 3));
     const cal = calendarInZone('month', 'America/New_York');
     return (
-      <Shell current="/" email={EMAIL} width="full">
-        <PipelineHome
-          plan={plan}
-          ptd={periodToDateFrom(cur)}
-          qtd={quarterToDateFrom(inQuarter)}
-          opening={null}
-          quotes={quotes}
-          deals={deals}
-          accounts={[{ id: 'a1', name: 'Dockside', oneDecision: true }]}
-          lastCredit={deals.filter((d) => new Date(d.created_at).getMonth() === (now.getMonth() + 11) % 12).reduce((n, d) => n + d.quota_credit, 0)}
-          onForecast={ok}
-          onSave={ok}
-          onSaveQuote={async () => ({ id: 'q9' })}
-          onDeleteQuote={ok}
-          onLoseQuotes={ok}
-          onDeleteDeal={ok}
-          onUnbookDeal={async () => ({ id: 'q8' })}
-          onOpening={ok}
-          onUpdateDeal={ok}
-          onRate={ok}
-          calendar={{ ...cal, today: cal.periodStart.replace(/-01$/, '-03') }}
-          targets={{ software: 15, services: 75 }}
-          onTarget={ok}
-        />
-      </Shell>
+      <PipelineHome
+        {...frame}
+        plan={plan}
+        ptd={periodToDateFrom(cur)}
+        qtd={quarterToDateFrom(inQuarter)}
+        opening={null}
+        quotes={quotes}
+        deals={deals}
+        accounts={[{ id: 'a1', name: 'Dockside', oneDecision: true }]}
+        lastCredit={deals.filter((d) => new Date(d.created_at).getMonth() === (now.getMonth() + 11) % 12).reduce((n, d) => n + d.quota_credit, 0)}
+        onForecast={ok}
+        onSave={ok}
+        onSaveQuote={async () => ({ id: 'q9' })}
+        onDeleteQuote={ok}
+        onLoseQuotes={ok}
+        onDeleteDeal={ok}
+        onUnbookDeal={async () => ({ id: 'q8' })}
+        onOpening={ok}
+        onUpdateDeal={ok}
+        onRate={ok}
+        calendar={{ ...cal, today: cal.periodStart.replace(/-01$/, '-03') }}
+        targets={{ software: 15, services: 75 }}
+        onTarget={ok}
+      />
     );
   }
   if (view === 'home-close' || view === 'home-pipe') {
@@ -202,37 +204,36 @@ export default function DevScreens({ view }: { view: string }) {
       { id: 'acc-2', name: 'Maple and Rye', oneDecision: false },
     ];
     return (
-      <Shell current="/" email={EMAIL} width="full">
-        <PipelineHome
-          plan={plan}
-          ptd={periodToDateFrom(booked)}
-          qtd={quarterToDateFrom(booked)}
-          opening={null}
-          quotes={quotes}
-          deals={booked}
-          onSave={ok}
-          onSaveQuote={async () => ({ id: 'q1' })}
-          onDeleteQuote={ok}
-          onLoseQuotes={ok}
-          onDeleteDeal={ok}
-          onUnbookDeal={async () => ({ id: 'q8' })}
-          onOpening={ok}
-          onUpdateDeal={ok}
-          onRate={ok}
-          calendar={{ ...cal, today }}
-          targets={{ software: 5, services: 20 }}
-          onTarget={ok}
-          accounts={accounts}
-          onForecast={ok}
-          onUpdateAccount={ok}
-          onAssignAccount={async () => ({ accountId: 'acc-1' })}
-          onMakeOffer={ok}
-          onWithdrawOffer={ok}
-          onCloseDate={ok}
-          onUnit={ok}
-          lost={lost}
-        />
-      </Shell>
+      <PipelineHome
+        {...frame}
+        plan={plan}
+        ptd={periodToDateFrom(booked)}
+        qtd={quarterToDateFrom(booked)}
+        opening={null}
+        quotes={quotes}
+        deals={booked}
+        onSave={ok}
+        onSaveQuote={async () => ({ id: 'q1' })}
+        onDeleteQuote={ok}
+        onLoseQuotes={ok}
+        onDeleteDeal={ok}
+        onUnbookDeal={async () => ({ id: 'q8' })}
+        onOpening={ok}
+        onUpdateDeal={ok}
+        onRate={ok}
+        calendar={{ ...cal, today }}
+        targets={{ software: 5, services: 20 }}
+        onTarget={ok}
+        accounts={accounts}
+        onForecast={ok}
+        onUpdateAccount={ok}
+        onAssignAccount={async () => ({ accountId: 'acc-1' })}
+        onMakeOffer={ok}
+        onWithdrawOffer={ok}
+        onCloseDate={ok}
+        onUnit={ok}
+        lost={lost}
+      />
     );
   }
   if (view === 'home-retro' || view === 'home-crossed') {
@@ -242,52 +243,50 @@ export default function DevScreens({ view }: { view: string }) {
     const o: Opening = { periodKey: periodKey('month'), credit: 0, quarterKey: periodKey('quarter'), quarterArr: null, rateAdjust: 1 };
     const rr = rows(null, plan);
     return (
-      <Shell current="/" email={EMAIL} width="full">
-        <PipelineHome
-          plan={plan}
-          ptd={periodToDateFrom(rr)}
-          qtd={quarterToDateFrom(rr)}
-          opening={o}
-          quotes={[]}
-          deals={rr}
-          onSave={ok}
-          onSaveQuote={async () => ({ id: 'q1' })}
-          onDeleteQuote={ok}
-          onLoseQuotes={ok}
-          onDeleteDeal={ok}
-          onUnbookDeal={async () => ({ id: 'q8' })}
-          onOpening={ok}
-          onUpdateDeal={ok}
-          onRate={ok}
-          calendar={calendarInZone('month', 'America/New_York')}
-          targets={{ software: 5, services: 20 }}
-          onTarget={ok}
-        />
-      </Shell>
+      <PipelineHome
+        {...frame}
+        plan={plan}
+        ptd={periodToDateFrom(rr)}
+        qtd={quarterToDateFrom(rr)}
+        opening={o}
+        quotes={[]}
+        deals={rr}
+        onSave={ok}
+        onSaveQuote={async () => ({ id: 'q1' })}
+        onDeleteQuote={ok}
+        onLoseQuotes={ok}
+        onDeleteDeal={ok}
+        onUnbookDeal={async () => ({ id: 'q8' })}
+        onOpening={ok}
+        onUpdateDeal={ok}
+        onRate={ok}
+        calendar={calendarInZone('month', 'America/New_York')}
+        targets={{ software: 5, services: 20 }}
+        onTarget={ok}
+      />
     );
   }
   if (view === 'home' || view === 'home-new') {
     return (
-      <Shell current="/" email={EMAIL} width="full">
-        <PipelineHome
-          plan={PLAN}
-          ptd={ptd}
-          qtd={qtd}
-          opening={view === 'home-new' ? null : opening}
-          quotes={view === 'home-new' ? [] : quotes}
-          deals={view === 'home-new' ? [] : deals}
-          onSave={ok}
-          onSaveQuote={async () => ({ id: 'q1' })}
-          onDeleteQuote={ok}
-          onLoseQuotes={ok}
-          onDeleteDeal={ok}
-          onUnbookDeal={async () => ({ id: 'q8' })}
-          onOpening={ok}
-          onUpdateDeal={ok}
-          onRate={ok}
-          calendar={calendarInZone(PLAN.period, 'America/New_York')}
-        />
-      </Shell>
+      <PipelineHome
+        {...frame}
+        plan={PLAN}
+        ptd={ptd}
+        qtd={qtd}
+        opening={view === 'home-new' ? null : opening}
+        quotes={view === 'home-new' ? [] : quotes}
+        deals={view === 'home-new' ? [] : deals}
+        onSave={ok}
+        onSaveQuote={async () => ({ id: 'q1' })}
+        onDeleteQuote={ok}
+        onLoseQuotes={ok}
+        onDeleteDeal={ok}
+        onUnbookDeal={async () => ({ id: 'q8' })}
+        onOpening={ok}
+        onUpdateDeal={ok}
+        onRate={ok}
+        calendar={calendarInZone(PLAN.period, 'America/New_York')}
+      />
     );
   }
   if (view === 'plan' || view === 'plan-new') {

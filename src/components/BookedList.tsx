@@ -42,9 +42,12 @@ export default function BookedList({
   accounts = [],
   calendar,
   onAddBooked,
+  report = true,
 }: {
   plan: CompPlan;
   deals: DealRow[];
+  /** "Where your discounts went" above the table (off where Discounts has its own view). */
+  report?: boolean;
   /** ARR booked without a quote (an upsell, say): entered right here. */
   accounts?: DealAccount[];
   calendar?: { today: string; periodStart: string };
@@ -236,6 +239,7 @@ export default function BookedList({
         <p className="cd-empty">Nothing closed in {current} yet. Book a deal when it closes and it lands here.</p>
       ) : (
         <>
+          {report && (
           <DiscountReport
             plan={plan}
             deals={now}
@@ -245,6 +249,7 @@ export default function BookedList({
             lift={lift}
             last={last && earlier[0] ? { label: earlier[0].period.split(' ')[0], totals: last } : null}
           />
+          )}
           <div className="cd-scroll">{table(now, lift, `Deals closed in ${current}`)}</div>
         </>
       )}
@@ -325,5 +330,52 @@ function TotalRow({
         <td className="t-act" />
       </tr>
     </tfoot>
+  );
+}
+
+/**
+ * How the rep prices over time, as its own view: this period's discounts by
+ * line against their targets and against last period (DiscountReport).
+ */
+export function DiscountsView({
+  plan,
+  deals,
+  targets = {},
+  onTarget,
+  lift = 1,
+}: {
+  plan: CompPlan;
+  deals: DealRow[];
+  targets?: Targets;
+  onTarget?: (line: Line, pct: number | null) => Promise<{ error?: string }>;
+  lift?: number;
+}) {
+  const current = periodLabel(plan.period);
+  const noun = periodNoun(plan);
+  const now = deals.filter((d) => periodOf(plan.period, d.created_at) === current);
+  const before = deals.filter((d) => periodOf(plan.period, d.created_at) !== current);
+  const lastLabel = before[0] ? periodOf(plan.period, before[0].created_at) : null;
+  const lastRows = lastLabel ? before.filter((d) => periodOf(plan.period, d.created_at) === lastLabel) : [];
+  return (
+    <section className="cd" aria-labelledby="dv-h">
+      <header className="cd-head">
+        <h2 id="dv-h" className="cd-h">
+          {current}
+        </h2>
+      </header>
+      {now.length === 0 ? (
+        <p className="cd-empty">Nothing closed in {current} yet. Your discounts show here as deals close.</p>
+      ) : (
+        <DiscountReport
+          plan={plan}
+          deals={now}
+          noun={noun}
+          targets={targets}
+          onTarget={onTarget}
+          lift={lift}
+          last={lastLabel && lastRows.length ? { label: lastLabel.split(' ')[0], totals: periodTotals(plan, lastRows, null) } : null}
+        />
+      )}
+    </section>
   );
 }

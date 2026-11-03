@@ -141,6 +141,7 @@ export default function DealStage({
   onDeleteQuote,
   onUnbookDeal,
   initialQuoteId = null,
+  initialEdit = null,
   accounts = [],
   onUpdateAccount,
   onAssignAccount,
@@ -188,6 +189,8 @@ export default function DealStage({
   onUnbookDeal?: (id: string) => Promise<{ error?: string; id?: string }>;
   /** The quote the page opens on (signed in: the most recent one). */
   initialQuoteId?: string | null;
+  /** A booked deal the page opens on, to change it (Closed's Edit). */
+  initialEdit?: DealRow | null;
   /** The rep's accounts: buyers with several deals. */
   accounts?: DealAccount[];
   /** Renames an account, or changes whether its deals close as one. */
@@ -200,10 +203,13 @@ export default function DealStage({
     account: AccountDraft | null,
   ) => Promise<{ error?: string; accountId?: string | null }>;
 }) {
-  const [deal, setDeal] = useState<DealInput>(initialDeal ?? (demo ? SAMPLE : EMPTY));
+  const startQuote = initialQuoteId ? (quotes.find((q) => q.id === initialQuoteId) ?? null) : null;
+  const [deal, setDeal] = useState<DealInput>(
+    initialEdit ? dealFromRow(initialEdit) : (startQuote?.deal ?? initialDeal ?? (demo ? SAMPLE : EMPTY)),
+  );
   // The open quote on the card, if the deal on it is one. Quotes are deals the
   // rep is still working: saved to come back to, booked when they close.
-  const [activeQuote, setActiveQuote] = useState<string | null>(initialQuoteId);
+  const [activeQuote, setActiveQuote] = useState<string | null>(initialEdit ? null : (startQuote?.id ?? null));
   const [naming, setNaming] = useState(false);
   const [quoteName, setQuoteName] = useState('');
   const [quoteBusy, setQuoteBusy] = useState(false);
@@ -213,7 +219,9 @@ export default function DealStage({
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ booked?: boolean; updated?: boolean; quoted?: boolean; error?: string }>({});
   // A booked deal reopened to change it, and what's typed in for booking.
-  const [editing, setEditing] = useState<{ id: string; deal: DealInput; row: DealRow } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; deal: DealInput; row: DealRow } | null>(
+    initialEdit ? { id: initialEdit.id, deal: dealFromRow(initialEdit), row: initialEdit } : null,
+  );
   // A booked deal in the card is priced against the period without itself,
   // or it would count twice.
   const ptdBooked = useMemo<PeriodToDate>(() => {
@@ -234,8 +242,8 @@ export default function DealStage({
       saasCommissionBooked: Math.max(0, qtdIn.saasCommissionBooked - editing.row.saas_commission),
     };
   }, [qtdIn, editing]);
-  const [bookName, setBookName] = useState('');
-  const [bookedOn, setBookedOn] = useState(calendar?.today ?? '');
+  const [bookName, setBookName] = useState(initialEdit?.name ?? startQuote?.name ?? '');
+  const [bookedOn, setBookedOn] = useState(initialEdit ? localDay(initialEdit.created_at) : (calendar?.today ?? ''));
   // "Booked" says its piece and goes, so it never sits on the next deal.
   useEffect(() => {
     if (!msg.booked && !msg.updated && !msg.quoted) return;

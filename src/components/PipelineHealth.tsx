@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { LOST_REASONS, periodLabel, quarterlyKickerSummary, type CompPlan, type DealAccount, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { withCloseDate } from '@/lib/closeout';
@@ -34,6 +35,7 @@ export default function PipelineHealth({
   lost,
   calendar,
   onCloseDate,
+  openHref,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -44,6 +46,8 @@ export default function PipelineHealth({
   lost: { closedAt: string; reason: string | null }[];
   calendar: { today: string; periodStart: string; quarterDaysLeft: number };
   onCloseDate?: (ids: string[], date: string | null) => Promise<{ error?: string }>;
+  /** Where a decision's name links: its quote on the deal desk. */
+  openHref?: (quoteId: string) => string;
 }) {
   const [dates, setDates] = useState<Record<string, string | null>>({});
   const [all, setAll] = useState(false);
@@ -203,7 +207,13 @@ export default function PipelineHealth({
               <li key={u.unit.key} className="ph-row">
                 <div className="co-row-main">
                   <p className="co-row-name">
-                    {u.unit.label || 'Unnamed quote'}
+                    {openHref ? (
+                      <Link href={openHref(u.unit.quotes[0].id)} className="as-deal-link">
+                        {u.unit.label || 'Unnamed quote'}
+                      </Link>
+                    ) : (
+                      u.unit.label || 'Unnamed quote'
+                    )}
                     {u.flags.map((f) => (
                       <span key={f} className={`ph-flag is-${f}`}>
                         {FLAG_WORDS[f]}

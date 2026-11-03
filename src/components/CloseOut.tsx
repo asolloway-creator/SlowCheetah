@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { calc, periodLabel, type CompPlan, type DealAccount, type DealInput, type Forecast, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { changedLines, LINE_WORDS, offerLine, suggestOffer, type OfferSuggestion } from '@/lib/offers';
@@ -49,6 +50,7 @@ export default function CloseOut({
   onMakeOffer,
   onWithdrawOffer,
   onCloseDate,
+  openHref,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -63,6 +65,8 @@ export default function CloseOut({
   onWithdrawOffer?: (id: string) => Promise<{ error?: string }>;
   /** When the rep expects a decision to close; null clears it. */
   onCloseDate?: (ids: string[], date: string | null) => Promise<{ error?: string }>;
+  /** Where a decision's name links: its quote on the deal desk. */
+  openHref?: (quoteId: string) => string;
 }) {
   // A call shows at once; the saved one replaces it when the page refreshes.
   const [picked, setPicked] = useState<Record<string, Forecast | null>>({});
@@ -247,6 +251,7 @@ export default function CloseOut({
             onCall={(f) => void call(u, f)}
             onCloseDate={onCloseDate ? (d) => void closeOn(u, d) : undefined}
             periodEnd={end}
+            href={openHref?.(u.quotes[0].id)}
             suggestion={onMakeOffer ? offerFor(u) : null}
             lastDay={lastDay}
             today={calendar.today}
@@ -305,6 +310,7 @@ function UnitRow({
   onCall,
   onCloseDate,
   periodEnd: end,
+  href,
   suggestion,
   lastDay,
   today,
@@ -322,6 +328,7 @@ function UnitRow({
   onCloseDate?: (date: string | null) => void;
   /** The first day after this period. */
   periodEnd: string;
+  href?: string;
   suggestion: OfferSuggestion | null;
   lastDay: string;
   today: string;
@@ -346,7 +353,13 @@ function UnitRow({
     <li className={`co-row${must ? ' is-must' : ''}`}>
       <div className="co-row-main">
         <p className="co-row-name">
-          {u.label || 'Unnamed quote'}
+          {href ? (
+            <Link href={href} className="as-deal-link">
+              {u.label || 'Unnamed quote'}
+            </Link>
+          ) : (
+            u.label || 'Unnamed quote'
+          )}
           {must && <span className="co-must">Must close</span>}
           {carriedFrom && <span className="co-carried">From {carriedFrom}</span>}
         </p>

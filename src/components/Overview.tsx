@@ -17,7 +17,7 @@ import {
   type QuarterToDate,
 } from '@/lib/calc';
 import { standing } from '@/components/opening';
-import { fmtCredit, fmtMoney, fmtRatePct, revUnit, fmtRateShort, periodNoun } from '@/lib/format';
+import { fmtCredit, fmtMoney, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import MonthRecap from '@/components/MonthRecap';
 import QuarterStrip from '@/components/QuarterStrip';
@@ -40,14 +40,12 @@ export default function Overview({
   opening,
   deals,
   onOpening,
-  onNew,
   basePlan,
   onRate,
   calendar,
   targets,
   quarter = null,
   lastCredit = 0,
-  onUnit,
 }: {
   /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
@@ -61,14 +59,11 @@ export default function Overview({
   quarter?: QuarterView | null;
   /** Quota credit the period just ended came to (for the recap). */
   lastCredit?: number;
-  /** Switches every revenue number on the page between ARR and MRR. */
-  onUnit?: (unit: 'arr' | 'mrr') => void;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
   deals: DealRow[];
   onOpening: (o: OpeningInput) => Promise<{ error?: string }>;
-  onNew: () => void;
 }) {
   const label = periodLabel(plan.period);
   const noun = periodNoun(plan);
@@ -91,9 +86,9 @@ export default function Overview({
     <section className="ov" aria-labelledby="ov-h">
       <div className="ov-head">
         <div className="ov-title">
-          <h1 id="ov-h" className="ov-h">
-            Pipeline <span className="ov-period">{label}</span>
-          </h1>
+          <h2 id="ov-h" className="ov-h">
+            {label}
+          </h2>
           <p className="ov-status">
             {s.head.map((h, i) =>
               h.hl ? (
@@ -105,21 +100,6 @@ export default function Overview({
               ),
             )}
           </p>
-        </div>
-        <div className="ov-acts">
-          {onUnit && (
-            <span className="ov-unit seg-pill" role="group" aria-label="Show revenue as">
-              <button type="button" aria-pressed={revUnit(plan) === 'arr'} onClick={() => onUnit('arr')}>
-                ARR
-              </button>
-              <button type="button" aria-pressed={revUnit(plan) === 'mrr'} onClick={() => onUnit('mrr')}>
-                MRR
-              </button>
-            </span>
-          )}
-          <button type="button" className="btn btn-primary ov-new" onClick={onNew}>
-            <span aria-hidden="true">+</span> New deal
-          </button>
         </div>
       </div>
 

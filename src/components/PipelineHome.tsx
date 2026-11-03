@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   planForPeriod,
   type Calendar,
@@ -18,7 +19,8 @@ import {
 import type { DealRow } from '@/lib/queries';
 import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
-import BookedList from '@/components/BookedList';
+import BookedList, { DiscountsView } from '@/components/BookedList';
+import AppShell, { type View } from '@/components/app/AppShell';
 import CloseOut from '@/components/CloseOut';
 import PipelineHealth from '@/components/PipelineHealth';
 import { quarterView, type QuarterView } from '@/lib/rollover';
@@ -29,13 +31,18 @@ type AccountMeta = { id?: string | null; name?: string; oneDecision?: boolean; f
 type BookMeta = { name?: string; bookedOn?: string; account?: AccountMeta; kind?: 'deal' | 'upsell' };
 
 /**
- * The signed-in rep's one page: where they stand across the top, their
- * pipeline (open quotes and New deal) beside the deal they're working on,
- * and what they've booked under it. Booking a deal moves it from the
- * pipeline to the booked list, and the numbers at the top update in place
- * (every save revalidates the page).
+ * The signed-in workspace, one view at a time inside the app frame
+ * (AppShell): Home (where the rep stands), the Deal desk (pricing a deal),
+ * Forecast (this period's close), Pipeline (its health), Closed (what's
+ * booked) and Discounts. Every view reads the same data; every save
+ * revalidates it. `linkBase` points the sidebar at a fixture instead of the
+ * real pages (dev only), and `open` is what the deal desk opens on.
  */
 export default function PipelineHome({
+  view = 'home',
+  email = '',
+  linkBase,
+  open = {},
   plan,
   ptd,
   qtd,
@@ -66,6 +73,11 @@ export default function PipelineHome({
   onCloseDate,
   lost = [],
 }: {
+  view?: View;
+  email?: string;
+  linkBase?: string;
+  /** What the deal desk opens on: a quote, a booked deal to change, or a new deal (a stamp). */
+  open?: { quote?: string; deal?: string; fresh?: string };
   plan: CompPlan;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
@@ -117,79 +129,92 @@ export default function PipelineHome({
   const paying = planForPeriod(shown, opening);
   // Without the server's (in the rep's own zone), the browser's.
   const quarterNow = quarter ?? (qtd ? quarterView(deals, qtd.saasArrBooked, calendar.today, Intl.DateTimeFormat().resolvedOptions().timeZone) : null);
-  return (
-    <DealStage
-      plan={paying}
-      ptd={ptd}
-      qtd={qtd}
-      demo={false}
-      variant="app"
-      onSave={onSave}
-      onUpdateDeal={onUpdateDeal}
-      calendar={calendar}
-      targets={targets}
-      quotes={quotes}
-      onSaveQuote={onSaveQuote}
-      onDeleteQuote={onDeleteQuote}
-      onUnbookDeal={onUnbookDeal}
-      accounts={accounts}
-      onUpdateAccount={onUpdateAccount}
-      onAssignAccount={onAssignAccount}
-      onLoseQuotes={onLoseQuotes}
-      top={({ onNew }) => (
-        <Overview
+  const router = useRouter();
+  const href = linkBase ? (v: View) => `${linkBase}${linkBase.includes('?') ? '&' : '?'}v=${v}` : undefined;
+  const to = (v: View, q = '') => {
+    const base = href ? href(v) : v === 'home' ? '/' : `/${v}`;
+    return q ? `${base}${base.includes('?') ? '&' : '?'}${q}` : base;
+  };
+  const lift = rateLift(paying, ptd);
+
+  let content: React.ReactNode;
+  if (view === 'deals') {
+    const editRow = open.deal ? (deals.find((d) => d.id === open.deal) ?? null) : null;
+    content = (
+      <DealStage
+        // A new address (a quote, a deal, New deal again) starts the desk over.
+        key={`${open.quote ?? ''}|${open.deal ?? ''}|${open.fresh ?? ''}`}
+        plan={paying}
+        ptd={ptd}
+        qtd={qtd}
+        demo={false}
+        variant="app"
+        onSave={onSave}
+        onUpdateDeal={onUpdateDeal}
+        calendar={calendar}
+        targets={targets}
+        quotes={quotes}
+        onSaveQuote={onSaveQuote}
+        onDeleteQuote={onDeleteQuote}
+        onUnbookDeal={onUnbookDeal}
+        accounts={accounts}
+        onUpdateAccount={onUpdateAccount}
+        onAssignAccount={onAssignAccount}
+        onLoseQuotes={onLoseQuotes}
+        initialQuoteId={open.quote ?? null}
+        initialEdit={editRow}
+      />
+    );
+  } else if (view === 'forecast') {
+    content = (
+      <div className="as-view">
+        <CloseOut
           plan={paying}
-          basePlan={shown}
-          onUnit={plan.quota_basis === 'arr' ? pickUnit : undefined}
           ptd={ptd}
           qtd={qtd}
-          opening={opening}
-          deals={deals}
-          onOpening={onOpening}
-          onRate={onRate}
-          onNew={onNew}
+          quotes={quotes}
+          accounts={accounts}
           calendar={calendar}
+          onForecast={onForecast}
           targets={targets}
-          quarter={quarterNow}
-          lastCredit={lastCredit}
+          onMakeOffer={onMakeOffer}
+          onWithdrawOffer={onWithdrawOffer}
+          onCloseDate={onCloseDate}
+          openHref={(id) => to('deals', `quote=${id}`)}
         />
-      )}
-      after={({ editDeal, unbookDeal, editingId }) => (
-        <>
-          <CloseOut
-            plan={paying}
-            ptd={ptd}
-            qtd={qtd}
-            quotes={quotes}
-            accounts={accounts}
-            calendar={calendar}
-            onForecast={onForecast}
-            targets={targets}
-            onMakeOffer={onMakeOffer}
-            onWithdrawOffer={onWithdrawOffer}
-            onCloseDate={onCloseDate}
-          />
-          <PipelineHealth
-            plan={paying}
-            ptd={ptd}
-            qtd={qtd}
-            quotes={quotes}
-            accounts={accounts}
-            deals={deals}
-            lost={lost}
-            calendar={calendar}
-            onCloseDate={onCloseDate}
-          />
-          <BookedList
+        {!quotes.length && <p className="as-empty">No open quotes. Save a quote on the Deal Desk and it shows here to call.</p>}
+      </div>
+    );
+  } else if (view === 'pipeline') {
+    content = (
+      <div className="as-view">
+        <PipelineHealth
+          plan={paying}
+          ptd={ptd}
+          qtd={qtd}
+          quotes={quotes}
+          accounts={accounts}
+          deals={deals}
+          lost={lost}
+          calendar={calendar}
+          onCloseDate={onCloseDate}
+          openHref={(id) => to('deals', `quote=${id}`)}
+        />
+      </div>
+    );
+  } else if (view === 'closed') {
+    content = (
+      <div className="as-view">
+        <BookedList
           plan={paying}
           deals={deals}
+          report={false}
           onDelete={onDeleteDeal}
-          onEdit={editDeal}
-          editingId={editingId}
-          onUnbook={unbookDeal}
+          onEdit={(d) => router.push(to('deals', `deal=${d.id}`))}
+          onUnbook={(d) => onUnbookDeal(d.id)}
           targets={targets}
           onTarget={onTarget}
-          lift={rateLift(paying, ptd)}
+          lift={lift}
           accounts={accounts}
           calendar={calendar}
           onAddBooked={(i) =>
@@ -199,8 +224,42 @@ export default function PipelineHome({
             )
           }
         />
-        </>
-      )}
-    />
+      </div>
+    );
+  } else if (view === 'discounts') {
+    content = (
+      <div className="as-view">
+        <DiscountsView plan={paying} deals={deals} targets={targets} onTarget={onTarget} lift={lift} />
+      </div>
+    );
+  } else {
+    content = (
+      <Overview
+        plan={paying}
+        basePlan={shown}
+        ptd={ptd}
+        qtd={qtd}
+        opening={opening}
+        deals={deals}
+        onOpening={onOpening}
+        onRate={onRate}
+        calendar={calendar}
+        targets={targets}
+        quarter={quarterNow}
+        lastCredit={lastCredit}
+      />
+    );
+  }
+
+  return (
+    <AppShell
+      view={view}
+      email={email}
+      unit={plan.quota_basis === 'arr' && onUnit ? unit : undefined}
+      onUnit={plan.quota_basis === 'arr' && onUnit ? pickUnit : undefined}
+      href={href}
+    >
+      {content}
+    </AppShell>
   );
 }
