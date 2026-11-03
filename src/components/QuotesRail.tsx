@@ -95,7 +95,7 @@ export default function QuotesRail({
         <p className="pipe-empty">
           {compact
             ? 'None yet. Price a deal and save it as a quote to keep it here until it closes.'
-            : 'No open quotes yet. Price a deal below, then save it as a quote to keep it here until it closes.'}
+            : 'No open quotes yet. Price a deal, then save it as a quote to keep it here until it closes.'}
         </p>
       </section>
     );

@@ -142,6 +142,7 @@ export default function DealStage({
   onUnbookDeal,
   initialQuoteId = null,
   initialEdit = null,
+  bookedHref,
   accounts = [],
   onUpdateAccount,
   onAssignAccount,
@@ -191,6 +192,8 @@ export default function DealStage({
   initialQuoteId?: string | null;
   /** A booked deal the page opens on, to change it (Closed's Edit). */
   initialEdit?: DealRow | null;
+  /** Where booked deals are listed (Closed Won), for the line after booking. */
+  bookedHref?: string;
   /** The rep's accounts: buyers with several deals. */
   accounts?: DealAccount[];
   /** Renames an account, or changes whether its deals close as one. */
@@ -1240,7 +1243,13 @@ export default function DealStage({
                   {msg.booked && (
                     <>
                       <p className="after">
-                        Booked to {label}. Your numbers above and your booked deals below include it.
+                        {bookedHref ? (
+                          <>
+                            Booked to {label}. It&rsquo;s in <Link href={bookedHref}>Closed Won</Link>, and your numbers include it.
+                          </>
+                        ) : (
+                          <>Booked to {label}. Your numbers above and your booked deals below include it.</>
+                        )}
                       </p>
                     </>
                   )}

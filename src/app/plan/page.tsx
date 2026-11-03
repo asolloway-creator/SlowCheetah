@@ -1,8 +1,10 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan } from '@/lib/queries';
 import { saveOpeningAction, savePlanAction, savePlanSetupAction } from '../actions';
 import { Shell } from '../AccountViews';
 import AppShell from '@/components/app/AppShell';
+import { NAV_COOKIE } from '@/components/app/nav';
 import PlanCapture from '@/components/capture/PlanCapture';
 
 export const metadata = { title: 'Your plan · IOI' };
@@ -22,7 +24,7 @@ export default async function PlanPage() {
     );
   }
   return (
-    <AppShell view="plan" email={user.email ?? ''}>
+    <AppShell view="plan" email={user.email ?? ''} pinned={(await cookies()).get(NAV_COOKIE)?.value === '1'}>
       <div className="as-plan">{capture}</div>
     </AppShell>
   );

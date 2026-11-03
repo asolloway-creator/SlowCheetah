@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { NEXT_COOKIE, safeNext } from '@/lib/safe-next';
 
 /**
  * Magic-link landing route.
@@ -15,7 +16,14 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
-  const next = searchParams.get('next') ?? '/';
+  // Where they were headed when sign-in started (the form leaves it in a
+  // short-lived cookie), kept to a path on this site.
+  const raw = request.cookies.get(NEXT_COOKIE)?.value;
+  let fromCookie: string | null = null;
+  try {
+    fromCookie = raw ? decodeURIComponent(raw) : null;
+  } catch {}
+  const next = safeNext(searchParams.get('next') ?? fromCookie);
 
   const supabase = await createClient();
 
@@ -23,11 +31,11 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) return arrive(new URL(next, origin));
     message = error.message;
   } else if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) return arrive(new URL(next, origin));
     message = error.message;
   } else {
     message =
@@ -37,4 +45,11 @@ export async function GET(request: NextRequest) {
   const errorUrl = new URL('/auth/error', origin);
   if (message) errorUrl.searchParams.set('message', message);
   return NextResponse.redirect(errorUrl);
+}
+
+/** Signed in: on to where they were going, and the cookie that said so goes. */
+function arrive(url: URL) {
+  const res = NextResponse.redirect(url);
+  res.cookies.set(NEXT_COOKIE, '', { path: '/', maxAge: 0 });
+  return res;
 }

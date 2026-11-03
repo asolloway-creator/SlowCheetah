@@ -43,6 +43,7 @@ export default function PipelineHome({
   email = '',
   linkBase,
   open = {},
+  navPinned = false,
   plan,
   ptd,
   qtd,
@@ -78,6 +79,8 @@ export default function PipelineHome({
   linkBase?: string;
   /** What the deal desk opens on: a quote, a booked deal to change, or a new deal (a stamp). */
   open?: { quote?: string; deal?: string; fresh?: string };
+  /** The sidebar pinned open (the rep's choice, from a cookie). */
+  navPinned?: boolean;
   plan: CompPlan;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
@@ -163,6 +166,7 @@ export default function PipelineHome({
         onLoseQuotes={onLoseQuotes}
         initialQuoteId={open.quote ?? null}
         initialEdit={editRow}
+        bookedHref={to('closed')}
       />
     );
   } else if (view === 'forecast') {
@@ -258,6 +262,7 @@ export default function PipelineHome({
       unit={plan.quota_basis === 'arr' && onUnit ? unit : undefined}
       onUnit={plan.quota_basis === 'arr' && onUnit ? pickUnit : undefined}
       href={href}
+      pinned={navPinned}
     >
       {content}
     </AppShell>

@@ -2288,3 +2288,22 @@ main.app { padding-bottom: 56px; }
   .as-new-label { display: none; }
   .as-new { width: 38px; padding: 0; justify-content: center; }
 }
+/* A view loading: the page's shape in quiet blocks. */
+.as-skel { display: grid; gap: 12px; }
+.as-skel.is-deals { grid-template-columns: 252px minmax(0, 1fr) 400px; align-items: start; }
+.as-skel-block { display: block; height: 180px; border-radius: 12px; background: linear-gradient(90deg, var(--cream) 0%, var(--cream-2) 50%, var(--cream) 100%); background-size: 200% 100%; animation: as-shimmer 1.4s ease-in-out infinite; }
+.as-skel-block:first-child { height: 120px; }
+.as-skel.is-deals .as-skel-block { height: 520px; }
+.as-skel-dot { width: 32px; height: 32px; border-radius: 50%; background: var(--cream-2); }
+@keyframes as-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (max-width: 860px) { .as-skel.is-deals { grid-template-columns: minmax(0, 1fr); } .as-skel.is-deals .as-skel-block { height: 220px; } }
+@media (prefers-reduced-motion: reduce) { .as-skel-block { animation: none; } }
+/* The menu opens on a deliberate hover, not a pass on the way to the edge;
+   it closes at once. */
+@media (hover: hover) and (min-width: 761px) {
+  .as-nav:hover, .as-nav:hover .as-label, .as-nav:hover .as-legal, .as-nav:hover .as-pin { transition-delay: 140ms; }
+}
+.as-pending { position: absolute; left: 12px; right: 12px; bottom: 4px; height: 2px; border-radius: 2px; background: var(--sun); opacity: 0; transform: scaleX(0.2); transform-origin: left; }
+.as-pending.is-on { opacity: 1; animation: as-pend 0.9s var(--ease-out) infinite; }
+@keyframes as-pend { from { transform: scaleX(0.15); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .as-pending.is-on { animation: none; transform: none; } }

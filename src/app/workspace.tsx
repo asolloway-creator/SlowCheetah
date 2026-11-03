@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { currentUser, getCompPlan, getOpening, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listLost, listQuotes, repTimeZone } from '@/lib/queries';
 import { calendarInZone } from '@/lib/calc';
@@ -24,6 +25,7 @@ import {
 } from './actions';
 import PipelineHome from '@/components/PipelineHome';
 import type { View } from '@/components/app/AppShell';
+import { NAV_COOKIE } from '@/components/app/nav';
 
 /** A search param as one string, or undefined. */
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,7 +38,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
  */
 export default async function Workspace({ view, search = {} }: { view: View; search?: Record<string, string | string[] | undefined> }) {
   const { user } = await currentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(view === 'home' ? '/login' : `/login?next=/${view}`);
 
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
@@ -67,6 +69,7 @@ export default async function Workspace({ view, search = {} }: { view: View; sea
     <PipelineHome
       view={view}
       email={user.email ?? ''}
+      navPinned={(await cookies()).get(NAV_COOKIE)?.value === '1'}
       open={{ quote: one(search.quote), deal: one(search.deal), fresh: one(search.new) }}
       plan={plan}
       ptd={ptd}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { track } from '@/lib/track';
+import { NEXT_COOKIE, safeNext } from '@/lib/safe-next';
 
 /**
  * Passwordless sign-in, and creating an account (`mode="signup"`, the start of
@@ -16,7 +17,8 @@ import { track } from '@/lib/track';
  * right here: what you need when the email opens on your phone and IOI is
  * open on your laptop, or the other way round.
  */
-export default function LoginForm({ mode }: { mode: 'signin' | 'signup' }) {
+/** `next` is where to land once signed in (a page they were sent here from). */
+export default function LoginForm({ mode, next = '/' }: { mode: 'signin' | 'signup'; next?: string }) {
   const signup = mode === 'signup';
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -51,7 +53,7 @@ export default function LoginForm({ mode }: { mode: 'signin' | 'signup' }) {
       );
       return;
     }
-    router.replace('/');
+    router.replace(safeNext(next));
     router.refresh();
   }
 
@@ -61,6 +63,9 @@ export default function LoginForm({ mode }: { mode: 'signin' | 'signup' }) {
     setNoAccount(false);
     setStatus('sending');
 
+    // The emailed link lands on /auth/confirm, which reads this to finish
+    // where they started. An hour is longer than any link stays good.
+    document.cookie = `${NEXT_COOKIE}=${encodeURIComponent(safeNext(next))}; path=/; max-age=3600; samesite=lax`;
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),

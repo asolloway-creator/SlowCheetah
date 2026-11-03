@@ -1,11 +1,12 @@
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import AccountMenu from '@/components/AccountMenu';
 import { MarkRing } from '@/components/Wordmark';
 import { Icon, type IconName } from '@/components/app/icons';
+import { NAV_COOKIE } from '@/components/app/nav';
 
 export type View = 'home' | 'deals' | 'forecast' | 'pipeline' | 'closed' | 'discounts' | 'plan';
 
@@ -15,22 +16,9 @@ export const VIEWS: { key: Exclude<View, 'plan'>; label: string; title: string; 
   { key: 'deals', label: 'Deal Desk', title: 'Deal Desk', icon: 'deal', path: '/deals' },
   { key: 'forecast', label: 'Forecast', title: 'Forecast', icon: 'forecast', path: '/forecast' },
   { key: 'pipeline', label: 'Pipeline', title: 'Pipeline', icon: 'pipeline', path: '/pipeline' },
-  { key: 'closed', label: 'Closed', title: 'Closed deals', icon: 'closed', path: '/closed' },
+  { key: 'closed', label: 'Closed Won', title: 'Closed Won', icon: 'closed', path: '/closed' },
   { key: 'discounts', label: 'Discounts', title: 'Discounts', icon: 'discounts', path: '/discounts' },
 ];
-
-const PIN_KEY = 'ioi:nav-pinned';
-function subscribe(on: () => void) {
-  window.addEventListener('storage', on);
-  return () => window.removeEventListener('storage', on);
-}
-function readPinned(): boolean {
-  try {
-    return window.localStorage.getItem(PIN_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
 
 /**
  * The signed-in frame: a sidebar of views, collapsed to icons by default
@@ -46,6 +34,7 @@ export default function AppShell({
   onUnit,
   href = (v) => (v === 'plan' ? '/plan' : VIEWS.find((x) => x.key === v)!.path),
   title,
+  pinned: pinnedAtLoad = false,
   children,
 }: {
   view: View;
@@ -56,12 +45,11 @@ export default function AppShell({
   href?: (v: View) => string;
   /** Overrides the view's own name in the top bar. */
   title?: string;
+  /** The sidebar pinned open (from the cookie). */
+  pinned?: boolean;
   children: ReactNode;
 }) {
-  // Pinned open is a per-browser preference; it reads after hydration.
-  const stored = useSyncExternalStore(subscribe, readPinned, () => false);
-  const [pinnedNow, setPinnedNow] = useState<boolean | null>(null);
-  const pinned = pinnedNow ?? stored;
+  const [pinned, setPinned] = useState(pinnedAtLoad);
   const [drawer, setDrawer] = useState(false);
   const router = useRouter();
   // A fresh deal on the deal desk, every time (the stamp makes a repeat click
@@ -80,10 +68,8 @@ export default function AppShell({
 
   function pin() {
     const next = !pinned;
-    setPinnedNow(next);
-    try {
-      window.localStorage.setItem(PIN_KEY, next ? '1' : '0');
-    } catch {}
+    setPinned(next);
+    document.cookie = `${NAV_COOKIE}=${next ? '1' : '0'}; path=/; max-age=31536000; samesite=lax`;
   }
 
   const unitSwitch = (cls: string) =>
@@ -123,6 +109,7 @@ export default function AppShell({
               <Link href={href(v.key)} className="as-item" aria-current={view === v.key ? 'page' : undefined} onClick={go}>
                 <Icon name={v.icon} />
                 <span className="as-label">{v.label}</span>
+                <Pending />
               </Link>
             </li>
           ))}
@@ -156,11 +143,18 @@ export default function AppShell({
               <span aria-hidden="true">+</span>
               <span className="as-new-label">New deal</span>
             </button>
-            <AccountMenu email={email} current={view === 'plan' ? '/plan' : '/'} />
+            {email ? <AccountMenu email={email} current={view === 'plan' ? '/plan' : '/'} /> : <span className="as-skel-dot" aria-hidden="true" />}
           </div>
         </header>
         <main className="app as-main">{children}</main>
       </div>
     </div>
   );
+}
+
+/** A link on its way: a thin bar along the item until the view arrives
+ *  (Home has no loading screen of its own, since it's also the landing page). */
+function Pending() {
+  const { pending } = useLinkStatus();
+  return <span className={`as-pending${pending ? ' is-on' : ''}`} aria-hidden="true" />;
 }
