@@ -17,7 +17,7 @@ import {
   type QuarterToDate,
 } from '@/lib/calc';
 import { standing } from '@/components/opening';
-import { fmtCredit, fmtMoney, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
+import { fmtCredit, fmtMoney, fmtRatePct, revUnit, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import MonthRecap from '@/components/MonthRecap';
 import QuarterStrip from '@/components/QuarterStrip';
@@ -47,6 +47,7 @@ export default function Overview({
   targets,
   quarter = null,
   lastCredit = 0,
+  onUnit,
 }: {
   /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
@@ -60,6 +61,8 @@ export default function Overview({
   quarter?: QuarterView | null;
   /** Quota credit the period just ended came to (for the recap). */
   lastCredit?: number;
+  /** Switches every revenue number on the page between ARR and MRR. */
+  onUnit?: (unit: 'arr' | 'mrr') => void;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
@@ -103,9 +106,21 @@ export default function Overview({
             )}
           </p>
         </div>
-        <button type="button" className="btn btn-primary ov-new" onClick={onNew}>
-          <span aria-hidden="true">+</span> New deal
-        </button>
+        <div className="ov-acts">
+          {onUnit && (
+            <span className="ov-unit seg-pill" role="group" aria-label="Show revenue as">
+              <button type="button" aria-pressed={revUnit(plan) === 'arr'} onClick={() => onUnit('arr')}>
+                ARR
+              </button>
+              <button type="button" aria-pressed={revUnit(plan) === 'mrr'} onClick={() => onUnit('mrr')}>
+                MRR
+              </button>
+            </span>
+          )}
+          <button type="button" className="btn btn-primary ov-new" onClick={onNew}>
+            <span aria-hidden="true">+</span> New deal
+          </button>
+        </div>
       </div>
 
       {plan.quarterly_kicker && qtd && quarter ? (
@@ -126,7 +141,7 @@ export default function Overview({
           <p className="kpi-value">
             {fmtCredit(plan, ptd.creditBooked)}
             <span className="kpi-of">
-              {plan.quota_basis === 'arr' ? `of ${fmtMoney(plan.quota)}` : `of ${fmtCredit(plan, plan.quota)}`} · {pctQ}%
+              of {fmtCredit(plan, plan.quota)} · {pctQ}%
             </span>
           </p>
           <QuotaLine mode="quarter" plan={plan} ptd={ptd} />

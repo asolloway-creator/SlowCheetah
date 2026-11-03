@@ -19,6 +19,7 @@ import {
 import { fmt, periodNoun, planSentence } from '@/lib/format';
 import PresetTiles from '@/components/PresetTiles';
 import NumField from '@/components/NumField';
+import RevAdorn from '@/components/RevAdorn';
 import Segmented from '@/components/Segmented';
 
 /** The plan with these further accelerator steps, or none: no empty list
@@ -124,6 +125,8 @@ export default function PlanSentence({
   const [p, setP] = useState<CompPlan>(plan ?? (demo ? PRESETS[0].plan : BLANK_PLAN));
   const [preset, setPreset] = useState<string | null>(plan ? matchPreset(plan) : demo ? PRESETS[0].id : null);
   const [pending, setPending] = useState(false);
+  // The quota typed as ARR or MRR; kept as ARR.
+  const [quotaUnit, setQuotaUnit] = useState<'arr' | 'mrr'>(plan?.display_unit === 'mrr' ? 'mrr' : 'arr');
   const [msg, setMsg] = useState<{ ok?: boolean; error?: string }>({});
 
   const set = <K extends keyof CompPlan>(k: K, v: CompPlan[K]) => {
@@ -406,12 +409,13 @@ export default function PlanSentence({
       </div>
       <NumField
         id="quota"
-        label={`Quota per ${noun}`}
-        value={p.quota}
+        label={`Quota per ${noun}${arr ? (quotaUnit === 'mrr' ? ', in new MRR' : ', in new ARR') : ''}`}
+        value={arr && quotaUnit === 'mrr' ? p.quota / 12 : p.quota}
         prefix={arr ? '$' : undefined}
         suffix={arr ? undefined : 'units'}
         integer={!arr}
-        onChange={(n) => set('quota', n)}
+        onChange={(n) => set('quota', arr && quotaUnit === 'mrr' ? n * 12 : n)}
+        adorn={arr ? <RevAdorn unit={quotaUnit} onUnit={setQuotaUnit} /> : undefined}
       />
 
       <h2 className="section-h">Commission</h2>

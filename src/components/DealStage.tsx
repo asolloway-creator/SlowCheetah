@@ -14,7 +14,7 @@ import {
   type QuarterToDate,
   type Quote,
 } from '@/lib/calc';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtPctShort, periodNoun, revUnit, toRev } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import { closeWith } from '@/lib/closeout';
 import DealForm from '@/components/DealForm';
@@ -619,7 +619,8 @@ export default function DealStage({
       : []),
     {
       label: `Lands the ${noun} at`,
-      value: plan.quota_basis === 'units' ? fmtCredit(plan, r.creditAfter) : <TweenedMoney value={r.creditAfter} />,
+      value: plan.quota_basis === 'units' ? fmtCredit(plan, r.creditAfter) : <TweenedMoney value={toRev(plan, r.creditAfter)} />,
+      suffix: revUnit(plan) === 'mrr' ? 'MRR' : undefined,
     },
     ...(r.customerSavesAnnual > 0
       ? [{ label: 'Customer saves', value: <TweenedMoney value={r.customerSavesAnnual} />, suffix: 'a year' }]

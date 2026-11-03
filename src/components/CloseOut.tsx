@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { calc, periodLabel, type CompPlan, type DealAccount, type DealInput, type Forecast, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
 import { changedLines, LINE_WORDS, offerLine, suggestOffer, type OfferSuggestion } from '@/lib/offers';
 import type { Line, Targets } from '@/components/discounts';
-import { closeLine, closeUnits, closeWith, mustClose, type CloseLine, type CloseUnit, type LineKey } from '@/lib/closeout';
+import { closeLine, closeUnits, closeWith, mustClose, withCloseDate, type CloseLine, type CloseUnit, type LineKey } from '@/lib/closeout';
 import { fmtCredit, fmtMoney } from '@/lib/format';
 import { daysBetween, previousPeriod } from '@/lib/rollover';
 
@@ -48,6 +48,7 @@ export default function CloseOut({
   targets = {},
   onMakeOffer,
   onWithdrawOffer,
+  onCloseDate,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -60,21 +61,30 @@ export default function CloseOut({
   targets?: Targets;
   onMakeOffer?: (id: string, deal: DealInput, expires: string) => Promise<{ error?: string }>;
   onWithdrawOffer?: (id: string) => Promise<{ error?: string }>;
+  /** When the rep expects a decision to close; null clears it. */
+  onCloseDate?: (ids: string[], date: string | null) => Promise<{ error?: string }>;
 }) {
   // A call shows at once; the saved one replaces it when the page refreshes.
   const [picked, setPicked] = useState<Record<string, Forecast | null>>({});
+  const [dates, setDates] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<string | null>(null);
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
   if (!quotes.length) return null;
 
-  const withCalls = quotes.map((q) => (q.id in picked ? { ...q, forecast: picked[q.id] } : q));
+  // The first day after this period: a close date on or past it counts the
+  // decision in a later one.
+  const end = periodEnd(calendar.periodStart, plan.period);
+  const withCalls = quotes.map((q) => {
+    let x: Quote = q.id in picked ? { ...q, call: picked[q.id] } : q;
+    if (q.id in dates) x = { ...x, closeDate: dates[q.id] };
+    return withCloseDate(x, end);
+  });
   const units = closeUnits(withCalls, accounts);
   const lines = lineDefs(plan.period).map((l) => ({ ...l, line: closeLine(plan, ptd, qtd, units, l.key) }));
   const all = lines[2].line;
   const mc = mustClose(plan, ptd, qtd, all);
   const mustKeys = new Set(mc.must.map((u) => u.key));
 
-  const end = periodEnd(calendar.periodStart, plan.period);
   const left = daysBetween(calendar.today, end);
   // An offer holds through the period's last day.
   const lastDay = new Date(Date.parse(end) - 86400000).toISOString().slice(0, 10);
@@ -118,11 +128,30 @@ export default function CloseOut({
     const next = u.forecast === f ? null : f;
     const ids = u.quotes.map((q) => q.id);
     setPicked((c) => ({ ...c, ...Object.fromEntries(ids.map((id) => [id, next])) }));
+    // Called in for this period: a date that kept it out goes (the server
+    // clears it the same way).
+    if ((next === 'commit' || next === 'stretch') && u.closeDate && u.closeDate >= end) {
+      setDates((c) => ({ ...c, ...Object.fromEntries(ids.map((id) => [id, null])) }));
+    }
     setError(null);
     if (!onForecast) return;
     let res: { error?: string };
     try {
       res = await onForecast(ids, next);
+    } catch {
+      res = { error: 'Could not reach the server. Check your connection and try again.' };
+    }
+    if (res.error) setError(res.error);
+  }
+
+  async function closeOn(u: CloseUnit, date: string | null) {
+    const ids = u.quotes.map((q) => q.id);
+    setDates((c) => ({ ...c, ...Object.fromEntries(ids.map((id) => [id, date])) }));
+    setError(null);
+    if (!onCloseDate) return;
+    let res: { error?: string };
+    try {
+      res = await onCloseDate(ids, date);
     } catch {
       res = { error: 'Could not reach the server. Check your connection and try again.' };
     }
@@ -216,6 +245,8 @@ export default function CloseOut({
             must={!early && mustKeys.has(u.key)}
             carriedFrom={isCarried(u) ? prevName : null}
             onCall={(f) => void call(u, f)}
+            onCloseDate={onCloseDate ? (d) => void closeOn(u, d) : undefined}
+            periodEnd={end}
             suggestion={onMakeOffer ? offerFor(u) : null}
             lastDay={lastDay}
             today={calendar.today}
@@ -272,6 +303,8 @@ function UnitRow({
   must,
   carriedFrom,
   onCall,
+  onCloseDate,
+  periodEnd: end,
   suggestion,
   lastDay,
   today,
@@ -286,6 +319,9 @@ function UnitRow({
   /** The period it was already open in, when it was carried in. */
   carriedFrom: string | null;
   onCall: (f: Forecast) => void;
+  onCloseDate?: (date: string | null) => void;
+  /** The first day after this period. */
+  periodEnd: string;
   suggestion: OfferSuggestion | null;
   lastDay: string;
   today: string;
@@ -322,14 +358,30 @@ function UnitRow({
           {u.mixed && ' · its deals had different calls, the most cautious is used'}
           {carriedFrom && age > 0 && ` · open ${age} ${age === 1 ? 'day' : 'days'}`}
           {carriedFrom && wasLabel && u.forecast === null && ` · you called it ${wasLabel} in ${carriedFrom}`}
+          {u.pushes > 0 && ` · pushed ${u.pushes === 1 ? 'once' : u.pushes === 2 ? 'twice' : `${u.pushes} times`}`}
+          {u.closeDate && u.closeDate < today && ' · its close date has passed'}
+          {u.closeDate && u.closeDate >= end && ` · expected ${dayName(u.closeDate)}, after this ${plan.period}`}
         </p>
       </div>
-      <div className="co-calls" role="group" aria-label={`Your call on ${u.label || 'this quote'}`}>
-        {calls(plan.period).map((c) => (
-          <button key={c.key} type="button" aria-pressed={u.forecast === c.key} className={`co-call is-${c.key}`} onClick={() => onCall(c.key)}>
-            {c.label}
-          </button>
-        ))}
+      <div className="co-acts">
+        {onCloseDate && (
+          <label className={`co-date${u.closeDate && u.closeDate < today ? ' is-past' : ''}`}>
+            <span>Closes</span>
+            <input
+              type="date"
+              value={u.closeDate ?? ''}
+              aria-label={`Expected close date for ${u.label || 'this quote'}`}
+              onChange={(e) => onCloseDate(e.target.value || null)}
+            />
+          </label>
+        )}
+        <div className="co-calls" role="group" aria-label={`Your call on ${u.label || 'this quote'}`}>
+          {calls(plan.period).map((c) => (
+            <button key={c.key} type="button" aria-pressed={u.forecast === c.key} className={`co-call is-${c.key}`} onClick={() => onCall(c.key)}>
+              {c.label}
+            </button>
+          ))}
+        </div>
       </div>
       <OfferLine plan={plan} q={u.quotes.length === 1 ? u.quotes[0] : null} suggestion={suggestion} lastDay={lastDay} today={today} busy={busy} onOffer={onOffer} />
     </li>

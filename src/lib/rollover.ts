@@ -93,6 +93,12 @@ export function lastPeriodCredit(
   return inside.reduce((n, d) => n + d.quota_credit, 0) + (saved && saved.periodKey === prev.key ? saved.credit : 0);
 }
 
+/** The first day of the period after the one that starts on `periodStart`. */
+export function nextPeriodStart(period: Period, periodStart: string): string {
+  const [y, m] = periodStart.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + (period === 'quarter' ? 3 : 1), 1)).toISOString().slice(0, 10);
+}
+
 /** Whole days from one 'YYYY-MM-DD' to another. */
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);

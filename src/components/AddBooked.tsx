@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { DealAccount } from '@/lib/calc';
+import type { CompPlan, DealAccount } from '@/lib/calc';
+import { revUnit, revWord } from '@/lib/format';
 import AccountPicker, { type AccountChoice } from '@/components/AccountPicker';
 import NumField from '@/components/NumField';
+import RevAdorn from '@/components/RevAdorn';
 
 export type BookedInput = {
   name: string;
@@ -22,10 +24,12 @@ export type BookedInput = {
  * discount numbers. The account is a name: one IOI has seen, or a new one.
  */
 export default function AddBooked({
+  plan,
   accounts,
   calendar,
   onAdd,
 }: {
+  plan: CompPlan;
   accounts: DealAccount[];
   calendar: { today: string; periodStart: string };
   onAdd: (i: BookedInput) => Promise<{ error?: string }>;
@@ -33,6 +37,8 @@ export default function AddBooked({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [arr, setArr] = useState(0);
+  // Typed as ARR or MRR (the rep's own unit to start); kept as ARR.
+  const [unit, setUnit] = useState(revUnit(plan));
   const [day, setDay] = useState(calendar.today);
   const [kind, setKind] = useState<'deal' | 'upsell'>('upsell');
   const [account, setAccount] = useState<BookedInput['account']>(null);
@@ -61,7 +67,7 @@ export default function AddBooked({
   }
 
   async function save() {
-    if (!(arr > 0)) return setError('Enter the ARR.');
+    if (!(arr > 0)) return setError(`Enter the ${unit === 'mrr' ? 'MRR' : 'ARR'}.`);
     setBusy(true);
     setError(null);
     let res: { error?: string };
@@ -82,7 +88,7 @@ export default function AddBooked({
     return (
       <p className="ab-line">
         <button type="button" className="btn-text" onClick={() => setOpen(true)}>
-          Add booked ARR
+          Add booked {revWord(plan)}
         </button>
         <span>An upsell or anything already booked, without a quote.</span>
         {added && <span className="is-green">Added.</span>}
@@ -90,7 +96,7 @@ export default function AddBooked({
     );
   }
   return (
-    <div className="ab" role="group" aria-label="Add booked ARR">
+    <div className="ab" role="group" aria-label={`Add booked ${revWord(plan)}`}>
       <p className="ab-note">Counts toward quota and commission. Left out of your discount numbers, since there is no quote.</p>
       <div className="ab-grid">
         <div className="field">
@@ -108,7 +114,15 @@ export default function AddBooked({
             />
           </div>
         </div>
-        <NumField id="abArr" label="ARR" prefix="$" suffix="a year" value={arr} onChange={setArr} blankZero />
+        <NumField
+          id="abArr"
+          label={unit === 'mrr' ? 'MRR, a month' : 'ARR, a year'}
+          prefix="$"
+          value={unit === 'mrr' ? arr / 12 : arr}
+          onChange={(n) => setArr(unit === 'mrr' ? n * 12 : n)}
+          blankZero
+          adorn={<RevAdorn unit={unit} onUnit={setUnit} />}
+        />
         <div className="field">
           <label className="field-label" htmlFor="abDay">
             Date closed

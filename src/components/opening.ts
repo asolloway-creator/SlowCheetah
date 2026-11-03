@@ -30,7 +30,7 @@ import {
   type QuarterToDate,
   type QuarterlyKickerTier,
 } from '@/lib/calc';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, fmtSigned, periodNoun } from '@/lib/format';
+import { fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, fmtRev, fmtSigned, periodNoun, revWord } from '@/lib/format';
 
 export const EMPTY: DealInput = {
   oneTime: 0, subscription: 0, subMode: 'mrr', units: 1,
@@ -336,9 +336,9 @@ export function kickerGroundingDetail(plan: CompPlan, qtd: QuarterToDate | null)
   const tail = s.tier
     ? ` · ${tierName(numOf(s.tier))} locked in: ${isFixedTier(s.tier) ? fmtMoney(s.bumpValue) : `+${fmtPctShort(s.tier.kickerPct)} on the quarter`}`
     : s.nextTier
-      ? ` · ${fmtMoney(s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
+      ? ` · ${fmtRev(plan, s.toNextTierArr)} to ${tierName(numOf(s.nextTier))} (${fmtPctShort(s.nextTier.attainmentPct)})`
       : '';
-  return `Already booked this quarter: ${fmtMoney(qtd.saasArrBooked)} of ${fmtMoney(kicker.target)} (${fmtPctShort(s.attainmentPct)})${tail}`;
+  return `Already booked this quarter: ${fmtRev(plan, qtd.saasArrBooked)} of ${fmtRev(plan, kicker.target)} ${revWord(plan)} (${fmtPctShort(s.attainmentPct)})${tail}`;
 }
 
 // ── Welcome back ────────────────────────────────────────────────────────────
@@ -372,7 +372,7 @@ export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
   const pct = plan.quota > 0 ? Math.round((ptd.creditBooked / plan.quota) * 100) : 0;
   const note =
     plan.quota_basis === 'arr'
-      ? `${label} · ${fmtMoney(ptd.creditBooked)} booked toward your ${fmtMoney(plan.quota)} quota, ${pct}% there.`
+      ? `${label} · ${fmtCredit(plan, ptd.creditBooked)} booked toward your ${fmtCredit(plan, plan.quota)} quota, ${pct}% there.`
       : `${label} · ${Math.round(ptd.creditBooked)} of ${fmtCredit(plan, plan.quota)}, ${pct}% there.`;
   const ask = 'Drag the discount before you make the offer.';
 
@@ -393,7 +393,7 @@ export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
   const bonusLeft = k && !k.tier && k.nextTier && bonusLine > 0 ? k.toNextTierArr / bonusLine : Infinity;
   if (k && !k.tier && k.nextTier && bonusLeft <= accelLeft) {
     return {
-      head: [{ text: fmt(k.toNextTierArr), hl: true }, { text: ` more new ARR unlocks your ${name(k.nextTier)}.` }],
+      head: [{ text: fmtRev(plan, k.toNextTierArr), hl: true }, { text: ` more new ${revWord(plan)} unlocks your ${name(k.nextTier)}.` }],
       lede: `Worth ${worth(k.nextTier)}. Your next quote can win it or lose it. ${ask}`,
       note,
     };
@@ -419,7 +419,7 @@ export function standing(plan: CompPlan, ptd: PeriodToDate, qtd: QuarterToDate |
   if (k?.tier) {
     return {
       head: [{ text: `Your ${name(k.tier)} is ` }, { text: 'locked in', hl: true }, { text: '.' }],
-      lede: `Worth ${fmtMoney(k.bumpValue)} so far.${k.nextTier ? ` ${fmt(k.toNextTierArr)} more new ARR reaches your ${name(k.nextTier)}.` : ''} ${ask}`,
+      lede: `Worth ${fmtMoney(k.bumpValue)} so far.${k.nextTier ? ` ${fmtRev(plan, k.toNextTierArr)} more new ${revWord(plan)} reaches your ${name(k.nextTier)}.` : ''} ${ask}`,
       note,
     };
   }

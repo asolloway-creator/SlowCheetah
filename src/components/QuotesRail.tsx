@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { calc, LOST_REASONS, pipeline, type CompPlan, type DealAccount, type DealInput, type LostReason, type PeriodToDate, type QuarterToDate, type Quote } from '@/lib/calc';
-import { fmt, fmtCredit, fmtMoney, periodNoun } from '@/lib/format';
+import { fmt, fmtCredit, fmtMoney, fmtRev, periodNoun, revUnit, revWord } from '@/lib/format';
 import { tierName } from '@/components/opening';
 
 /** A quote's own label, or what it is when it has none: "$2,084/mo · 2 units". */
@@ -12,10 +12,11 @@ export function quoteLabel(q: { name: string; deal: DealInput }): string {
   return `${fmt(mrr)}/mo${q.deal.units > 1 ? ` · ${q.deal.units} units` : ''}`;
 }
 
-/** "$9,000 a year · 2 units", what a quote is when its name doesn't say. */
-function sizeOf(d: DealInput): string {
+/** "$9,000 a year · 2 units" (or "$750 a month" when the rep reads MRR),
+ *  what a quote is when its name doesn't say. */
+function sizeOf(d: DealInput, plan: CompPlan): string {
   const year = d.subMode === 'acv' ? d.subscription : d.subscription * 12;
-  const parts = [`${fmt(year)} a year`];
+  const parts = [revUnit(plan) === 'mrr' ? `${fmt(year / 12)} a month` : `${fmt(year)} a year`];
   if (d.units > 1) parts.push(`${d.units} units`);
   if (d.oneTime > 0) parts.push(`${fmt(d.oneTime)} one-time`);
   if ((d.hardware ?? 0) > 0) parts.push(`${fmt(d.hardware as number)} hardware`);
@@ -126,7 +127,7 @@ export default function QuotesRail({
   sum += '.';
   if (p.kicker) {
     if (p.kicker.tier) sum += ` ${tierName(tierNum(p.kicker.tier.attainmentPct))}: ${fmtMoney(p.kicker.bumpValue)}.`;
-    else if (p.kicker.nextTier) sum += ` ${fmt(p.kicker.toNextTierArr)} more new ARR unlocks your Quarterly Bonus.`;
+    else if (p.kicker.nextTier) sum += ` ${fmtRev(plan, p.kicker.toNextTierArr)} more new ${revWord(plan)} unlocks your Quarterly Bonus.`;
   }
 
   return (
@@ -155,6 +156,7 @@ export default function QuotesRail({
             <QuoteRow
               key={g.quotes[0].id}
               q={g.quotes[0]}
+              plan={plan}
               pay={calc(plan, g.quotes[0].deal, ptd)}
               active={g.quotes[0].id === activeId}
               onOpen={onOpen}
@@ -245,6 +247,7 @@ function AccountGroup({
           <QuoteRow
             key={q.id}
             q={q}
+            plan={plan}
             pay={calc(plan, q.deal, ptd)}
             active={q.id === activeId}
             onOpen={onOpen}
@@ -279,6 +282,7 @@ function openFor(iso: string): string {
 /** One open quote: open it in the card, or close it right here. */
 function QuoteRow({
   q,
+  plan,
   pay,
   active,
   onOpen,
@@ -288,6 +292,7 @@ function QuoteRow({
   busy,
 }: {
   q: Quote;
+  plan: CompPlan;
   pay: ReturnType<typeof calc>;
   active: boolean;
   onOpen: (q: Quote) => void;
@@ -302,7 +307,7 @@ function QuoteRow({
         <span className="pipe-row-main">
           <span className="pipe-row-name">{quoteLabel(q)}</span>
           <span className="pipe-row-size">
-            {sizeOf(q.deal)}
+            {sizeOf(q.deal, plan)}
             {pay.crossesAccelerator ? ' · crosses your accelerator' : ''}
           </span>
         </span>

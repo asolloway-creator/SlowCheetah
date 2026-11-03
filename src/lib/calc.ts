@@ -89,6 +89,9 @@ export type CompPlan = {
   /** v22: the company's discount limits, per line (the most off it allows,
    *  0 to 100). Policy, set with the plan; the rep's own targets are apart. */
   limits?: LineLimits;
+  /** v24: how the rep reads recurring revenue on screen, ARR or MRR. Display
+   *  only: quota, credit and every stored number stay in ARR. See revUnit(). */
+  display_unit?: 'arr' | 'mrr';
   /** Optional, independent of accelerator_style — most plans don't have
    *  one. See QuarterlyKicker. */
   quarterly_kicker: QuarterlyKicker | null;
@@ -628,6 +631,14 @@ export type Quote = {
   accountId?: string | null;
   /** v17: the rep's own call on it this period. */
   forecast?: Forecast | null;
+  /** The rep's own call, as saved (after a new period clears an old one).
+   *  `forecast` is what counts: this, unless the close date is past the
+   *  period, which makes it 'next'. See withCloseDate (closeout.ts). */
+  call?: Forecast | null;
+  /** v24: when the rep expects it to close, 'YYYY-MM-DD'. */
+  closeDate?: string | null;
+  /** v24: how many times its close was pushed later. */
+  closePushes?: number;
   /** v23: it was already open when this period began. */
   carried?: boolean;
   /** v23: the call the rep made on it in an earlier period. A call is about

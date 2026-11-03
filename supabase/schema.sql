@@ -137,6 +137,15 @@
 --   alter table public.quotes add column if not exists offer_expires date;
 --   alter table public.quotes add column if not exists offer_revert jsonb;
 --
+-- v24 (2026-11-04) adds the rep's display unit and close dates. comp_plans.
+-- display_unit ('arr' default, or 'mrr') is how revenue reads on screen; every
+-- stored number stays ARR. quotes.close_date is when the rep expects it to
+-- close (a date past the period counts it in a later one); close_pushes counts
+-- each time it slid later. Applied 2026-11-04, additive:
+--   alter table public.comp_plans add column if not exists display_unit text not null default 'arr' check (display_unit in ('arr', 'mrr'));
+--   alter table public.quotes add column if not exists close_date date;
+--   alter table public.quotes add column if not exists close_pushes integer not null default 0 check (close_pushes >= 0);
+--
 -- v23 (2026-11-03) adds quotes.forecast_at: when the rep made their call on a
 -- quote. A call is about one period, so the page treats one made before the
 -- period began as no call (the quote starts the new period uncalled and shows

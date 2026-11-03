@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   planForPeriod,
   type Calendar,
@@ -19,6 +20,7 @@ import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
 import CloseOut from '@/components/CloseOut';
+import PipelineHealth from '@/components/PipelineHealth';
 import { quarterView, type QuarterView } from '@/lib/rollover';
 import { rateLift, type Line, type Targets } from '@/components/discounts';
 
@@ -60,6 +62,9 @@ export default function PipelineHome({
   onWithdrawOffer,
   quarter = null,
   lastCredit = 0,
+  onUnit,
+  onCloseDate,
+  lost = [],
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -75,6 +80,12 @@ export default function PipelineHome({
    *  quota credit the period just ended came to. */
   quarter?: QuarterView | null;
   lastCredit?: number;
+  /** ARR or MRR on screen, saved with the plan. */
+  onUnit?: (unit: 'arr' | 'mrr') => Promise<Result>;
+  /** When the rep expects open quotes to close. */
+  onCloseDate?: (ids: string[], date: string | null) => Promise<Result>;
+  /** Quotes marked lost in the last 90 days, for the win rate. */
+  lost?: { closedAt: string; reason: string | null }[];
   /** The rep's own discount targets, per line. */
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<Result>;
@@ -95,8 +106,15 @@ export default function PipelineHome({
   onWithdrawOffer?: (id: string) => Promise<Result>;
   onAssignAccount?: (target: { kind: 'quote' | 'deal'; id: string }, account: AccountMeta) => Promise<Result & { accountId?: string | null }>;
 }) {
+  // ARR or MRR: shows at once everywhere below, then saves.
+  const [unit, setUnit] = useState<'arr' | 'mrr'>(plan.display_unit ?? 'arr');
+  const shown: CompPlan = { ...plan, display_unit: unit };
+  function pickUnit(u: 'arr' | 'mrr') {
+    setUnit(u);
+    void onUnit?.(u);
+  }
   // The plan as it pays this period, with the rate from the rep's statement.
-  const paying = planForPeriod(plan, opening);
+  const paying = planForPeriod(shown, opening);
   // Without the server's (in the rep's own zone), the browser's.
   const quarterNow = quarter ?? (qtd ? quarterView(deals, qtd.saasArrBooked, calendar.today, Intl.DateTimeFormat().resolvedOptions().timeZone) : null);
   return (
@@ -121,7 +139,8 @@ export default function PipelineHome({
       top={({ onNew }) => (
         <Overview
           plan={paying}
-          basePlan={plan}
+          basePlan={shown}
+          onUnit={plan.quota_basis === 'arr' ? pickUnit : undefined}
           ptd={ptd}
           qtd={qtd}
           opening={opening}
@@ -148,6 +167,18 @@ export default function PipelineHome({
             targets={targets}
             onMakeOffer={onMakeOffer}
             onWithdrawOffer={onWithdrawOffer}
+            onCloseDate={onCloseDate}
+          />
+          <PipelineHealth
+            plan={paying}
+            ptd={ptd}
+            qtd={qtd}
+            quotes={quotes}
+            accounts={accounts}
+            deals={deals}
+            lost={lost}
+            calendar={calendar}
+            onCloseDate={onCloseDate}
           />
           <BookedList
           plan={paying}

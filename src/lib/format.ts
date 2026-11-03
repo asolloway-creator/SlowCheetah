@@ -24,9 +24,25 @@ export const fmtP = (n: number) => `${n.toFixed(1)}%`;
 export const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-/** Quota credit in the plan's basis: "6 units" or "$87,330". */
+/** The unit the rep reads recurring revenue in (comp_plans.display_unit):
+ *  MRR only on a plan whose quota is in ARR, since a units plan has neither. */
+export const revUnit = (plan: CompPlan): 'arr' | 'mrr' => (plan.quota_basis === 'arr' && plan.display_unit === 'mrr' ? 'mrr' : 'arr');
+/** "ARR" or "MRR", for the words around a number. */
+export const revWord = (plan: CompPlan) => (revUnit(plan) === 'mrr' ? 'MRR' : 'ARR');
+/** An ARR amount in the rep's unit: $59,220 or, as MRR, $4,935. Every stored
+ *  number is ARR; this is the one place it turns into MRR. */
+export const toRev = (plan: CompPlan, arr: number) => (revUnit(plan) === 'mrr' ? arr / 12 : arr);
+export const fmtRev = (plan: CompPlan, arr: number) => fmt(toRev(plan, arr));
+
+/** Quota credit in the plan's basis: "6 units", "$87,330", or "$7,278 MRR".
+ *  ARR is the plan's own unit and reads bare; MRR always says so, so a
+ *  monthly figure is never taken for an annual one. */
 export const fmtCredit = (plan: CompPlan, n: number) =>
-  plan.quota_basis === 'units' ? `${Math.round(n)} unit${Math.round(n) === 1 ? '' : 's'}` : fmt(n);
+  plan.quota_basis === 'units'
+    ? `${Math.round(n)} unit${Math.round(n) === 1 ? '' : 's'}`
+    : revUnit(plan) === 'mrr'
+      ? `${fmtRev(plan, n)} MRR`
+      : fmt(n);
 
 /** "8.5%" or "2 months of MRR". */
 export const fmtRate = (plan: CompPlan, rate: number) =>

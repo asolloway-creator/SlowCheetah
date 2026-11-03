@@ -6,15 +6,16 @@ import type { DealRow } from '@/lib/queries';
 import { earnedNow, lostNow, offByLine, periodTotals, rateLift, type Line, type Targets } from '@/components/discounts';
 import DiscountReport from '@/components/DiscountReport';
 import AddBooked, { type BookedInput } from '@/components/AddBooked';
-import { fmtDate, fmtMoney, fmtPctShort, periodNoun } from '@/lib/format';
+import { fmtDate, fmtMoney, fmtPctShort, periodNoun, revUnit } from '@/lib/format';
 
 /** "Oct 26": inside a period the year is the page's own. */
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-/** A booked deal's size the way the plan pays on it: monthly on a plan paid
- *  in months of MRR, a year of subscription on every other. */
+/** A booked deal's size the way the plan pays on it, or the rep reads it:
+ *  monthly on a plan paid in months of MRR or for a rep who reads MRR, a
+ *  year of subscription otherwise. */
 const sizeColumn = (plan: CompPlan) =>
-  plan.commission_style === 'months_of_mrr'
+  plan.commission_style === 'months_of_mrr' || revUnit(plan) === 'mrr'
     ? { label: 'Booked MRR', of: (d: DealRow) => d.arr / 12 }
     : { label: 'Booked ARR', of: (d: DealRow) => d.arr };
 
@@ -229,7 +230,7 @@ export default function BookedList({
           {error}
         </p>
       )}
-      {onAddBooked && calendar && <AddBooked accounts={accounts} calendar={calendar} onAdd={onAddBooked} />}
+      {onAddBooked && calendar && <AddBooked plan={plan} accounts={accounts} calendar={calendar} onAdd={onAddBooked} />}
 
       {now.length === 0 ? (
         <p className="cd-empty">Nothing closed in {current} yet. Book a deal when it closes and it lands here.</p>

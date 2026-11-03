@@ -23,6 +23,7 @@ import {
   type QuarterlyKickerTier,
 } from '@/lib/calc';
 import { serviceClient } from '@/lib/supabase/service';
+import { nextPeriodStart } from '@/lib/rollover';
 
 export type Result = { error?: string };
 
@@ -456,6 +457,18 @@ export async function saveOpeningAction(input: OpeningInput): Promise<Result> {
  * planForPeriod), so the accelerated rate moves with it. Null puts it back to
  * the plan's own rate.
  */
+/** How the rep reads recurring revenue on screen, ARR or MRR (v24). Display
+ *  only; every stored number stays ARR. */
+export async function setDisplayUnitAction(unit: 'arr' | 'mrr'): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  if (!user) return { error: 'Sign in to change this.' };
+  if (unit !== 'arr' && unit !== 'mrr') return { error: 'Pick ARR or MRR.' };
+  const { error } = await supabase.from('comp_plans').update({ display_unit: unit }).eq('user_id', user.id);
+  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  revalidatePath('/', 'layout');
+  return {};
+}
+
 export async function saveRateAction(rate: number | null): Promise<Result> {
   const { supabase, user } = await currentUser();
   if (!user) return { error: 'Sign in to set your rate.' };
@@ -616,15 +629,67 @@ export async function unbookDealAction(id: string): Promise<Result & { id?: stri
   return { id: String(quote.id) };
 }
 
-/** The rep's call on open quotes (all of an account's at once, when it
- *  decides as one), or null to clear it. */
+/** The first day of the rep's next period, in their own zone, or null when
+ *  their plan can't be read. */
+async function nextStartFor(userId: string): Promise<string | null> {
+  try {
+    const plan = await getCompPlan(userId);
+    if (!plan) return null;
+    return nextPeriodStart(plan.period, calendarInZone(plan.period, await repTimeZone()).periodStart);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The rep's call on open quotes (all of an account's at once, when it
+ * decides as one), or null to clear it. Calling one Next month pushes it
+ * (counted, v24); calling Commit or Stretch on one dated past the period
+ * brings it back in, so the date that kept it out is cleared.
+ */
 export async function setForecastAction(ids: string[], forecast: Forecast | null): Promise<Result> {
   const { supabase, user } = await currentUser();
   const clean = (Array.isArray(ids) ? ids : []).filter((id) => QUOTE_ID.test(String(id))).slice(0, 50);
   if (!user || !clean.length) return { error: 'Sign in to change quotes.' };
   if (forecast !== null && !FORECASTS.includes(forecast)) return { error: 'That isn’t a call IOI knows.' };
-  const { error } = await supabase.from('quotes').update({ forecast, forecast_at: forecast ? new Date().toISOString() : null }).in('id', clean).eq('user_id', user.id);
-  if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  const { data: rows, error: readError } = await supabase.from('quotes').select('id, forecast, close_date, close_pushes').in('id', clean).eq('user_id', user.id);
+  if (readError || !rows) return { error: 'That didn’t save. Try again in a moment.' };
+  const next = await nextStartFor(user.id);
+  const at = forecast ? new Date().toISOString() : null;
+  for (const r of rows as { id: string; forecast: string | null; close_date: string | null; close_pushes: number | null }[]) {
+    const later = !!(next && r.close_date && r.close_date >= next);
+    // A call is a touch: it keeps the quote from reading as gone quiet.
+    const patch: Record<string, unknown> = { forecast, forecast_at: at, updated_at: new Date().toISOString() };
+    if (forecast === 'next' && r.forecast !== 'next' && !later) patch.close_pushes = (r.close_pushes ?? 0) + 1;
+    if ((forecast === 'commit' || forecast === 'stretch') && later) patch.close_date = null;
+    const { error } = await supabase.from('quotes').update(patch).eq('id', r.id).eq('user_id', user.id);
+    if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  }
+  revalidatePath('/', 'layout');
+  return {};
+}
+
+/**
+ * When the rep expects open quotes to close (all of an account's at once),
+ * or null to clear it. A date moved later is a push, counted (v24): so is a
+ * first date that lands past this period, since until then it counted in
+ * this one.
+ */
+export async function setCloseDateAction(ids: string[], date: string | null): Promise<Result> {
+  const { supabase, user } = await currentUser();
+  const clean = (Array.isArray(ids) ? ids : []).filter((id) => QUOTE_ID.test(String(id))).slice(0, 50);
+  if (!user || !clean.length) return { error: 'Sign in to change quotes.' };
+  if (date !== null && !(/^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date)))) return { error: 'Pick a date.' };
+  const { data: rows, error: readError } = await supabase.from('quotes').select('id, forecast, close_date, close_pushes').in('id', clean).eq('user_id', user.id);
+  if (readError || !rows) return { error: 'That didn’t save. Try again in a moment.' };
+  const next = await nextStartFor(user.id);
+  for (const r of rows as { id: string; forecast: string | null; close_date: string | null; close_pushes: number | null }[]) {
+    const pushed = !!date && (r.close_date ? date > r.close_date : !!next && date >= next && r.forecast !== 'next');
+    const patch: Record<string, unknown> = { close_date: date, updated_at: new Date().toISOString() };
+    if (pushed) patch.close_pushes = (r.close_pushes ?? 0) + 1;
+    const { error } = await supabase.from('quotes').update(patch).eq('id', r.id).eq('user_id', user.id);
+    if (error) return { error: 'That didn’t save. Try again in a moment.' };
+  }
   revalidatePath('/', 'layout');
   return {};
 }

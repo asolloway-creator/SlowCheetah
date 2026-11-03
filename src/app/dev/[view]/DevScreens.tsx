@@ -15,6 +15,8 @@ import {
 } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
 import { Shell } from '@/app/AccountViews';
+import { withCloseDate } from '@/lib/closeout';
+import { nextPeriodStart } from '@/lib/rollover';
 import PipelineHome from '@/components/PipelineHome';
 import PlanCapture from '@/components/capture/PlanCapture';
 
@@ -136,7 +138,7 @@ export default function DevScreens({ view }: { view: string }) {
       </Shell>
     );
   }
-  if (view === 'home-close') {
+  if (view === 'home-close' || view === 'home-pipe') {
     // The last days of a month: booked deals short of quota, open quotes
     // including one account that decides as one and one that doesn't, and
     // calls on some of them. Sells equipment; services can't be discounted.
@@ -146,7 +148,12 @@ export default function DevScreens({ view }: { view: string }) {
     const cal = calendarInZone('month', 'America/New_York');
     const [y, m] = cal.periodStart.split('-').map(Number);
     const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const today = `${cal.periodStart.slice(0, 8)}${String(last - 2).padStart(2, '0')}`;
+    // home-pipe: the middle of the month, with close dates, pushes, old and
+    // quiet quotes, and losses, for pipeline health.
+    const pipe = view === 'home-pipe';
+    const today = `${cal.periodStart.slice(0, 8)}${String(pipe ? 14 : last - 2).padStart(2, '0')}`;
+    const ago = (n: number) => new Date(Date.parse(`${today}T15:00:00Z`) - n * 86400000).toISOString();
+    const on = (n: number) => ago(-n).slice(0, 10);
     const mrr = (sub: number, off: number, ot = 3000, otOff = 90): DealInput => ({
       oneTime: ot, subscription: sub, subMode: 'mrr', units: 1, oneTimeDiscountPct: otOff, subscriptionDiscountPct: off,
     });
@@ -170,6 +177,26 @@ export default function DevScreens({ view }: { view: string }) {
       { id: 'k6', name: 'Maple and Rye Fairfax', deal: mrr(430, 20), createdAt: at(1), updatedAt: at(1), accountId: 'acc-2', forecast: null },
       { id: 'k7', name: 'Maple and Rye Vienna', deal: mrr(430, 20), createdAt: at(0), updatedAt: at(0), accountId: 'acc-2', forecast: 'next' },
     ];
+    if (pipe) {
+      // Ages, touches, dates and pushes that read as healthy, quiet, slipping.
+      const set = (id: string, x: Partial<Quote>) => Object.assign(quotes.find((q) => q.id === id)!, x);
+      set('k1', { createdAt: ago(12), updatedAt: ago(2), closeDate: on(6), call: 'commit' });
+      set('k2', { createdAt: ago(41), updatedAt: ago(26), closeDate: on(-3), call: 'stretch' });
+      set('k3', { createdAt: ago(72), updatedAt: ago(9), closeDate: on(20), closePushes: 2 });
+      set('k4', { createdAt: ago(72), updatedAt: ago(9), closeDate: on(20), closePushes: 2 });
+      set('k5', { createdAt: ago(70), updatedAt: ago(9), closeDate: on(20), closePushes: 1 });
+      set('k6', { createdAt: ago(33), updatedAt: ago(4), closeDate: null });
+      set('k7', { createdAt: ago(95), updatedAt: ago(30), closeDate: on(30), forecast: null, call: null });
+    }
+    // As the page reads them: a date past the month counts it next month.
+    quotes.forEach((q, i) => (quotes[i] = withCloseDate(q, nextPeriodStart('month', cal.periodStart))));
+    const lost = pipe
+      ? [
+          { closedAt: ago(10), reason: 'price' },
+          { closedAt: ago(40), reason: 'price' },
+          { closedAt: ago(70), reason: 'competitor' },
+        ]
+      : [];
     const accounts = [
       { id: 'acc-1', name: 'Juniper Hall', oneDecision: true },
       { id: 'acc-2', name: 'Maple and Rye', oneDecision: false },
@@ -201,6 +228,9 @@ export default function DevScreens({ view }: { view: string }) {
           onAssignAccount={async () => ({ accountId: 'acc-1' })}
           onMakeOffer={ok}
           onWithdrawOffer={ok}
+          onCloseDate={ok}
+          onUnit={ok}
+          lost={lost}
         />
       </Shell>
     );

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, getOpening, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getOpening, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listLost, listQuotes, repTimeZone } from '@/lib/queries';
 import { calendarInZone } from '@/lib/calc';
-import { lastPeriodCredit, quarterView } from '@/lib/rollover';
+import { lastPeriodCredit, nextPeriodStart, quarterView } from '@/lib/rollover';
 import {
   deleteDealAction,
   deleteQuoteAction,
@@ -9,6 +9,8 @@ import {
   saveOpeningAction,
   saveQuoteAction,
   saveRateAction,
+  setDisplayUnitAction,
+  setCloseDateAction,
   saveTargetAction,
   assignAccountAction,
   loseQuotesAction,
@@ -36,15 +38,17 @@ export default async function Home() {
   await revertExpiredOffers(calendar.today);
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
-  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts, saved] = await Promise.all([
+  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts, saved, lost] = await Promise.all([
     getPeriodToDate(user.id, plan),
     plan.quarterly_kicker ? getQuarterToDate(user.id, plan) : Promise.resolve(null),
     // Calls and "carried" are read against where this period began.
-    listQuotes(user.id, { start: calendar.periodStart, timeZone }),
+    listQuotes(user.id, { start: calendar.periodStart, next: nextPeriodStart(plan.period, calendar.periodStart), timeZone }),
     listDeals(user.id),
     getTargets(user.id),
     listAccounts(user.id),
     getOpening(user.id),
+    // For the win rate: the last 90 days, read with a day to spare.
+    listLost(user.id, new Date(Date.parse(calendar.today) - 91 * 86400000)),
   ]);
   void _period;
   // The quarter as one timeline, and how the period just ended came out.
@@ -68,6 +72,9 @@ export default async function Home() {
         onOpening={saveOpeningAction}
         onUpdateDeal={updateDealAction}
         onRate={saveRateAction}
+        onUnit={setDisplayUnitAction}
+        onCloseDate={setCloseDateAction}
+        lost={lost}
         targets={targets}
         onTarget={saveTargetAction}
         calendar={calendar}

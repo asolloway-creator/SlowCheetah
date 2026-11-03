@@ -20,6 +20,17 @@ import { rateLift } from '@/components/discounts';
  * Every figure comes from the engine, in the order the rail lists them.
  */
 
+/**
+ * What a quote counts as this period once its close date is read: a date in
+ * a later period makes it 'next' whatever its call (the call comes back if
+ * the date moves back in); otherwise its call stands. `nextStart` is the
+ * first day of the next period.
+ */
+export function withCloseDate<T extends Pick<Quote, 'forecast' | 'call' | 'closeDate'>>(q: T, nextStart: string): T {
+  const call = q.call === undefined ? (q.forecast ?? null) : q.call;
+  return { ...q, call, forecast: q.closeDate && q.closeDate >= nextStart ? 'next' : call };
+}
+
 /** One decision: a quote on its own, or every quote of an account that
  *  closes as one. */
 export type CloseUnit = {
@@ -30,6 +41,10 @@ export type CloseUnit = {
   forecast: Forecast | null;
   /** An account whose quotes carry different calls; the most cautious one is used. */
   mixed: boolean;
+  /** When the rep expects it to close (an account's latest), if they've said. */
+  closeDate: string | null;
+  /** How many times its close was pushed later. */
+  pushes: number;
 };
 
 /** How cautious a call is: an account's call is its most cautious quote's. */
@@ -47,11 +62,11 @@ export function closeUnits(quotes: Quote[], accounts: DealAccount[]): CloseUnit[
         u.quotes.push(q);
         continue;
       }
-      const unit: CloseUnit = { key: `a:${account.id}`, label: account.name || 'Unnamed account', account, quotes: [q], forecast: null, mixed: false };
+      const unit: CloseUnit = { key: `a:${account.id}`, label: account.name || 'Unnamed account', account, quotes: [q], forecast: null, mixed: false, closeDate: null, pushes: 0 };
       grouped.set(account.id, unit);
       units.push(unit);
     } else {
-      units.push({ key: `q:${q.id}`, label: q.name.trim(), account, quotes: [q], forecast: q.forecast ?? null, mixed: false });
+      units.push({ key: `q:${q.id}`, label: q.name.trim(), account, quotes: [q], forecast: q.forecast ?? null, mixed: false, closeDate: q.closeDate ?? null, pushes: q.closePushes ?? 0 });
     }
   }
   for (const u of grouped.values()) {
@@ -59,6 +74,9 @@ export function closeUnits(quotes: Quote[], accounts: DealAccount[]): CloseUnit[
     const set = calls.filter((c): c is Forecast => c !== null);
     u.mixed = new Set(calls).size > 1;
     u.forecast = set.length === calls.length ? set.reduce((a, b) => (CAUTION[b] > CAUTION[a] ? b : a)) : null;
+    // The latest date any of its deals has, and the most it was pushed.
+    u.closeDate = u.quotes.reduce<string | null>((d, q) => (q.closeDate && (!d || q.closeDate > d) ? q.closeDate : d), null);
+    u.pushes = Math.max(...u.quotes.map((q) => q.closePushes ?? 0));
   }
   return units;
 }

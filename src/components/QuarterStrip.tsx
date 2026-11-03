@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { isFixedTier, quarterlyKickerSummary, type CompPlan, type QuarterlyKickerTier, type QuarterToDate } from '@/lib/calc';
 import type { QuarterView } from '@/lib/rollover';
 import { tierName } from '@/components/opening';
-import { fmt, fmtMoney, fmtPctShort } from '@/lib/format';
+import { fmtMoney, fmtPctShort, fmtRev, revWord } from '@/lib/format';
 
 const pct = (f: number) => `${(Math.min(1, Math.max(0, f)) * 100).toFixed(3)}%`;
 const vars = (o: Record<string, string>) => o as CSSProperties;
@@ -45,9 +45,11 @@ export default function QuarterStrip({
   // The track runs to the bonus line, in dollars of new ARR.
   const goal = (kicker.target * goalTier.attainmentPct) / 100;
   const third = goal / 3;
+  const fmt = (n: number) => fmtRev(plan, n);
+  const word = revWord(plan);
   const note = s.tier
-    ? `Locked in${s.nextTier ? `. ${fmt(s.toNextTierArr)} more new ARR reaches the ${name(s.nextTier)}` : ''}`
-    : `${fmt(s.toNextTierArr)} more new ARR to unlock it`;
+    ? `Locked in${s.nextTier ? `. ${fmt(s.toNextTierArr)} more new ${word} reaches the ${name(s.nextTier)}` : ''}`
+    : `${fmt(s.toNextTierArr)} more new ${word} to unlock it`;
 
   // The pace to the next tier by quarter end, against a monthly quota when
   // the plan has one in the same currency.
@@ -60,7 +62,7 @@ export default function QuarterStrip({
     pace =
       quarterDaysLeft <= 31
         ? `${quarterDaysLeft} day${quarterDaysLeft === 1 ? '' : 's'} left in the quarter.`
-        : `About ${fmt(perMonth)} a month to get there by quarter end${ofQuota}.`;
+        : `About ${fmt(perMonth)} new ${word} a month to get there by quarter end${ofQuota}.`;
   }
 
   // What each part of the bar is, in the order it's laid down.
@@ -98,8 +100,8 @@ export default function QuarterStrip({
         {quarter.months.map((m) => (
           <li key={m.key} className={`qs-month is-${m.state}`} aria-current={m.state === 'now' ? 'date' : undefined}>
             <span className="qs-m-name">{m.label}</span>
-            <span className="qs-m-arr">{m.state === 'ahead' ? 'Ahead' : fmt(m.arr)}</span>
-            <span className="qs-m-note">{monthNote(m.state, m.arr, third)}</span>
+            <span className="qs-m-arr">{m.state === 'ahead' ? 'Ahead' : `${fmt(m.arr)}${word === 'MRR' ? ' MRR' : ''}`}</span>
+            <span className="qs-m-note">{monthNote(m.state, m.arr, third, fmt)}</span>
           </li>
         ))}
       </ol>
@@ -110,7 +112,7 @@ export default function QuarterStrip({
 }
 
 /** One line under a month: where it stands against a third of the way to the bonus. */
-function monthNote(state: 'past' | 'now' | 'ahead', arr: number, third: number): string {
+function monthNote(state: 'past' | 'now' | 'ahead', arr: number, third: number, fmt: (n: number) => string): string {
   if (state === 'ahead') return 'Still to come';
   if (state === 'now') return arr > 0 ? 'So far' : 'Nothing booked yet';
   const d = arr - third;

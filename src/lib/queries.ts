@@ -26,6 +26,7 @@ import {
   type SubscriptionMode,
 } from '@/lib/calc';
 import { dayInZone } from '@/lib/rollover';
+import { withCloseDate } from '@/lib/closeout';
 
 /** The rep's own calendar, not the server's — see startOfPeriodInZone's
  *  own comment in calc.ts. Falls back to UTC only on a visitor's very
@@ -172,6 +173,7 @@ export function toCompPlan(data: Record<string, unknown>): CompPlan {
     quarterly_kicker: parseKicker(data.quarterly_kicker),
     sells_equipment: data.sells_equipment === true,
     limits: parseLimits(data.limits),
+    ...(data.display_unit === 'mrr' ? { display_unit: 'mrr' as const } : {}),
     industry: data.industry ? String(data.industry) : null,
     company_size_band: data.company_size_band ? String(data.company_size_band) : null,
   };
@@ -227,7 +229,7 @@ export async function listDeals(userId: string, opts?: { since?: Date }): Promis
  * The rep's open quotes, most recently worked first. Never throws: where
  * they can't be read the page opens without them rather than failing.
  */
-export async function listQuotes(userId: string, period?: { start: string; timeZone: string }): Promise<Quote[]> {
+export async function listQuotes(userId: string, period?: { start: string; next: string; timeZone: string }): Promise<Quote[]> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -239,7 +241,7 @@ export async function listQuotes(userId: string, period?: { start: string; timeZ
       .order('updated_at', { ascending: false })
       .limit(50);
     if (error || !data) return [];
-    return data.map((d: Record<string, unknown>) => {
+    const quotes: Quote[] = data.map((d: Record<string, unknown>) => {
       const call = FORECASTS.includes(d.forecast as Forecast) ? (d.forecast as Forecast) : null;
       // A call is about the period it was made in. One made before this period
       // began (v23 forecast_at; the quote's last edit where it's missing)
@@ -263,12 +265,35 @@ export async function listQuotes(userId: string, period?: { start: string; timeZ
       createdAt: String(d.created_at),
       updatedAt: String(d.updated_at),
       accountId: d.account_id ? String(d.account_id) : null,
+      call: stale ? null : call,
       forecast: stale ? null : call,
+      closeDate: typeof d.close_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.close_date) ? d.close_date : null,
+      closePushes: Math.max(0, Math.round(num(d.close_pushes ?? 0))),
       carried: !!period && dayInZone(String(d.created_at), period.timeZone) < period.start,
       lastCall: stale ? call : null,
       offer: d.offer_expires && d.offer_revert ? { expires: String(d.offer_expires), original: dealFromJson(d.offer_revert) } : null,
       };
     });
+    // A close date past this period counts it in a later one.
+    return period ? quotes.map((q) => withCloseDate(q, period.next)) : quotes;
+  } catch {
+    return [];
+  }
+}
+
+/** Quotes the rep marked lost since `since` (v18), for the win rate. Never
+ *  throws: without them the page reads no losses. */
+export async function listLost(userId: string, since: Date): Promise<{ closedAt: string; reason: string | null }[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('closed_at, lost_reason')
+      .eq('user_id', userId)
+      .eq('status', 'lost')
+      .gte('closed_at', since.toISOString());
+    if (error || !data) return [];
+    return data.map((d: Record<string, unknown>) => ({ closedAt: String(d.closed_at), reason: d.lost_reason ? String(d.lost_reason) : null }));
   } catch {
     return [];
   }
