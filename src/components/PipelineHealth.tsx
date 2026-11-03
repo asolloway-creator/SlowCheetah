@@ -36,6 +36,7 @@ export default function PipelineHealth({
   calendar,
   onCloseDate,
   openHref,
+  showList = true,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -48,6 +49,8 @@ export default function PipelineHealth({
   onCloseDate?: (ids: string[], date: string | null) => Promise<{ error?: string }>;
   /** Where a decision's name links: its quote on the deal desk. */
   openHref?: (quoteId: string) => string;
+  /** The list of decisions that need a look (off where the pipeline table says it). */
+  showList?: boolean;
 }) {
   const [dates, setDates] = useState<Record<string, string | null>>({});
   const [all, setAll] = useState(false);
@@ -199,7 +202,7 @@ export default function PipelineHealth({
         </div>
       )}
 
-      {cold.length > 0 && (
+      {showList && cold.length > 0 && (
         <>
           <h3 className="ph-list-h">Needs a look</h3>
           <ul className="ph-list">

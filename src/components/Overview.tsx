@@ -46,6 +46,7 @@ export default function Overview({
   targets,
   quarter = null,
   lastCredit = 0,
+  needs,
 }: {
   /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
@@ -59,6 +60,8 @@ export default function Overview({
   quarter?: QuarterView | null;
   /** Quota credit the period just ended came to (for the recap). */
   lastCredit?: number;
+  /** What needs the rep first, under the quarter and above the month's numbers. */
+  needs?: React.ReactNode;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
@@ -102,6 +105,8 @@ export default function Overview({
           </p>
         </div>
       </div>
+
+      {needs}
 
       {plan.quarterly_kicker && qtd && quarter ? (
         <QuarterStrip

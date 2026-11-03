@@ -23,6 +23,8 @@ import BookedList, { DiscountsView } from '@/components/BookedList';
 import AppShell, { type View } from '@/components/app/AppShell';
 import CloseOut from '@/components/CloseOut';
 import PipelineHealth from '@/components/PipelineHealth';
+import PipelineTable from '@/components/PipelineTable';
+import NeedsYou from '@/components/NeedsYou';
 import { quarterView, type QuarterView } from '@/lib/rollover';
 import { rateLift, type Line, type Targets } from '@/components/discounts';
 
@@ -203,7 +205,20 @@ export default function PipelineHome({
           calendar={calendar}
           onCloseDate={onCloseDate}
           openHref={(id) => to('deals', `quote=${id}`)}
+          showList={false}
         />
+        <PipelineTable
+          plan={paying}
+          ptd={ptd}
+          quotes={quotes}
+          accounts={accounts}
+          calendar={calendar}
+          onForecast={onForecast}
+          onCloseDate={onCloseDate}
+          onLose={onLoseQuotes}
+          openHref={(id) => to('deals', `quote=${id}`)}
+        />
+        {!quotes.length && <p className="as-empty">No open quotes. Save a quote on the Deal Desk and it shows here.</p>}
       </div>
     );
   } else if (view === 'closed') {
@@ -251,6 +266,20 @@ export default function PipelineHome({
         targets={targets}
         quarter={quarterNow}
         lastCredit={lastCredit}
+        needs={
+          <NeedsYou
+            plan={paying}
+            ptd={ptd}
+            qtd={qtd}
+            quotes={quotes}
+            accounts={accounts}
+            today={calendar.today}
+            left={calendar.daysLeft}
+            openHref={(id) => to('deals', `quote=${id}`)}
+            pipelineHref={to('pipeline')}
+            deskHref={to('deals')}
+          />
+        }
       />
     );
   }
