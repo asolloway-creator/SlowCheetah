@@ -98,20 +98,28 @@ export default function DevScreens({ view }: { view: string }) {
       mk('c2', 'Juniper Hall', at(2, 8), 12000, 30, 4000, 100),
     ];
     const cur = deals.filter((d) => new Date(d.created_at).getMonth() === now.getMonth());
+    // Two quotes carried in from last month (their old calls cleared, what
+    // they were remembered), one that is one decision of three, and one new.
     const quotes: Quote[] = [
-      { id: 'q1', name: 'Saltwater Kitchen', deal: deal(9060, 21.6), createdAt: day(16).toISOString(), updatedAt: day(2).toISOString() },
+      { id: 'q1', name: 'Saltwater Kitchen', deal: deal(9060, 21.6), createdAt: day(24).toISOString(), updatedAt: day(2).toISOString(), carried: true, lastCall: 'commit' },
+      { id: 'q3', name: 'Dockside Fairfax', accountId: 'a1', deal: deal(7200), createdAt: day(19).toISOString(), updatedAt: day(5).toISOString(), carried: true, lastCall: 'next' },
+      { id: 'q4', name: 'Dockside Vienna', accountId: 'a1', deal: deal(7200), createdAt: day(19).toISOString(), updatedAt: day(5).toISOString(), carried: true, lastCall: 'next' },
       { id: 'q2', name: 'Maple and Rye Fairfax', deal: deal(9060), createdAt: day(0).toISOString(), updatedAt: day(0).toISOString() },
     ];
+    const inQuarter = deals.filter((d) => Math.floor(new Date(d.created_at).getMonth() / 3) === Math.floor(now.getMonth() / 3));
     const cal = calendarInZone('month', 'America/New_York');
     return (
       <Shell current="/" email={EMAIL} width="full">
         <PipelineHome
           plan={plan}
           ptd={periodToDateFrom(cur)}
-          qtd={quarterToDateFrom(deals)}
+          qtd={quarterToDateFrom(inQuarter)}
           opening={null}
           quotes={quotes}
           deals={deals}
+          accounts={[{ id: 'a1', name: 'Dockside', oneDecision: true }]}
+          lastCredit={deals.filter((d) => new Date(d.created_at).getMonth() === (now.getMonth() + 11) % 12).reduce((n, d) => n + d.quota_credit, 0)}
+          onForecast={ok}
           onSave={ok}
           onSaveQuote={async () => ({ id: 'q9' })}
           onDeleteQuote={ok}

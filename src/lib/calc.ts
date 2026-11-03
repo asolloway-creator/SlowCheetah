@@ -628,6 +628,11 @@ export type Quote = {
   accountId?: string | null;
   /** v17: the rep's own call on it this period. */
   forecast?: Forecast | null;
+  /** v23: it was already open when this period began. */
+  carried?: boolean;
+  /** v23: the call the rep made on it in an earlier period. A call is about
+   *  one period, so a new one starts blank and this is what it said. */
+  lastCall?: Forecast | null;
   /** v21: a sign-by offer on it: good until `expires` ('YYYY-MM-DD'), then
    *  the quote goes back to `original`. */
   offer?: { expires: string; original: DealInput } | null;

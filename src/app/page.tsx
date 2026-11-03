@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
-import { currentUser, getCompPlan, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
+import { currentUser, getCompPlan, getOpening, getPeriodToDate, getQuarterToDate, getTargets, listAccounts, listDeals, listQuotes, repTimeZone } from '@/lib/queries';
 import { calendarInZone } from '@/lib/calc';
+import { lastPeriodCredit, quarterView } from '@/lib/rollover';
 import {
   deleteDealAction,
   deleteQuoteAction,
@@ -29,20 +30,26 @@ export default async function Home() {
 
   const plan = await getCompPlan(user.id);
   if (!plan) redirect('/plan');
-  const calendar = calendarInZone(plan.period, await repTimeZone());
+  const timeZone = await repTimeZone();
+  const calendar = calendarInZone(plan.period, timeZone);
   // A sign-by offer that ran out goes back to its own numbers before anything reads it.
   await revertExpiredOffers(calendar.today);
   // Only queried when the plan actually has a kicker — no extra query for
   // the common case.
-  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts] = await Promise.all([
+  const [{ deals: _period, opening, ...ptd }, qtd, quotes, deals, targets, accounts, saved] = await Promise.all([
     getPeriodToDate(user.id, plan),
     plan.quarterly_kicker ? getQuarterToDate(user.id, plan) : Promise.resolve(null),
-    listQuotes(user.id),
+    // Calls and "carried" are read against where this period began.
+    listQuotes(user.id, { start: calendar.periodStart, timeZone }),
     listDeals(user.id),
     getTargets(user.id),
     listAccounts(user.id),
+    getOpening(user.id),
   ]);
   void _period;
+  // The quarter as one timeline, and how the period just ended came out.
+  const quarter = qtd ? quarterView(deals, qtd.saasArrBooked, calendar.today, timeZone) : null;
+  const lastCredit = lastPeriodCredit(plan.period, calendar.periodStart, deals, saved, timeZone);
 
   return (
     <Shell current="/" email={user.email ?? ''} width="full">
@@ -64,6 +71,8 @@ export default async function Home() {
         targets={targets}
         onTarget={saveTargetAction}
         calendar={calendar}
+        quarter={quarter}
+        lastCredit={lastCredit}
         accounts={accounts}
         onForecast={setForecastAction}
         onUpdateAccount={updateAccountAction}

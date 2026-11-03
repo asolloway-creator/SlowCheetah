@@ -623,7 +623,7 @@ export async function setForecastAction(ids: string[], forecast: Forecast | null
   const clean = (Array.isArray(ids) ? ids : []).filter((id) => QUOTE_ID.test(String(id))).slice(0, 50);
   if (!user || !clean.length) return { error: 'Sign in to change quotes.' };
   if (forecast !== null && !FORECASTS.includes(forecast)) return { error: 'That isn’t a call IOI knows.' };
-  const { error } = await supabase.from('quotes').update({ forecast }).in('id', clean).eq('user_id', user.id);
+  const { error } = await supabase.from('quotes').update({ forecast, forecast_at: forecast ? new Date().toISOString() : null }).in('id', clean).eq('user_id', user.id);
   if (error) return { error: 'That didn’t save. Try again in a moment.' };
   revalidatePath('/', 'layout');
   return {};
@@ -676,7 +676,7 @@ export async function loseQuotesAction(ids: string[], reason: LostReason | null)
   const why = reason && LOST_REASONS.some((r) => r.key === reason) ? reason : null;
   const { error } = await supabase
     .from('quotes')
-    .update({ status: 'lost', closed_at: new Date().toISOString(), lost_reason: why, forecast: null })
+    .update({ status: 'lost', closed_at: new Date().toISOString(), lost_reason: why, forecast: null, forecast_at: null })
     .in('id', clean)
     .eq('user_id', user.id);
   if (error) return { error: 'That didn’t go through. Try again in a moment.' };

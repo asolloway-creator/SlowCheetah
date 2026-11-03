@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { periodLabel, periodOf, type CompPlan } from '@/lib/calc';
 import type { DealRow } from '@/lib/queries';
-import { fmtMoney } from '@/lib/format';
+import { fmtCredit, fmtMoney } from '@/lib/format';
 import { periodTotals, type Line, type Targets } from '@/components/discounts';
 
 const LABEL: Record<Line, string> = {
@@ -33,10 +33,12 @@ function previousLabel(plan: CompPlan, periodStart: string, back = 1): string {
 }
 
 /**
- * The first week of a new period: how the last one went, at the top of the
- * page. Earned and left on the table at the same weight, each line's average
- * discount against the rep's target, and the change from the period before
- * it. Dismissed per period, in this browser.
+ * The first week of a new period: how the last one went, as one line that
+ * opens to the detail. Earned and left on the table at the same weight, each
+ * line's average discount against the rep's target, and the change from the
+ * period before it. With a Quarterly Bonus it sits inside the quarter's
+ * card (`embedded`), the last month's line of the same story. Dismissed per
+ * period, in this browser.
  */
 export default function MonthRecap({
   plan,
@@ -44,12 +46,17 @@ export default function MonthRecap({
   today,
   periodStart,
   targets = {},
+  lastCredit = 0,
+  embedded = false,
 }: {
   plan: CompPlan;
   deals: DealRow[];
   today: string;
   periodStart: string;
   targets?: Targets;
+  /** Quota credit the period just ended came to. */
+  lastCredit?: number;
+  embedded?: boolean;
 }) {
   const prev = previousLabel(plan, periodStart, 1);
   const before = previousLabel(plan, periodStart, 2);
@@ -62,6 +69,7 @@ export default function MonthRecap({
     () => true,
   );
   const [dismissedNow, setDismissedNow] = useState(false);
+  const [open, setOpen] = useState(false);
   const hidden = stored || dismissedNow;
 
   const dayOfPeriod = Math.round((Date.parse(today) - Date.parse(periodStart)) / 86400000);
@@ -94,48 +102,60 @@ export default function MonthRecap({
     setDismissedNow(true);
   }
 
+  const quota = plan.quota > 0 && lastCredit > 0 ? (lastCredit >= plan.quota ? 'quota reached' : `${fmtCredit(plan, plan.quota - lastCredit)} short of quota`) : null;
+  const name = prev.split(' ')[0];
+
   return (
-    <section className="recap" aria-labelledby="recap-h">
+    <section className={`recap${embedded ? ' is-embedded' : ''}${open ? ' is-open' : ''}`} aria-labelledby="recap-h">
       <div className="recap-head">
         <h2 id="recap-h" className="recap-h">
-          {prev.split(' ')[0]} recap
+          {name} recap
           <span className="recap-sub">
-            {t.count} deal{t.count === 1 ? '' : 's'} · you kept {kept}% of what full price would have paid
+            {fmtMoney(t.earned)} earned · you kept {kept}%{quota ? ` · ${quota}` : ''}
           </span>
         </h2>
-        <button type="button" className="btn-text" onClick={dismiss}>
-          Dismiss
-        </button>
+        <span className="recap-acts">
+          <button type="button" className="btn-text" aria-expanded={open} aria-controls="recap-body" onClick={() => setOpen((o) => !o)}>
+            {open ? 'Less' : 'Details'}
+          </button>
+          <button type="button" className="btn-text" onClick={dismiss}>
+            Dismiss
+          </button>
+        </span>
       </div>
-      <div className="recap-nums">
-        <div>
-          <span className="recap-k">Earned</span>
-          <span className="recap-v is-earned">{fmtMoney(t.earned)}</span>
-        </div>
-        <div>
-          <span className="recap-k">Left on the table</span>
-          <span className="recap-v is-lost">{fmtMoney(t.lost)}</span>
-        </div>
-        {lines.map((l) => {
-          const avg = t.lines[l]!.avg;
-          const target = targets[l];
-          return (
-            <div key={l}>
-              <span className="recap-k">{LABEL[l]} discount</span>
-              <span className="recap-v">{pct0(avg)}</span>
-              {target !== undefined && (
-                <span className={`recap-t ${avg > target + 0.05 ? 'is-over' : 'is-within'}`}>
-                  {avg > target + 0.05 ? `${Math.round(avg - target)} points over your ${pct0(target)} target` : `Within your ${pct0(target)} target`}
-                </span>
-              )}
+      {open && (
+        <div id="recap-body">
+          <div className="recap-nums">
+            <div>
+              <span className="recap-k">Earned</span>
+              <span className="recap-v is-earned">{fmtMoney(t.earned)}</span>
             </div>
-          );
-        })}
-      </div>
-      {changes.length > 0 && (
-        <p className="recap-vs">
-          Since {before.split(' ')[0]}: {changes.join(' · ')}.
-        </p>
+            <div>
+              <span className="recap-k">Left on the table</span>
+              <span className="recap-v is-lost">{fmtMoney(t.lost)}</span>
+            </div>
+            {lines.map((l) => {
+              const avg = t.lines[l]!.avg;
+              const target = targets[l];
+              return (
+                <div key={l}>
+                  <span className="recap-k">{LABEL[l]} discount</span>
+                  <span className="recap-v">{pct0(avg)}</span>
+                  {target !== undefined && (
+                    <span className={`recap-t ${avg > target + 0.05 ? 'is-over' : 'is-within'}`}>
+                      {avg > target + 0.05 ? `${Math.round(avg - target)} points over your ${pct0(target)} target` : `Within your ${pct0(target)} target`}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {changes.length > 0 && (
+            <p className="recap-vs">
+              Since {before.split(' ')[0]}: {changes.join(' · ')}.
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

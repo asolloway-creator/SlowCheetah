@@ -25,6 +25,7 @@ import {
   type Quote,
   type SubscriptionMode,
 } from '@/lib/calc';
+import { dayInZone } from '@/lib/rollover';
 
 /** The rep's own calendar, not the server's — see startOfPeriodInZone's
  *  own comment in calc.ts. Falls back to UTC only on a visitor's very
@@ -226,7 +227,7 @@ export async function listDeals(userId: string, opts?: { since?: Date }): Promis
  * The rep's open quotes, most recently worked first. Never throws: where
  * they can't be read the page opens without them rather than failing.
  */
-export async function listQuotes(userId: string): Promise<Quote[]> {
+export async function listQuotes(userId: string, period?: { start: string; timeZone: string }): Promise<Quote[]> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -238,7 +239,14 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
       .order('updated_at', { ascending: false })
       .limit(50);
     if (error || !data) return [];
-    return data.map((d: Record<string, unknown>) => ({
+    return data.map((d: Record<string, unknown>) => {
+      const call = FORECASTS.includes(d.forecast as Forecast) ? (d.forecast as Forecast) : null;
+      // A call is about the period it was made in. One made before this period
+      // began (v23 forecast_at; the quote's last edit where it's missing)
+      // doesn't carry over: the quote starts this period uncalled.
+      const calledOn = period ? dayInZone(String(d.forecast_at ?? d.updated_at), period.timeZone) : '';
+      const stale = !!(call && period && calledOn && calledOn < period.start);
+      return {
       id: String(d.id),
       name: String(d.name ?? ''),
       deal: {
@@ -255,9 +263,12 @@ export async function listQuotes(userId: string): Promise<Quote[]> {
       createdAt: String(d.created_at),
       updatedAt: String(d.updated_at),
       accountId: d.account_id ? String(d.account_id) : null,
-      forecast: FORECASTS.includes(d.forecast as Forecast) ? (d.forecast as Forecast) : null,
+      forecast: stale ? null : call,
+      carried: !!period && dayInZone(String(d.created_at), period.timeZone) < period.start,
+      lastCall: stale ? call : null,
       offer: d.offer_expires && d.offer_revert ? { expires: String(d.offer_expires), original: dealFromJson(d.offer_revert) } : null,
-    }));
+      };
+    });
   } catch {
     return [];
   }

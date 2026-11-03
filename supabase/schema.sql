@@ -137,6 +137,14 @@
 --   alter table public.quotes add column if not exists offer_expires date;
 --   alter table public.quotes add column if not exists offer_revert jsonb;
 --
+-- v23 (2026-11-03) adds quotes.forecast_at: when the rep made their call on a
+-- quote. A call is about one period, so the page treats one made before the
+-- period began as no call (the quote starts the new period uncalled and shows
+-- what it was called). Where it's missing the quote's updated_at stands in.
+-- Additive:
+--   alter table public.quotes add column if not exists forecast_at timestamptz;
+--   update public.quotes set forecast_at = updated_at where forecast is not null and forecast_at is null;
+--
 -- v20 (2026-10-30) adds deals.kind: 'deal' (the default) or 'upsell', for ARR
 -- booked without a quote ("Add booked ARR" under the closed deals). Counts
 -- toward quota and commission like any booked deal; left out of the

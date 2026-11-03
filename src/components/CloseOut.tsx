@@ -6,6 +6,7 @@ import { changedLines, LINE_WORDS, offerLine, suggestOffer, type OfferSuggestion
 import type { Line, Targets } from '@/components/discounts';
 import { closeLine, closeUnits, closeWith, mustClose, type CloseLine, type CloseUnit, type LineKey } from '@/lib/closeout';
 import { fmtCredit, fmtMoney } from '@/lib/format';
+import { daysBetween, previousPeriod } from '@/lib/rollover';
 
 const calls = (period: CompPlan['period']): { key: Forecast; label: string }[] => [
   { key: 'commit', label: 'Commit' },
@@ -18,9 +19,6 @@ const lineDefs = (period: CompPlan['period']): { key: LineKey; label: string; no
   { key: 'stretch', label: 'With stretch', note: 'Commit and Stretch' },
   { key: 'all', label: 'Everything', note: `All but next ${period}, called or not` },
 ];
-
-/** Whole days from one 'YYYY-MM-DD' to another. */
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 /** The first day after the period that starts on `start`. */
 function periodEnd(start: string, period: CompPlan['period']): string {
@@ -35,7 +33,9 @@ function periodEnd(start: string, period: CompPlan['period']): string {
  * the period comes to if the commits close, if the stretch ones do too, and
  * if everything not pushed out does. Which decisions the period can't do
  * without, and what reaching quota is worth. In the last week of the period
- * it reads "Close out"; before that, "Forecast".
+ * it reads "Close out"; before that, "Forecast"; in the first, "Start of":
+ * what the rep carries in from the last period (each with its old call, now
+ * cleared) and the pace the new one takes.
  */
 export default function CloseOut({
   plan,
@@ -103,6 +103,16 @@ export default function CloseOut({
   const name = periodLabel(plan.period).split(' ')[0];
   const closing = left <= 7;
   const uncalled = units.filter((u) => u.forecast === null).length;
+  // The first week of a period: what's carried in, and the pace it takes.
+  const early = daysBetween(calendar.periodStart, calendar.today) <= 6;
+  const [py, pm] = previousPeriod(plan.period, calendar.periodStart).start.split('-').map(Number);
+  const prevName = periodLabel(plan.period, new Date(py, pm - 1, 15)).split(' ')[0];
+  const isCarried = (u: CloseUnit) => u.quotes.some((q) => q.carried);
+  const carriedUnits = units.filter(isCarried);
+  const shown = early ? [...carriedUnits, ...units.filter((u) => !isCarried(u))] : units;
+  const toGo = Math.max(0, plan.quota - ptd.creditBooked);
+  const perWeek = left > 0 ? toGo / (left / 7) : toGo;
+  const inReach = all.credit - ptd.creditBooked;
 
   async function call(u: CloseUnit, f: Forecast) {
     const next = u.forecast === f ? null : f;
@@ -123,12 +133,23 @@ export default function CloseOut({
     <section className="co" aria-labelledby="co-h">
       <header className="co-head">
         <h2 id="co-h" className="cd-h">
-          {closing ? `Close out ${name}` : `Forecast ${name}`}
+          {early ? `Start of ${name}` : closing ? `Close out ${name}` : `Forecast ${name}`}
         </h2>
         <p className="co-sub">
-          {left > 0 ? `${left} ${left === 1 ? 'day' : 'days'} left` : 'Last day'} · {fmtCredit(plan, ptd.creditBooked)} booked of{' '}
-          {fmtCredit(plan, plan.quota)}
-          {ptd.creditBooked < plan.quota ? ` · ${fmtCredit(plan, plan.quota - ptd.creditBooked)} to go` : ' · quota reached'}
+          {early ? (
+            <>
+              {carriedUnits.length
+                ? `Carrying ${carriedUnits.length} open ${carriedUnits.length === 1 ? 'decision' : 'decisions'} from ${prevName}`
+                : `Nothing carried over from ${prevName}`}{' '}
+              · {left} {left === 1 ? 'day' : 'days'} left · {fmtCredit(plan, ptd.creditBooked)} booked of {fmtCredit(plan, plan.quota)}
+            </>
+          ) : (
+            <>
+              {left > 0 ? `${left} ${left === 1 ? 'day' : 'days'} left` : 'Last day'} · {fmtCredit(plan, ptd.creditBooked)} booked of{' '}
+              {fmtCredit(plan, plan.quota)}
+              {ptd.creditBooked < plan.quota ? ` · ${fmtCredit(plan, plan.quota - ptd.creditBooked)} to go` : ' · quota reached'}
+            </>
+          )}
         </p>
       </header>
 
@@ -139,7 +160,28 @@ export default function CloseOut({
       </div>
 
       <p className="co-read" aria-live="polite">
-        {all.hits ? (
+        {early ? (
+          <>
+            {toGo > 0 ? (
+              <>
+                To reach quota you need <b>{fmtCredit(plan, toGo)}</b> this {plan.period}: about {fmtCredit(plan, Math.round(perWeek))} a week.{' '}
+                {inReach > 0
+                  ? all.hits
+                    ? `Everything you carry would get you there, ${fmtCredit(plan, all.credit - plan.quota)} over.`
+                    : `Everything you carry adds ${fmtCredit(plan, inReach)} to it.`
+                  : `You’re not carrying anything yet, so it all starts from new deals.`}
+              </>
+            ) : (
+              <>Quota is already reached this {plan.period}.</>
+            )}
+            {uncalled > 0 && carriedUnits.length > 0 && (
+              <span className="co-hint">
+                {' '}
+                Calls reset each {plan.period}: call each one for {name} and the totals fill in. Until then {uncalled === 1 ? 'it counts' : 'they count'} only in Everything.
+              </span>
+            )}
+          </>
+        ) : all.hits ? (
           mc.must.length ? (
             <>
               To reach quota you can&rsquo;t lose <b>{list(mc.must.map((u) => u.label))}</b>. Everything else is cushion:{' '}
@@ -154,7 +196,7 @@ export default function CloseOut({
             {all.crossingWorth !== null && all.crossingWorth >= 1 && <> Reaching it would add about {fmtMoney(all.crossingWorth)} on the month.</>}
           </>
         )}
-        {uncalled > 0 && (
+        {!early && uncalled > 0 && (
           <span className="co-hint">
             {' '}
             {uncalled === 1 ? 'One decision has' : `${uncalled} decisions have`} no call yet, so {uncalled === 1 ? 'it counts' : 'they count'} only in
@@ -164,14 +206,15 @@ export default function CloseOut({
       </p>
 
       <ul className="co-list">
-        {units.map((u) => (
+        {shown.map((u) => (
           <UnitRow
             key={u.key}
             u={u}
             plan={plan}
             ptd={ptd}
             qtd={qtd}
-            must={mustKeys.has(u.key)}
+            must={!early && mustKeys.has(u.key)}
+            carriedFrom={isCarried(u) ? prevName : null}
             onCall={(f) => void call(u, f)}
             suggestion={onMakeOffer ? offerFor(u) : null}
             lastDay={lastDay}
@@ -227,6 +270,7 @@ function UnitRow({
   ptd,
   qtd,
   must,
+  carriedFrom,
   onCall,
   suggestion,
   lastDay,
@@ -239,6 +283,8 @@ function UnitRow({
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   must: boolean;
+  /** The period it was already open in, when it was carried in. */
+  carriedFrom: string | null;
   onCall: (f: Forecast) => void;
   suggestion: OfferSuggestion | null;
   lastDay: string;
@@ -255,12 +301,18 @@ function UnitRow({
   const ownPay = u.quotes.reduce((n, q) => n + calc(plan, q.deal, ptd).commissionEffective, 0);
   const unlocks = pay - ownPay;
   const group = u.account?.oneDecision && u.quotes.length > 1;
+  // Carried in: how long it has been open, and what it was called before.
+  const first = u.quotes.filter((q) => q.carried).sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  const age = first ? daysBetween(first.createdAt.slice(0, 10), today) : 0;
+  const was = u.quotes.find((q) => q.lastCall)?.lastCall ?? null;
+  const wasLabel = was ? calls(plan.period).find((c) => c.key === was)?.label : null;
   return (
     <li className={`co-row${must ? ' is-must' : ''}`}>
       <div className="co-row-main">
         <p className="co-row-name">
           {u.label || 'Unnamed quote'}
           {must && <span className="co-must">Must close</span>}
+          {carriedFrom && <span className="co-carried">From {carriedFrom}</span>}
         </p>
         <p className="co-row-meta">
           {group ? `${u.quotes.length} deals, one decision: ${u.quotes.map((q) => q.name.trim() || 'unnamed').join(', ')}` : u.account ? `${u.account.name} account` : null}
@@ -268,6 +320,8 @@ function UnitRow({
           {fmtCredit(plan, credit)} · adds about {fmtMoney(pay)}
           {unlocks >= 1 && `, ${fmtMoney(unlocks)} of it the accelerator it unlocks`}
           {u.mixed && ' · its deals had different calls, the most cautious is used'}
+          {carriedFrom && age > 0 && ` · open ${age} ${age === 1 ? 'day' : 'days'}`}
+          {carriedFrom && wasLabel && u.forecast === null && ` · you called it ${wasLabel} in ${carriedFrom}`}
         </p>
       </div>
       <div className="co-calls" role="group" aria-label={`Your call on ${u.label || 'this quote'}`}>

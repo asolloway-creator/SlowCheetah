@@ -3,13 +3,11 @@
 import { useState, type CSSProperties } from 'react';
 import type { DealRow } from '@/lib/queries';
 import {
-  isFixedTier,
   needsQuarterArr,
   openingAnswered,
   periodLabel,
   periodOf,
   periodSummary,
-  quarterlyKickerSummary,
   stepRatePct,
   type Calendar,
   type CompPlan,
@@ -17,12 +15,13 @@ import {
   type OpeningInput,
   type PeriodToDate,
   type QuarterToDate,
-  type QuarterlyKickerTier,
 } from '@/lib/calc';
-import { standing, tierName } from '@/components/opening';
-import { fmt, fmtCredit, fmtMoney, fmtPctShort, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
+import { standing } from '@/components/opening';
+import { fmtCredit, fmtMoney, fmtRatePct, fmtRateShort, periodNoun } from '@/lib/format';
 import QuotaLine from '@/components/QuotaLine';
 import MonthRecap from '@/components/MonthRecap';
+import QuarterStrip from '@/components/QuarterStrip';
+import type { QuarterView } from '@/lib/rollover';
 import { earnedNow, lostNow, rateLift, type Targets } from '@/components/discounts';
 import OpeningFields from '@/components/OpeningFields';
 
@@ -46,6 +45,8 @@ export default function Overview({
   onRate,
   calendar,
   targets,
+  quarter = null,
+  lastCredit = 0,
 }: {
   /** The plan as it pays this period (planForPeriod): the numbers here. */
   plan: CompPlan;
@@ -55,6 +56,10 @@ export default function Overview({
   calendar: Calendar;
   /** The rep's own discount targets, for the recap. */
   targets?: Targets;
+  /** The calendar quarter by month, when the plan has a Quarterly Bonus. */
+  quarter?: QuarterView | null;
+  /** Quota credit the period just ended came to (for the recap). */
+  lastCredit?: number;
   ptd: PeriodToDate;
   qtd: QuarterToDate | null;
   opening: Opening | null;
@@ -103,7 +108,17 @@ export default function Overview({
         </button>
       </div>
 
-      <MonthRecap plan={plan} deals={deals} today={calendar.today} periodStart={calendar.periodStart} targets={targets} />
+      {plan.quarterly_kicker && qtd && quarter ? (
+        <QuarterStrip
+          plan={plan}
+          qtd={qtd}
+          quarter={quarter}
+          quarterDaysLeft={calendar.quarterDaysLeft}
+          recap={<MonthRecap embedded plan={plan} deals={deals} today={calendar.today} periodStart={calendar.periodStart} targets={targets} lastCredit={lastCredit} />}
+        />
+      ) : (
+        <MonthRecap plan={plan} deals={deals} today={calendar.today} periodStart={calendar.periodStart} targets={targets} lastCredit={lastCredit} />
+      )}
 
       <div className="ov-kpis">
         <div className="kpi kpi-quota">
@@ -117,7 +132,6 @@ export default function Overview({
           <QuotaLine mode="quarter" plan={plan} ptd={ptd} />
           <QuotaNote plan={plan} ptd={ptd} deals={now} daysLeft={calendar.daysLeft} monthName={monthName} />
         </div>
-        {plan.quarterly_kicker && qtd && <BonusKpi plan={plan} qtd={qtd} quarterDaysLeft={calendar.quarterDaysLeft} />}
         {/* What the month paid and what its discounts gave away, side by
             side at the same weight: the second is the one to change. */}
         <div className="kpi kpi-money">
@@ -216,53 +230,6 @@ function QuotaNote({
         <span key={l}>{l}</span>
       ))}
     </p>
-  );
-}
-
-/** The Quarterly Bonus as one number: what it's worth, how far to it, and
- *  the pace that gets there by the end of the quarter. */
-function BonusKpi({ plan, qtd, quarterDaysLeft }: { plan: CompPlan; qtd: QuarterToDate; quarterDaysLeft: number }) {
-  const kicker = plan.quarterly_kicker!;
-  const s = quarterlyKickerSummary(plan, qtd);
-  if (!s) return null;
-  const tiers = [...kicker.tiers].sort((a, b) => a.attainmentPct - b.attainmentPct);
-  const name = (t: QuarterlyKickerTier) => tierName(tiers.indexOf(t) + 1);
-  const shown = s.tier ?? s.nextTier ?? tiers[0];
-  const value = s.tier
-    ? fmtMoney(s.bumpValue)
-    : isFixedTier(shown)
-      ? fmtMoney(shown.amount as number)
-      : `+${fmtPctShort(shown.kickerPct)}`;
-  const goal = (s.nextTier ?? shown).attainmentPct;
-  const note = s.tier
-    ? `Locked in${s.nextTier ? `. ${fmt(s.toNextTierArr)} more new ARR reaches the ${name(s.nextTier)}` : ''}`
-    : `${fmt(s.toNextTierArr)} more new ARR to unlock it`;
-  // The pace to the next tier by quarter end, against a monthly quota when
-  // the plan has one in the same currency.
-  let pace: string | null = null;
-  if (s.nextTier && s.toNextTierArr > 0 && quarterDaysLeft > 0) {
-    const months = Math.max(quarterDaysLeft / 30.44, 1 / 30.44);
-    const perMonth = s.toNextTierArr / months;
-    const ofQuota =
-      plan.period === 'month' && plan.quota_basis === 'arr' && plan.quota > 0 ? ` (${Math.round((perMonth / plan.quota) * 100)}% of your monthly quota)` : '';
-    pace =
-      quarterDaysLeft <= 31
-        ? `${quarterDaysLeft} day${quarterDaysLeft === 1 ? '' : 's'} left in the quarter.`
-        : `About ${fmt(perMonth)} a month to get there by quarter end${ofQuota}.`;
-  }
-  return (
-    <div className={`kpi kpi-bonus${s.tier ? ' is-won' : ''}`}>
-      <p className="app-label">{name(shown)}</p>
-      <p className="kpi-value">{value}</p>
-      <p className="kpi-note">{note}</p>
-      {pace && <p className="kpi-note kpi-pace">{pace}</p>}
-      <span
-        className="kpi-bar"
-        role="img"
-        aria-label={`${fmtPctShort(Math.round(s.attainmentPct * 10) / 10)} of the bonus target`}
-        style={vars({ '--w': pct(goal > 0 ? s.attainmentPct / goal : 0) })}
-      />
-    </div>
   );
 }
 

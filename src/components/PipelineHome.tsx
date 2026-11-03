@@ -19,6 +19,7 @@ import DealStage from '@/components/DealStage';
 import Overview from '@/components/Overview';
 import BookedList from '@/components/BookedList';
 import CloseOut from '@/components/CloseOut';
+import { quarterView, type QuarterView } from '@/lib/rollover';
 import { rateLift, type Line, type Targets } from '@/components/discounts';
 
 type Result = { error?: string };
@@ -57,6 +58,8 @@ export default function PipelineHome({
   onLoseQuotes,
   onMakeOffer,
   onWithdrawOffer,
+  quarter = null,
+  lastCredit = 0,
 }: {
   plan: CompPlan;
   ptd: PeriodToDate;
@@ -68,6 +71,10 @@ export default function PipelineHome({
   onUpdateDeal: (id: string, deal: DealInput, meta?: BookMeta) => Promise<Result>;
   onRate: (rate: number | null) => Promise<Result>;
   calendar: Calendar;
+  /** The calendar quarter month by month (with a Quarterly Bonus), and the
+   *  quota credit the period just ended came to. */
+  quarter?: QuarterView | null;
+  lastCredit?: number;
   /** The rep's own discount targets, per line. */
   targets?: Targets;
   onTarget?: (line: Line, pct: number | null) => Promise<Result>;
@@ -90,6 +97,8 @@ export default function PipelineHome({
 }) {
   // The plan as it pays this period, with the rate from the rep's statement.
   const paying = planForPeriod(plan, opening);
+  // Without the server's (in the rep's own zone), the browser's.
+  const quarterNow = quarter ?? (qtd ? quarterView(deals, qtd.saasArrBooked, calendar.today, Intl.DateTimeFormat().resolvedOptions().timeZone) : null);
   return (
     <DealStage
       plan={paying}
@@ -122,6 +131,8 @@ export default function PipelineHome({
           onNew={onNew}
           calendar={calendar}
           targets={targets}
+          quarter={quarterNow}
+          lastCredit={lastCredit}
         />
       )}
       after={({ editDeal, unbookDeal, editingId }) => (
