@@ -1,5 +1,5 @@
 /** The sidebar's icons: 20px, drawn in currentColor at one stroke weight. */
-export type IconName = 'home' | 'deal' | 'forecast' | 'pipeline' | 'closed' | 'discounts' | 'plan' | 'plus' | 'menu' | 'close' | 'expand' | 'collapse';
+export type IconName = 'home' | 'deal' | 'forecast' | 'pipeline' | 'closed' | 'discounts' | 'plan' | 'plus' | 'menu' | 'close' | 'expand' | 'collapse' | 'search';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   home: <path d="M3.5 9 10 3.8 16.5 9v7.2H12v-4.4H8v4.4H3.5z" />,
@@ -41,6 +41,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
   close: <path d="m5 5 10 10M15 5 5 15" />,
   expand: <path d="m8 5.5 4.5 4.5L8 14.5" />,
   collapse: <path d="M12 5.5 7.5 10l4.5 4.5" />,
+  search: (
+    <>
+      <circle cx="9" cy="9" r="5" />
+      <path d="m12.8 12.8 3.7 3.7" />
+    </>
+  ),
 };
 
 export function Icon({ name }: { name: IconName }) {

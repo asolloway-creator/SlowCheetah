@@ -145,7 +145,29 @@ export default function PipelineTable({
           Open pipeline
           <span className="app-count">{rows.length}</span>
         </h2>
-        <p className="co-sub">Sorted by what needs a look first. Click a heading to sort. Calls and dates save as you set them.</p>
+        <p className="co-sub">
+          Sorted by what needs a look first.<span className="pt-hint-wide"> Click a heading to sort.</span> Calls and dates save as you set them.
+        </p>
+        {/* On a phone the headings are gone, so sorting is a menu. */}
+        <label className="pt-sort-phone">
+          <span>Sort by</span>
+          <select
+            value={sort.key}
+            onChange={(e) => {
+              const key = e.target.value as Key;
+              setSort({ key, dir: key === 'size' || key === 'pay' || key === 'age' || key === 'idle' ? -1 : 1 });
+            }}
+          >
+            <option value="attention">Needs a look first</option>
+            <option value="closes">Close date</option>
+            <option value="pay">What it pays</option>
+            <option value="size">Size</option>
+            <option value="age">Open longest</option>
+            <option value="idle">Quiet longest</option>
+            <option value="call">Your call</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
       </header>
       <div className="cd-scroll">
         <table className="pt-table">
@@ -179,9 +201,9 @@ export default function PipelineTable({
                     {r.unit.quotes.length > 1 && <span className="pt-sub">{r.unit.quotes.length} deals, one decision</span>}
                     {r.unit.pushes > 0 && <span className="pt-sub">pushed {r.unit.pushes === 1 ? 'once' : r.unit.pushes === 2 ? 'twice' : `${r.unit.pushes} times`}</span>}
                   </th>
-                  <td className="pt-r">{fmtCredit(plan, r.credit)}</td>
-                  <td className="pt-r">{fmtMoney(r.pay)}</td>
-                  <td>
+                  <td className="pt-r" data-label="Size">{fmtCredit(plan, r.credit)}</td>
+                  <td className="pt-r" data-label="Pays">{fmtMoney(r.pay)}</td>
+                  <td data-label="Your call">
                     <div className="co-calls pt-calls" role="group" aria-label={`Your call on ${r.unit.label || 'this quote'}`}>
                       {CALLS.map((c) => (
                         <button key={c.key} type="button" aria-pressed={r.unit.forecast === c.key} className={`co-call is-${c.key}`} onClick={() => call(r, c.key)}>
@@ -190,15 +212,15 @@ export default function PipelineTable({
                       ))}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Closes">
                     <label className={`co-date pt-date${past ? ' is-past' : ''}`}>
                       <span className="sr-only">Expected close date for {r.unit.label || 'this quote'}</span>
                       <input type="date" value={r.unit.closeDate ?? ''} onChange={(e) => closeOn(r, e.target.value || null)} />
                     </label>
                   </td>
-                  <td className="pt-r">{r.age}d</td>
-                  <td className="pt-r">{r.idle === 0 ? 'Today' : `${r.idle}d ago`}</td>
-                  <td>
+                  <td className="pt-r" data-label="Open">{r.age}d</td>
+                  <td className="pt-r" data-label="Last touch">{r.idle === 0 ? 'Today' : `${r.idle}d ago`}</td>
+                  <td data-label="Flags">
                     <span className="pt-flags">
                       {r.flags.length === 0 ? <span className="pt-ok">On track</span> : r.flags.map((f) => (
                         <span key={f} className={`ph-flag is-${f}`}>
@@ -208,7 +230,7 @@ export default function PipelineTable({
                     </span>
                   </td>
                   {onLose && (
-                    <td>
+                    <td className="pt-lose-cell">
                       <select className="pt-lose" aria-label={`Mark ${r.unit.label || 'this quote'} lost`} value="" onChange={(e) => lose(r, e.target.value)}>
                         <option value="">Lost…</option>
                         {LOST_REASONS.map((l) => (

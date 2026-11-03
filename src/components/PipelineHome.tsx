@@ -25,6 +25,8 @@ import CloseOut from '@/components/CloseOut';
 import PipelineHealth from '@/components/PipelineHealth';
 import PipelineTable from '@/components/PipelineTable';
 import NeedsYou from '@/components/NeedsYou';
+import type { FindItem } from '@/components/app/FindDeal';
+import { unitHealth } from '@/lib/health';
 import { quarterView, type QuarterView } from '@/lib/rollover';
 import { rateLift, type Line, type Targets } from '@/components/discounts';
 
@@ -141,6 +143,45 @@ export default function PipelineHome({
     return q ? `${base}${base.includes('?') ? '&' : '?'}${q}` : base;
   };
   const lift = rateLift(paying, ptd);
+
+  // What the top bar's search finds: open quotes, the accounts they're in,
+  // and booked deals, each opening on the deal desk.
+  const acctName = new Map(accounts.map((a) => [a.id, a.name]));
+  const CALL: Record<string, string> = { commit: 'Commit', stretch: 'Stretch', next: 'Next month' };
+  const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const find: FindItem[] = [
+    ...quotes.map((q) => {
+      const a = q.accountId ? acctName.get(q.accountId) : undefined;
+      return {
+        key: `q:${q.id}`,
+        label: q.name.trim() || 'Unnamed quote',
+        sub: ['Open quote', a, q.forecast ? CALL[q.forecast] : null].filter(Boolean).join(' · '),
+        also: a,
+        href: to('deals', `quote=${q.id}`),
+      };
+    }),
+    ...accounts.flatMap((a) => {
+      const open = quotes.filter((q) => q.accountId === a.id);
+      if (!open.length || !a.name.trim()) return [];
+      return [{ key: `a:${a.id}`, label: a.name, sub: `Account · ${open.length} open`, href: to('deals', `quote=${open[0].id}`) }];
+    }),
+    ...deals
+      .filter((d) => d.name.trim())
+      .map((d) => {
+        const a = d.account_id ? acctName.get(d.account_id) : undefined;
+        return { key: `d:${d.id}`, label: d.name, sub: ['Closed Won', day(d.created_at), a].filter(Boolean).join(' · '), also: a, href: to('deals', `deal=${d.id}`) };
+      }),
+  ];
+
+  // Counts on the menu: decisions going cold, and the days left once the
+  // period is in its last week.
+  const cold = unitHealth(paying, ptd, quotes, accounts, calendar.today).filter((h) => h.flags.length > 0).length;
+  const badges = {
+    ...(cold > 0 ? { pipeline: { text: String(cold), tone: 'red' as const, label: `${cold} going cold` } } : {}),
+    ...(calendar.daysLeft <= 7
+      ? { forecast: { text: `${calendar.daysLeft}d`, tone: 'sun' as const, label: `${calendar.daysLeft} ${calendar.daysLeft === 1 ? 'day' : 'days'} left` } }
+      : {}),
+  };
 
   let content: React.ReactNode;
   if (view === 'deals') {
@@ -292,6 +333,8 @@ export default function PipelineHome({
       onUnit={plan.quota_basis === 'arr' && onUnit ? pickUnit : undefined}
       href={href}
       pinned={navPinned}
+      find={find}
+      badges={badges}
     >
       {content}
     </AppShell>

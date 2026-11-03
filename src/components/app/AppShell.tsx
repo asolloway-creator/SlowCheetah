@@ -7,6 +7,7 @@ import AccountMenu from '@/components/AccountMenu';
 import { MarkRing } from '@/components/Wordmark';
 import { Icon, type IconName } from '@/components/app/icons';
 import { NAV_COOKIE } from '@/components/app/nav';
+import FindDeal, { type FindItem } from '@/components/app/FindDeal';
 
 export type View = 'home' | 'deals' | 'forecast' | 'pipeline' | 'closed' | 'discounts' | 'plan';
 
@@ -35,6 +36,8 @@ export default function AppShell({
   href = (v) => (v === 'plan' ? '/plan' : VIEWS.find((x) => x.key === v)!.path),
   title,
   pinned: pinnedAtLoad = false,
+  find = [],
+  badges = {},
   children,
 }: {
   view: View;
@@ -47,6 +50,10 @@ export default function AppShell({
   title?: string;
   /** The sidebar pinned open (from the cookie). */
   pinned?: boolean;
+  /** What the top bar's search can find (quotes, accounts, booked deals). */
+  find?: FindItem[];
+  /** A count on a menu item: what's waiting there. `label` is read aloud. */
+  badges?: Partial<Record<View, { text: string; tone: 'red' | 'sun'; label: string }>>;
   children: ReactNode;
 }) {
   const [pinned, setPinned] = useState(pinnedAtLoad);
@@ -107,8 +114,17 @@ export default function AppShell({
           {VIEWS.map((v) => (
             <li key={v.key}>
               <Link href={href(v.key)} className="as-item" aria-current={view === v.key ? 'page' : undefined} onClick={go}>
-                <Icon name={v.icon} />
+                <span className="as-icon-wrap">
+                  <Icon name={v.icon} />
+                  {badges[v.key] && <span className={`as-dot is-${badges[v.key]!.tone}`} aria-hidden="true" />}
+                </span>
                 <span className="as-label">{v.label}</span>
+                {badges[v.key] && (
+                  <span className={`as-badge is-${badges[v.key]!.tone}`}>
+                    <span aria-hidden="true">{badges[v.key]!.text}</span>
+                    <span className="sr-only">, {badges[v.key]!.label}</span>
+                  </span>
+                )}
                 <Pending />
               </Link>
             </li>
@@ -138,6 +154,7 @@ export default function AppShell({
           </button>
           <h1 className="as-title">{heading}</h1>
           <div className="as-top-acts">
+            <FindDeal items={find} />
             {unitSwitch('as-unit-top')}
             <button type="button" className="btn btn-primary as-new" onClick={newDeal} aria-label="New deal">
               <span aria-hidden="true">+</span>
